@@ -2,3 +2,6 @@ packages:
   - "apps/*"
   - "packages/*"
   - "evals"
+allowBuilds:
+  sharp: false
+  unrs-resolver: false

@@ -7,3 +7,5 @@ dist
 !.env.example
 .DS_Store
 PLAN.md
+docs/INTERVIEW.md
+docs/ARCHITECTURE.md
