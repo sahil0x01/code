@@ -1,0 +1,7 @@
+tools
+docs
+.turbo
+.next
+**/node_modules
+.github
+PLAN.md
