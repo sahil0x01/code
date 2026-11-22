@@ -15,23 +15,26 @@ export function Header() {
 			<div className="flex-1" />
 
 			<nav className="hidden items-center gap-6 text-sm text-muted sm:flex">
-				<a href="#how" className="hover:text-foreground">
+				<Link href="/#how" className="hover:text-foreground">
 					How it works
-				</a>
-				<a href="#pricing" className="hover:text-foreground">
+				</Link>
+				<Link href="/#pricing" className="hover:text-foreground">
 					Pricing
-				</a>
-				<a href="#self-host" className="hover:text-foreground">
+				</Link>
+				<Link href="/#self-host" className="hover:text-foreground">
 					Self-host
-				</a>
+				</Link>
+				<Link href="/#faq" className="hover:text-foreground">
+					FAQ
+				</Link>
 			</nav>
 
-			<a
-				href="#waitlist"
+			<Link
+				href="/#waitlist"
 				className="pixel pressable inline-flex h-7 items-center bg-accent px-3 text-xs font-medium text-accent-foreground"
 			>
 				Join the waitlist
-			</a>
+			</Link>
 		</header>
 	);
 }
