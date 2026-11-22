@@ -1,6 +1,9 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
 :root {
+  color-scheme: light;
   --background: oklch(1 0 0);
   --surface: oklch(0.985 0 0);
   --surface-2: oklch(0.958 0 0);
@@ -22,21 +25,20 @@
   --px: 2px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: oklch(0.14 0 0);
-    --surface: oklch(0.18 0 0);
-    --surface-2: oklch(0.22 0 0);
-    --border: oklch(0.3 0 0);
-    --ink: oklch(0.92 0 0);
-    --foreground: oklch(0.96 0 0);
-    --muted: oklch(0.7 0 0);
-    --subtle: oklch(0.6 0 0);
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --background: oklch(0.14 0 0);
+  --surface: oklch(0.18 0 0);
+  --surface-2: oklch(0.22 0 0);
+  --border: oklch(0.3 0 0);
+  --ink: oklch(0.92 0 0);
+  --foreground: oklch(0.96 0 0);
+  --muted: oklch(0.7 0 0);
+  --subtle: oklch(0.6 0 0);
 
-    --bevel-light: oklch(1 0 0 / 0.14);
-    --bevel-dark: oklch(0 0 0 / 0.4);
-    --shadow-color: oklch(0 0 0);
-  }
+  --bevel-light: oklch(1 0 0 / 0.14);
+  --bevel-dark: oklch(0 0 0 / 0.4);
+  --shadow-color: oklch(0 0 0);
 }
 
 @theme inline {

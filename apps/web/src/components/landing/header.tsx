@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export function Header() {
 	return (
@@ -29,6 +30,7 @@ export function Header() {
 				</Link>
 			</nav>
 
+			<ThemeToggle />
 			<Link
 				href="/#waitlist"
 				className="pixel pressable inline-flex h-7 items-center bg-accent px-3 text-xs font-medium text-accent-foreground"

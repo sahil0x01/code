@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useId } from "react";
 import { joinWaitlist, type WaitlistState } from "@/actions/waitlist";
 
 const initialState: WaitlistState = { status: "idle" };
@@ -10,6 +10,7 @@ export function WaitlistForm() {
 		joinWaitlist,
 		initialState,
 	);
+	const emailId = `${useId()}-email`;
 
 	if (state.status === "success") {
 		return (
@@ -22,14 +23,14 @@ export function WaitlistForm() {
 	return (
 		<form action={formAction} className="flex flex-col gap-3">
 			<label
-				htmlFor="waitlist-email"
+				htmlFor={emailId}
 				className="font-mono text-xs uppercase text-subtle"
 			>
 				Email
 			</label>
 			<div className="flex flex-wrap gap-3">
 				<input
-					id="waitlist-email"
+					id={emailId}
 					name="email"
 					type="email"
 					required

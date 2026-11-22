@@ -1,0 +1,23 @@
+{
+	"name": "demo-video",
+	"version": "0.0.0",
+	"private": true,
+	"description": "Remotion project that renders the example verification recording used on the landing page. Not part of the pnpm workspace: install with `pnpm install --ignore-workspace`.",
+	"scripts": {
+		"studio": "remotion studio",
+		"still": "remotion still src/index.ts VerificationDemo out/poster.png --frame=0",
+		"render": "remotion render src/index.ts VerificationDemo out/verification.mp4 --codec=h264 --crf=28 --muted",
+		"typecheck": "tsc --noEmit"
+	},
+	"dependencies": {
+		"@remotion/cli": "4.0.545",
+		"@remotion/google-fonts": "4.0.545",
+		"react": "19.3.1",
+		"react-dom": "19.3.1",
+		"remotion": "4.0.545"
+	},
+	"devDependencies": {
+		"@types/react": "19.3.0",
+		"typescript": "^5"
+	}
+}

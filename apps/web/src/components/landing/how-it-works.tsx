@@ -9,7 +9,7 @@ const steps = [
 	},
 	{
 		title: "Review the pull request",
-		body: "The agent works in an isolated sandbox and opens a pull request. You get notified when it is done.",
+		body: "The agent works in an isolated sandbox, checks its own work in a browser, and opens a pull request with a short video of it working. You get notified when it is done.",
 	},
 ];
 
