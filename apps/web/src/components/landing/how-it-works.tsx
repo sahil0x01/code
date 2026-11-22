@@ -9,14 +9,14 @@ const steps = [
 	},
 	{
 		title: "Review the pull request",
-		body: "The agent works in an isolated sandbox and opens a pull request. You get notified when its done",
+		body: "The agent works in an isolated sandbox and opens a pull request. You get notified when it is done.",
 	},
 ];
 
 export function HowItWorks() {
 	return (
 		<section id="how" className="border-y-2 border-ink bg-surface">
-			<div className="mx-auto flex max-w-[1240px] flex-col gap-9 px-6 py-16 md:px-10 md:py-20">
+			<div className="mx-auto flex max-w-310 flex-col gap-9 px-6 py-16 md:px-10 md:py-20">
 				<h2 className="max-w-[20ch] text-[clamp(30px,4vw,40px)] font-semibold leading-[1.1] tracking-[-0.035em]">
 					Three steps. You only write the first sentence.
 				</h2>

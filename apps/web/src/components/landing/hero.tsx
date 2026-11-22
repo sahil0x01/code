@@ -64,9 +64,9 @@ function RunPreview() {
 
 export function Hero() {
 	return (
-		<section className="mx-auto flex max-w-[1240px] flex-col gap-12 px-6 pb-14 pt-16 md:px-10 md:pt-20">
+		<section className="mx-auto flex max-w-310 flex-col gap-12 px-6 pb-14 pt-16 md:px-10 md:pt-20">
 			<div className="flex flex-wrap items-end justify-between gap-8">
-				<h1 className="max-w-[14ch] text-[clamp(44px,6vw,80px)] font-semibold leading-[1.02] tracking-[-0.05em]">
+				<h1 className="max-w-[14ch] text-[clamp(44px,6vw,80px)] font-semibold leading-[1.02] tracking-tighter">
 					Give it a task. Get a <span className="highlight">pull request</span>.
 				</h1>
 
@@ -77,13 +77,13 @@ export function Hero() {
 					<div className="flex flex-wrap gap-3">
 						<a
 							href="#waitlist"
-							className="pixel pressable inline-flex h-[42px] items-center bg-accent px-5 text-sm font-medium text-accent-foreground"
+							className="pixel pressable inline-flex h-10.5 items-center bg-accent px-5 text-sm font-medium text-accent-foreground"
 						>
 							Join the waitlist
 						</a>
 						<a
 							href={site.repoUrl}
-							className="pixel pressable inline-flex h-[42px] items-center bg-surface px-5 text-sm font-medium"
+							className="pixel pressable inline-flex h-10.5 items-center bg-surface px-5 text-sm font-medium"
 						>
 							View on GitHub
 						</a>

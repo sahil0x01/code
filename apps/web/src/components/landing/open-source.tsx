@@ -10,7 +10,7 @@ const facts = [
 export function OpenSource() {
 	return (
 		<section id="self-host" className="border-y-2 border-ink bg-surface">
-			<div className="mx-auto grid max-w-[1240px] items-start gap-10 px-6 py-16 md:px-10 md:py-20 lg:grid-cols-2">
+			<div className="mx-auto grid max-w-310 items-start gap-10 px-6 py-16 md:px-10 md:py-20 lg:grid-cols-2">
 				<div className="flex flex-col gap-5">
 					<h2 className="max-w-[20ch] text-[clamp(30px,4vw,40px)] font-semibold leading-[1.1] tracking-[-0.035em]">
 						Open source. Host it yourself.
@@ -23,7 +23,7 @@ export function OpenSource() {
 					<div className="flex flex-wrap items-center gap-4">
 						<a
 							href={site.repoUrl}
-							className="pixel pressable inline-flex h-[42px] items-center bg-surface px-5 text-sm font-medium"
+							className="pixel pressable inline-flex h-10.5 items-center bg-surface px-5 text-sm font-medium"
 						>
 							View the source
 						</a>

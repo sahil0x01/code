@@ -10,7 +10,7 @@ const num = new Intl.NumberFormat("en-US");
 export function Pricing() {
 	return (
 		<section id="pricing">
-			<div className="mx-auto flex max-w-[1240px] flex-col gap-9 px-6 py-16 md:px-10 md:py-20">
+			<div className="mx-auto flex max-w-310 flex-col gap-9 px-6 py-16 md:px-10 md:py-20">
 				<div className="flex flex-col gap-4">
 					<h2 className="max-w-[20ch] text-[clamp(30px,4vw,40px)] font-semibold leading-[1.1] tracking-[-0.035em]">
 						Start free. Pay only for what you run.
@@ -68,7 +68,7 @@ export function Pricing() {
 
 				<a
 					href="#waitlist"
-					className="pixel pressable inline-flex h-[42px] w-fit items-center bg-accent px-5 text-sm font-medium text-accent-foreground"
+					className="pixel pressable inline-flex h-10.5 w-fit items-center bg-accent px-5 text-sm font-medium text-accent-foreground"
 				>
 					Join the waitlist
 				</a>
