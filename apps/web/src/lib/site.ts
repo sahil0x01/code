@@ -9,5 +9,5 @@ export const site = {
 	legalName: "Sahil Mahapatra",
 	contactEmail: "hi@sahil.fyi",
 	legalCity: "Bengaluru",
-	hostingLocation: "Nuremberg, Germany",
+	hostingLocation: "Frankfurt, Germany",
 };

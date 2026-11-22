@@ -54,8 +54,13 @@ export default function PrivacyPage() {
 			<h2>Who handles it for us</h2>
 			<ul>
 				<li>
-					<strong>netcup</strong> hosts our server in {site.hostingLocation}.
-					Your waitlist email and the server logs are stored there.
+					<strong>Vercel</strong> runs our website. Pages are delivered from servers
+					around the world, and the code that handles the waitlist form runs in{" "}
+					{site.hostingLocation}. Vercel also keeps the request logs.
+				</li>
+				<li>
+					<strong>Neon</strong> stores our database. Your waitlist email is kept
+					there, in {site.hostingLocation}.
 				</li>
 				<li>
 					<strong>Resend</strong> sends our emails. When we write to you, your
@@ -73,7 +78,10 @@ export default function PrivacyPage() {
 					Your waitlist email: until you ask us to remove it, or until we no
 					longer need the waitlist, whichever comes first.
 				</li>
-				<li>Server logs: 30 days.</li>
+				<li>
+					Server logs: kept by Vercel for a short time, never more than 30 days.
+					We keep no separate copy.
+				</li>
 			</ul>
 
 			<h2>Your rights</h2>
@@ -88,7 +96,8 @@ export default function PrivacyPage() {
 			<h2>How we protect it</h2>
 			<p>
 				Connections to this site use HTTPS. The database that holds the waitlist
-				is not reachable from the internet. We keep only what is listed here.
+				accepts only encrypted connections and requires a password. We keep only
+				what is listed here.
 			</p>
 
 			<h2>When the product launches</h2>
