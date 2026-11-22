@@ -1,26 +1,136 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+  --background: oklch(1 0 0);
+  --surface: oklch(0.985 0 0);
+  --surface-2: oklch(0.958 0 0);
+  --border: oklch(0.88 0 0);
+  --ink: oklch(0.14 0 0);
+  --foreground: oklch(0.14 0 0);
+  --muted: oklch(0.45 0 0);
+  --subtle: oklch(0.58 0 0);
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --accent: oklch(0.89 0.15 95);
+  --accent-foreground: oklch(0.14 0 0);
+  --blue: oklch(0.5 0.15 255);
+  --green: oklch(0.68 0.16 150);
+  --red: oklch(0.55 0.21 27);
+
+  --bevel-light: oklch(1 0 0 / 0.55);
+  --bevel-dark: oklch(0 0 0 / 0.1);
+  --shadow-color: oklch(0.14 0 0);
+  --px: 2px;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: oklch(0.14 0 0);
+    --surface: oklch(0.18 0 0);
+    --surface-2: oklch(0.22 0 0);
+    --border: oklch(0.3 0 0);
+    --ink: oklch(0.92 0 0);
+    --foreground: oklch(0.96 0 0);
+    --muted: oklch(0.7 0 0);
+    --subtle: oklch(0.6 0 0);
+
+    --bevel-light: oklch(1 0 0 / 0.14);
+    --bevel-dark: oklch(0 0 0 / 0.4);
+    --shadow-color: oklch(0 0 0);
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-ink: var(--ink);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-subtle: var(--subtle);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-blue: var(--blue);
+  --color-green: var(--green);
+  --color-red: var(--red);
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@utility pixel {
+  --bevel-a: var(--bevel-dark);
+  --bevel-b: var(--bevel-light);
+  border-radius: 0;
+  box-shadow:
+    inset calc(var(--px) * -1) calc(var(--px) * -1) 0 0 var(--bevel-a),
+    inset var(--px) var(--px) 0 0 var(--bevel-b),
+    calc(var(--px) * -1) 0 0 0 var(--ink),
+    var(--px) 0 0 0 var(--ink),
+    0 calc(var(--px) * -1) 0 0 var(--ink),
+    0 var(--px) 0 0 var(--ink),
+    var(--drop, 0px) calc(var(--px) + var(--drop, 0px)) 0 0 var(--shadow-color);
+}
+
+@utility pixel-flat {
+  border-radius: 0;
+  box-shadow:
+    calc(var(--px) * -1) 0 0 0 var(--ink),
+    var(--px) 0 0 0 var(--ink),
+    0 calc(var(--px) * -1) 0 0 var(--ink),
+    0 var(--px) 0 0 var(--ink);
+}
+
+@utility pixel-inset {
+  border-radius: 0;
+  box-shadow:
+    inset var(--px) var(--px) 0 0 var(--bevel-dark),
+    calc(var(--px) * -1) 0 0 0 var(--ink),
+    var(--px) 0 0 0 var(--ink),
+    0 calc(var(--px) * -1) 0 0 var(--ink),
+    0 var(--px) 0 0 var(--ink);
+}
+
+@utility pressable {
+  --drop: var(--px);
+  cursor: pointer;
+
+  &:hover {
+    filter: brightness(1.06);
+  }
+
+  &:active {
+    --bevel-a: var(--bevel-light);
+    --bevel-b: var(--bevel-dark);
+    --drop: 0px;
+    transform: translateY(var(--px));
+    filter: none;
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
+:focus-visible {
+  outline: 2px dashed var(--ink);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
 }
