@@ -1,6 +1,7 @@
 export const site = {
 	name: "NullFuse Code",
 	year: 2026,
+	productionUrl: "https://code.nullfuse.com",
 	tagline: "Give it a task. Get a pull request.",
 	description:
 		"An open-source cloud coding agent. It works on your GitHub repository in an isolated sandbox and opens a pull request for you to review.",
