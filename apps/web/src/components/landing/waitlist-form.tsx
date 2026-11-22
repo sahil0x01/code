@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useId } from "react";
 import { joinWaitlist, type WaitlistState } from "@/actions/waitlist";
 
@@ -54,6 +55,13 @@ export function WaitlistForm() {
 					{pending ? "Joining..." : "Join the waitlist"}
 				</button>
 			</div>
+			<p className="text-xs text-muted">
+				We use your email only to tell you when there is room. Read our{" "}
+				<Link href="/privacy" className="underline hover:text-foreground">
+					Privacy Policy
+				</Link>
+				.
+			</p>
 			{state.status === "error" && (
 				<p role="alert" className="text-sm text-red">
 					{state.message}
