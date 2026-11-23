@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import type { Db } from "./index";
-import { account, session, user, waitlist } from "./schema";
+import { account, session, user, waitlist, userPreference } from "./schema";
 
 export async function exportAccountData(db: Db, userId: string) {
 	const [profile] = await db
@@ -42,12 +42,22 @@ export async function exportAccountData(db: Db, userId: string) {
 		.from(waitlist)
 		.where(eq(waitlist.email, profile.email));
 
+	const [preferences] = await db
+		.select({
+			notifyRunFinished: userPreference.notifyRunFinished,
+			notifyRunFailed: userPreference.notifyRunFailed,
+			updatedAt: userPreference.updatedAt,
+		})
+		.from(userPreference)
+		.where(eq(userPreference.userId, userId));
+
 	return {
 		exportedAt: new Date().toISOString(),
 		profile,
 		logins,
 		sessions,
 		waitlist: waitlistEntries,
+		preferences: preferences ?? null,
 	};
 }
 

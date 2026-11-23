@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/server/session";
 import { SignInButton } from "./sign-in-button";
+import Link from "next/link";
 
 export const metadata = { title: "Sign in" };
 
@@ -8,9 +9,31 @@ export default async function SignInPage() {
 	const session = await getSession();
 	if (session) redirect("/dashboard");
 	return (
-		<main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-6 px-4">
-			<h1 className="text-2xl font-semibold">Sign in to NullFuse Code</h1>
-			<SignInButton />
+		<main className="flex min-h-dvh flex-col items-center justify-center gap-8 px-4">
+			<Link href="/" className="inline-flex items-center gap-2.5">
+				<span
+					aria-hidden="true"
+					className="pixel-flat dither size-4.5 bg-background"
+				/>
+				<span className="text-[17px] font-bold tracking-tight">code</span>
+				<span className="font-mono text-xs text-muted">by nullfuse</span>
+			</Link>
+
+			<section className="pixel flex w-full max-w-sm flex-col gap-5 bg-surface p-6">
+				<h1 className="text-xl font-semibold">Sign in to NullFuse Code</h1>
+				<p className="text-sm text-muted">
+					We use GitHub to sign you in. We read your name, email and avatar. We
+					do not get access to your repositories until you connect them later.
+				</p>
+				<SignInButton />
+				<p className="text-xs text-muted">
+					Read our{" "}
+					<Link href="/privacy" className="underline hover:text-foreground">
+						Privacy Policy
+					</Link>
+					.
+				</p>
+			</section>
 		</main>
 	);
 }

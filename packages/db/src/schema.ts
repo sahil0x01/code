@@ -92,3 +92,14 @@ export const rateLimit = pgTable("rate_limit", {
 	count: integer("count").notNull(),
 	lastRequest: bigint("last_request", { mode: "number" }).notNull(),
 });
+
+export const userPreference = pgTable("user_preference", {
+	userId: text("user_id")
+		.primaryKey()
+		.references(() => user.id, { onDelete: "cascade" }),
+	notifyRunFinished: boolean("notify_run_finished").notNull().default(true),
+	notifyRunFailed: boolean("notify_run_failed").notNull().default(true),
+	updatedAt: timestamp("updated_at", { withTimezone: true })
+		.notNull()
+		.defaultNow(),
+});

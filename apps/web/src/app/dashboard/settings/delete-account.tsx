@@ -53,7 +53,12 @@ export function DeleteAccount({ email }: { email: string }) {
 				onChange={(e) => setConfirm(e.target.value)}
 				autoComplete="off"
 			/>
-			<button type="button" disabled={confirm !== email} onClick={onDelete}>
+			<button
+				type="button"
+				className="pixel pressable h-10.5 w-fit bg-red px-5 text-sm font-medium text-white disabled:opacity-60"
+				disabled={confirm !== email}
+				onClick={onDelete}
+			>
 				Delete my account
 			</button>
 			{error && <p role="alert">{error}</p>}

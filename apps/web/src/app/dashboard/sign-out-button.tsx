@@ -9,6 +9,7 @@ export function SignOutButton() {
 	return (
 		<button
 			type="button"
+			className="pixel pressable h-7 bg-surface-2 px-3 text-xs"
 			onClick={async () => {
 				await authClient.signOut();
 				router.push("/");
