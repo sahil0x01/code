@@ -9,4 +9,5 @@ export function createDb(connectionString: string) {
 
 export type Db = ReturnType<typeof createDb>;
 
+export * from "./account";
 export * from "./schema";
