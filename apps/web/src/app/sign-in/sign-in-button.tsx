@@ -7,7 +7,10 @@ export function SignInButton() {
 		<button
 			type="button"
 			onClick={() =>
-				authClient.signIn.social({ provider: "github", callbackURL: "/" })
+				authClient.signIn.social({
+					provider: "github",
+					callbackURL: "/dashboard",
+				})
 			}
 		>
 			Continue with GitHub
