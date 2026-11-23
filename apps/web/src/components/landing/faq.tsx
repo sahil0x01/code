@@ -2,7 +2,7 @@ const faqs = [
 	{
 		question: "What happens to my code?",
 		answer:
-			"Each run happens in an isolated sandbox that is deleted when the run ends. We do not keep copies of your repository, your code stays in GitHub. We keep run logs for 30 days on the free plan and 90 days once you have bought credits.",
+			"Each run happens in an isolated sandbox that is deleted when the run ends. If a run is interrupted, we may keep a temporary snapshot of the sandbox for up to 24 hours so it can resume, then delete it. We do not keep other copies of your repository, your code stays in GitHub. We keep run logs for 30 days on the free plan and 90 days once you have bought credits.",
 	},
 	{
 		question: "Which models does it use?",

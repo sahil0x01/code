@@ -227,7 +227,9 @@ export function RunScreen({
 							key={step.label}
 							className="flex items-center gap-3 text-[15px]"
 						>
-							<span className={`pixel-inset size-4 ${boxStyle[step.status]}`} />
+							<span
+								className={`pixel-inset size-4 shrink-0 ${boxStyle[step.status]}`}
+							/>
 							<span className={step.status === "waiting" ? "text-muted" : ""}>
 								{step.label}
 							</span>
