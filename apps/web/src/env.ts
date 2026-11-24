@@ -7,6 +7,16 @@ export const env = createEnv({
 		BETTER_AUTH_SECRET: z.string().min(32),
 		GITHUB_CLIENT_ID: z.string().min(1),
 		GITHUB_CLIENT_SECRET: z.string().min(1),
+		GITHUB_APP_ID: z.string().min(1),
+		GITHUB_APP_SLUG: z.string().min(1),
+		GITHUB_APP_WEBHOOK_SECRET: z.string().min(16),
+		GITHUB_APP_PRIVATE_KEY_BASE64: z.string().min(1),
+		ENV_ENCRYPTION_KEY: z
+			.string()
+			.refine(
+				(value) => Buffer.from(value, "base64").length === 32,
+				"Must be 32 bytes, base64 encoded",
+			),
 	},
 	client: {
 		NEXT_PUBLIC_APP_URL: z.url(),
@@ -17,6 +27,11 @@ export const env = createEnv({
 		BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET,
 		GITHUB_CLIENT_ID: process.env.GITHUB_CLIENT_ID,
 		GITHUB_CLIENT_SECRET: process.env.GITHUB_CLIENT_SECRET,
+		GITHUB_APP_ID: process.env.GITHUB_APP_ID,
+		GITHUB_APP_SLUG: process.env.GITHUB_APP_SLUG,
+		GITHUB_APP_WEBHOOK_SECRET: process.env.GITHUB_APP_WEBHOOK_SECRET,
+		GITHUB_APP_PRIVATE_KEY_BASE64: process.env.GITHUB_APP_PRIVATE_KEY_BASE64,
+		ENV_ENCRYPTION_KEY: process.env.ENV_ENCRYPTION_KEY,
 	},
 	emptyStringAsUndefined: true,
 	skipValidation: !!process.env.SKIP_ENV_VALIDATION,

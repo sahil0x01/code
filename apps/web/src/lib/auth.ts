@@ -25,6 +25,9 @@ export const auth = betterAuth({
 	session: {
 		freshAge: 60 * 5,
 	},
+	account: {
+		encryptOAuthTokens: true,
+	},
 	user: {
 		deleteUser: {
 			enabled: true,

@@ -1,0 +1,51 @@
+name: Publish images
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_ACTOR: ${{ github.actor }}
+      GH_SHA: ${{ github.sha }}
+      NEXT_PUBLIC_APP_URL: ${{ vars.NEXT_PUBLIC_APP_URL }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set image names
+        run: |
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          echo "APP_IMAGE=ghcr.io/${owner}/code-app" >> "$GITHUB_ENV"
+          echo "MIGRATE_IMAGE=ghcr.io/${owner}/code-migrate" >> "$GITHUB_ENV"
+
+      - name: Log in to GHCR
+        run: echo "$GH_TOKEN" | docker login ghcr.io -u "$GH_ACTOR" --password-stdin
+
+      - name: Build app image
+        run: |
+          docker build --platform linux/amd64 --target runner \
+            --build-arg NEXT_PUBLIC_APP_URL="$NEXT_PUBLIC_APP_URL" \
+            -t "$APP_IMAGE:$GH_SHA" -t "$APP_IMAGE:latest" .
+
+      - name: Build migrate image
+        run: |
+          docker build --platform linux/amd64 --target migrate \
+            -t "$MIGRATE_IMAGE:$GH_SHA" -t "$MIGRATE_IMAGE:latest" .
+
+      - name: Push images
+        run: |
+          docker push --all-tags "$APP_IMAGE"
+          docker push --all-tags "$MIGRATE_IMAGE"

@@ -1,11 +1,20 @@
+import { Suspense } from "react";
 import { DashboardNav } from "@/components/dashboard/nav";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { requireSession } from "@/server/session";
 import { SignOutButton } from "./sign-out-button";
 
-export default async function DashboardLayout({
+export default function DashboardLayout({
 	children,
 }: LayoutProps<"/dashboard">) {
+	return (
+		<Suspense fallback={null}>
+			<DashboardShell>{children}</DashboardShell>
+		</Suspense>
+	);
+}
+
+async function DashboardShell({ children }: { children: React.ReactNode }) {
 	const { user } = await requireSession();
 
 	return (

@@ -1,0 +1,1 @@
+ALTER TABLE "installation" ADD COLUMN "permissions" jsonb DEFAULT '{}'::jsonb NOT NULL;

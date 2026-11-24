@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getSession } from "@/server/session";
 import { SignInButton } from "./sign-in-button";
@@ -5,11 +6,18 @@ import Link from "next/link";
 
 export const metadata = { title: "Sign in" };
 
-export default async function SignInPage() {
+async function RedirectIfSignedIn() {
 	const session = await getSession();
 	if (session) redirect("/dashboard");
+	return null;
+}
+
+export default function SignInPage() {
 	return (
 		<main className="flex min-h-dvh flex-col items-center justify-center gap-8 px-4">
+			<Suspense fallback={null}>
+				<RedirectIfSignedIn />
+			</Suspense>
 			<Link href="/" className="inline-flex items-center gap-2.5">
 				<span
 					aria-hidden="true"
