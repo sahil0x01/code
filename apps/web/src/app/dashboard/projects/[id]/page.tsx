@@ -1,12 +1,15 @@
-import { getProjectForUser, listEnvVars } from "@nullfuse/db";
+import { getProjectForUser, listChats, listEnvVars } from "@nullfuse/db";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { z } from "zod";
 import { removeEnvVar } from "@/actions/project-setup";
+import { PageHeader } from "@/components/dashboard/page-header";
+import { buttonClass } from "@/components/ui/styles";
 import { db } from "@/server/db";
 import { requireSession } from "@/server/session";
 import { EnvVarForm } from "./env-var-form";
 import { SetupForm } from "./setup-form";
+import { ChatList } from "@/components/dashboard/chat-list";
 
 export const metadata = { title: "Project setup" };
 
@@ -22,18 +25,42 @@ export default async function ProjectPage({
 
 	const envVars = await listEnvVars(db, project.id);
 
+	const chats = await listChats(db, session.user.id, {
+		projectId: project.id,
+		limit: 10,
+	});
+
 	return (
 		<div className="flex flex-col gap-8">
-			<div className="flex flex-col gap-1">
-				<Link href="/dashboard/projects" className="text-sm underline">
-					Projects
-				</Link>
-				<h1 className="text-2xl font-semibold">{project.fullName}</h1>
-				<p className="text-sm text-muted">
-					{project.isPrivate ? "Private" : "Public"} · {project.defaultBranch}
-					{project.installationId === null ? " · disconnected" : ""}
-				</p>
-			</div>
+			<PageHeader
+				crumb={{ href: "/dashboard/projects", label: "Projects" }}
+				title={project.fullName}
+				description={
+					<>
+						{project.isPrivate ? "Private" : "Public"} · {project.defaultBranch}
+						{project.installationId === null ? " · disconnected" : ""}
+					</>
+				}
+				actions={
+					project.installationId !== null ? (
+						<Link
+							href={`/dashboard/chats/new?project=${project.id}`}
+							className={buttonClass("secondary")}
+						>
+							New chat
+						</Link>
+					) : null
+				}
+			/>
+
+			<section className="flex flex-col gap-3">
+				<h2 className="font-semibold">Chats</h2>
+				{chats.length > 0 ? (
+					<ChatList chats={chats} showProject={false} />
+				) : (
+					<p className="text-sm text-subtle">No chats yet.</p>
+				)}
+			</section>
 
 			<section className="flex flex-col gap-3">
 				<h2 className="font-semibold">Setup commands</h2>

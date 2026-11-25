@@ -10,6 +10,7 @@ export function createDb(connectionString: string) {
 export type Db = ReturnType<typeof createDb>;
 
 export * from "./account";
+export * from "./chats";
 export * from "./installations";
 export * from "./preferences";
 export * from "./projects";

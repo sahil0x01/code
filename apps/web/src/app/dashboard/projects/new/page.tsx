@@ -1,6 +1,7 @@
 import { listInstallations, listProjects } from "@nullfuse/db";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { PageHeader } from "@/components/dashboard/page-header";
 import { db } from "@/server/db";
 import {
 	listInstallationRepos,
@@ -37,7 +38,11 @@ export default async function NewProjectPage({
 
 	return (
 		<div className="flex flex-col gap-6">
-			<h1 className="text-2xl font-semibold">Add repositories</h1>
+			<PageHeader
+				crumb={{ href: "/dashboard/projects", label: "Projects" }}
+				title="Add repositories"
+				description="Pick the repositories the agent can work on."
+			/>
 
 			{installations.length > 1 ? (
 				<nav className="flex flex-wrap gap-2">

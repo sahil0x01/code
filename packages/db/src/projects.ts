@@ -1,6 +1,6 @@
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import type { Db } from "./index";
-import { project, projectEnvVar } from "./schema";
+import { chat, project, projectEnvVar } from "./schema";
 
 export function listProjects(db: Db, userId: string) {
 	return db
@@ -15,6 +15,39 @@ export function listProjects(db: Db, userId: string) {
 		.from(project)
 		.where(eq(project.userId, userId))
 		.orderBy(asc(project.fullName));
+}
+
+// Projects with how much has happened in them, most recently active first.
+// Two details that are easy to get wrong:
+// - In a single-table query Drizzle writes the outer column as a bare "id",
+//   which inside a subquery means chat.id. The outer id is written out as
+//   "project"."id" so the subqueries compare against the right row.
+// - Raw SQL values skip Drizzle's column mapping, so the date is decoded here.
+export function listProjectSummaries(db: Db, userId: string) {
+	const outerId = sql`${sql.identifier("project")}.${sql.identifier("id")}`;
+	const lastActivity = sql<string | null>`(
+		select max(${chat.updatedAt}) from ${chat}
+		where ${chat.projectId} = ${outerId}
+	)`;
+
+	return db
+		.select({
+			id: project.id,
+			fullName: project.fullName,
+			defaultBranch: project.defaultBranch,
+			isPrivate: project.isPrivate,
+			installationId: project.installationId,
+			chatCount: sql<number>`(
+				select count(*)::int from ${chat}
+				where ${chat.projectId} = ${outerId}
+			)`,
+			lastActivityAt: lastActivity.mapWith((value) =>
+				value === null ? null : new Date(value),
+			),
+		})
+		.from(project)
+		.where(eq(project.userId, userId))
+		.orderBy(sql`${lastActivity} desc nulls last`, asc(project.fullName));
 }
 
 export type ProjectInput = {

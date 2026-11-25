@@ -1,7 +1,10 @@
-import { listInstallations, listProjects } from "@nullfuse/db";
+import { listInstallations, listProjectSummaries } from "@nullfuse/db";
 import Link from "next/link";
 import { EmptyState } from "@/components/dashboard/empty-state";
+import { PageHeader } from "@/components/dashboard/page-header";
+import { buttonClass } from "@/components/ui/styles";
 import { installUrl } from "@/lib/github-app";
+import { relativeTime } from "@/lib/time";
 import { db } from "@/server/db";
 import { requireSession } from "@/server/session";
 
@@ -14,29 +17,69 @@ export default async function ProjectsPage({
 	const { setup_action } = await searchParams;
 	const [installations, projects] = await Promise.all([
 		listInstallations(db, session.user.id),
-		listProjects(db, session.user.id),
+		listProjectSummaries(db, session.user.id),
 	]);
 
 	return (
-		<div className="flex flex-col gap-6">
-			<h1 className="text-2xl font-semibold">Projects</h1>
+		<div className="flex flex-col gap-8">
+			<PageHeader
+				title="Projects"
+				description="GitHub repositories the agent can work on."
+				actions={
+					installations.length > 0 ? (
+						<Link
+							href="/dashboard/projects/new"
+							className={buttonClass("secondary")}
+						>
+							Add repositories
+						</Link>
+					) : null
+				}
+			/>
 
 			{projects.length > 0 ? (
-				<ul className="flex max-w-xl flex-col gap-2">
-					{projects.map((p) => (
-						<li key={p.id} className="pixel-inset bg-surface p-3">
-							<Link
-								href={`/dashboard/projects/${p.id}`}
-								className="font-semibold underline"
+				<ul className="flex flex-col gap-2">
+					{projects.map((p) => {
+						const [owner, ...rest] = p.fullName.split("/");
+						const connected = p.installationId !== null;
+						return (
+							<li
+								key={p.id}
+								className="pixel-inset relative flex items-center justify-between gap-4 bg-surface px-4 py-3 hover:bg-surface-2"
 							>
-								{p.fullName}
-							</Link>
-							<p className="text-sm text-muted">
-								{p.isPrivate ? "Private" : "Public"} · {p.defaultBranch}
-								{p.installationId === null ? " · disconnected" : ""}
-							</p>
-						</li>
-					))}
+								<div className="flex min-w-0 flex-col gap-0.5">
+									<Link
+										href={`/dashboard/projects/${p.id}`}
+										className="truncate font-medium after:absolute after:inset-0"
+									>
+										<span className="text-muted">{owner}/</span>
+										{rest.join("/")}
+									</Link>
+									<span className="break-words font-mono text-xs text-muted sm:truncate">
+										{p.isPrivate ? "Private" : "Public"} · {p.defaultBranch} ·{" "}
+										{p.chatCount === 0
+											? "no chats yet"
+											: `${p.chatCount} ${p.chatCount === 1 ? "chat" : "chats"}`}
+										{p.lastActivityAt
+											? ` · active ${relativeTime(p.lastActivityAt)}`
+											: ""}
+									</span>
+								</div>
+								{connected ? (
+									<Link
+										href={`/dashboard/chats/new?project=${p.id}`}
+										className={`${buttonClass("secondary", "sm")} relative z-10 shrink-0`}
+									>
+										New chat
+									</Link>
+								) : (
+									<span className="shrink-0 text-sm text-red">
+										Disconnected
+									</span>
+								)}
+							</li>
+						);
+					})}
 				</ul>
 			) : null}
 
@@ -52,36 +95,41 @@ export default async function ProjectsPage({
 					action={{ label: "Connect GitHub", href: installUrl() }}
 				/>
 			) : (
-				<section className="flex max-w-xl flex-col gap-3">
-					<h2 className="font-semibold">GitHub accounts</h2>
-					<ul className="flex flex-col gap-3">
+				<section className="flex flex-col gap-3">
+					<h2 className="font-mono text-xs uppercase text-subtle">
+						GitHub accounts
+					</h2>
+					<ul className="flex flex-col gap-2">
 						{installations.map((i) => (
-							<li key={i.id} className="pixel-inset bg-surface p-4">
-								<p className="font-semibold">{i.accountLogin}</p>
-								<p className="text-sm text-muted">
-									{i.accountType === "Organization"
-										? "Organization"
-										: "Personal"}
-									{" · "}
-									{i.repositorySelection === "all"
-										? "all repositories"
-										: "selected repositories"}
-									{i.suspendedAt ? " · suspended" : ""}
-								</p>
+							<li
+								key={i.id}
+								className="flex flex-wrap items-center justify-between gap-3 border border-border px-4 py-2.5"
+							>
+								<span className="text-sm">
+									<span className="font-medium">{i.accountLogin}</span>
+									<span className="text-muted">
+										{" · "}
+										{i.accountType === "Organization"
+											? "Organization"
+											: "Personal"}
+										{" · "}
+										{i.repositorySelection === "all"
+											? "all repositories"
+											: "selected repositories"}
+										{i.suspendedAt ? " · suspended" : ""}
+									</span>
+								</span>
 								<Link
 									href={`/dashboard/projects/new?installation=${i.id}`}
-									className="mt-2 inline-block text-sm underline"
+									className="text-sm underline"
 								>
 									Add repositories
 								</Link>
 							</li>
 						))}
 					</ul>
-					<a
-						href={installUrl()}
-						className="pixel pressable w-fit bg-accent px-4 py-2 text-sm text-accent-foreground"
-					>
-						Add another account
+					<a href={installUrl()} className="w-fit text-sm underline">
+						Add another GitHub account
 					</a>
 				</section>
 			)}

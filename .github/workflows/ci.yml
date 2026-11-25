@@ -16,6 +16,20 @@ jobs:
   check:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: nullfuse
+          POSTGRES_PASSWORD: nullfuse
+          POSTGRES_DB: nullfuse
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nullfuse -d nullfuse"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
     env:
       DATABASE_URL: postgres://nullfuse:nullfuse@localhost:5432/nullfuse
       NEXT_PUBLIC_APP_URL: http://localhost:3000

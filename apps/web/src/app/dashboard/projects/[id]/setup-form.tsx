@@ -2,6 +2,7 @@
 
 import { useActionState, useId } from "react";
 import { saveSetup, type SetupState } from "@/actions/project-setup";
+import { buttonClass, field } from "@/components/ui/styles";
 
 type Props = {
 	projectId: string;
@@ -32,7 +33,7 @@ export function SetupForm({ projectId, installCommand, testCommand }: Props) {
 				defaultValue={installCommand}
 				maxLength={500}
 				placeholder="pnpm install"
-				className="pixel-inset h-10.5 bg-surface px-3 font-mono text-sm focus:bg-background"
+				className={`${field} font-mono`}
 			/>
 
 			<label
@@ -47,14 +48,14 @@ export function SetupForm({ projectId, installCommand, testCommand }: Props) {
 				defaultValue={testCommand}
 				maxLength={500}
 				placeholder="pnpm test"
-				className="pixel-inset h-10.5 bg-surface px-3 font-mono text-sm focus:bg-background"
+				className={`${field} font-mono`}
 			/>
 
 			<div className="flex items-center gap-3">
 				<button
 					type="submit"
 					disabled={pending}
-					className="pixel pressable h-10.5 bg-accent px-5 text-sm font-medium text-accent-foreground disabled:opacity-60"
+					className={buttonClass()}
 				>
 					{pending ? "Saving..." : "Save commands"}
 				</button>

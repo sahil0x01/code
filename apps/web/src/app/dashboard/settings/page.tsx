@@ -1,5 +1,8 @@
+import { PageHeader } from "@/components/dashboard/page-header";
+import { buttonClass } from "@/components/ui/styles";
 import { requireSession } from "@/server/session";
 import { DeleteAccount } from "./delete-account";
+import { SettingsSection } from "./section";
 import { getPreferences } from "@nullfuse/db";
 import { db } from "@/server/db";
 import { SettingsForm } from "./settings-form";
@@ -11,8 +14,11 @@ export default async function SettingsPage() {
 	const prefs = await getPreferences(db, user.id);
 
 	return (
-		<main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-8 px-4">
-			<h1 className="text-2xl font-semibold">Settings</h1>
+		<div className="flex max-w-xl flex-col gap-4">
+			<PageHeader
+				title="Settings"
+				description="Your account, notifications and data."
+			/>
 
 			<SettingsForm
 				name={user.name}
@@ -21,23 +27,26 @@ export default async function SettingsPage() {
 				notifyRunFailed={prefs.notifyRunFailed}
 			/>
 
-			<section className="pixel-inset flex flex-col gap-2 bg-surface p-4">
-				<h2 className="font-semibold">Your data</h2>
-				<p>Download everything we store about you as a JSON file.</p>
+			<SettingsSection
+				title="Your data"
+				description="Download everything we store about you as a JSON file."
+			>
 				<a
 					href="/api/account/export"
 					download
-					className="pixel pressable inline-flex h-10.5 w-fit items-center bg-surface-2 px-5 text-sm"
+					className={`${buttonClass("secondary")} w-fit`}
 				>
 					Download my data
 				</a>
-			</section>
+			</SettingsSection>
 
-			<section className="flex flex-col gap-2">
-				<h2 className="font-semibold">Delete account</h2>
-				<p>This permanently deletes your account. It cannot be undone.</p>
+			<SettingsSection
+				title="Delete account"
+				description="This permanently deletes your account, projects and chats. It cannot be undone."
+				danger
+			>
 				<DeleteAccount email={user.email} />
-			</section>
-		</main>
+			</SettingsSection>
+		</div>
 	);
 }

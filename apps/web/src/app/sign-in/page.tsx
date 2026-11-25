@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
+import { Logo } from "@/components/logo";
 import { getSession } from "@/server/session";
 import { SignInButton } from "./sign-in-button";
 import Link from "next/link";
@@ -18,14 +19,7 @@ export default function SignInPage() {
 			<Suspense fallback={null}>
 				<RedirectIfSignedIn />
 			</Suspense>
-			<Link href="/" className="inline-flex items-center gap-2.5">
-				<span
-					aria-hidden="true"
-					className="pixel-flat dither size-4.5 bg-background"
-				/>
-				<span className="text-[17px] font-bold tracking-tight">code</span>
-				<span className="font-mono text-xs text-muted">by nullfuse</span>
-			</Link>
+			<Logo />
 
 			<section className="pixel flex w-full max-w-sm flex-col gap-5 bg-surface p-6">
 				<h1 className="text-xl font-semibold">Sign in to NullFuse Code</h1>

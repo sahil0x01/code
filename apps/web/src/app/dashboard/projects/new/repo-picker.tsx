@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { importProjects, type ImportState } from "@/actions/projects";
+import { buttonClass, field } from "@/components/ui/styles";
 import type { InstallationRepo } from "@/server/github-repos";
 
 type Props = {
@@ -18,48 +19,109 @@ export function RepoPicker({ installationId, repos, importedIds }: Props) {
 		initialState,
 	);
 	const imported = new Set(importedIds);
-	const allImported = repos.every((repo) => imported.has(repo.id));
+	const [query, setQuery] = useState("");
+	const [selected, setSelected] = useState<Set<number>>(new Set());
+
+	const needle = query.trim().toLowerCase();
+	const visible = repos.filter((repo) =>
+		repo.fullName.toLowerCase().includes(needle),
+	);
+
+	function toggle(id: number) {
+		setSelected((previous) => {
+			const next = new Set(previous);
+			if (next.has(id)) next.delete(id);
+			else next.add(id);
+			return next;
+		});
+	}
 
 	return (
-		<form action={formAction} className="flex max-w-xl flex-col gap-4">
+		<form action={formAction} className="flex flex-col gap-4">
 			<input type="hidden" name="installationId" value={installationId} />
+			{/* Selected ids are sent from state, so repos hidden by the filter still count. */}
+			{[...selected].map((id) => (
+				<input key={id} type="hidden" name="repoId" value={id} />
+			))}
 
-			<ul className="flex flex-col gap-2">
-				{repos.map((repo) => {
-					const done = imported.has(repo.id);
-					return (
-						<li key={repo.id} className="pixel-inset bg-surface">
-							<label className="flex items-start gap-3 p-3">
-								<input
-									type="checkbox"
-									name="repoId"
-									value={repo.id}
-									disabled={done}
-									defaultChecked={done}
-									className="mt-1"
-								/>
-								<span>
-									<span className="block font-semibold">{repo.fullName}</span>
-									<span className="block text-sm text-muted">
-										{repo.isPrivate ? "Private" : "Public"} ·{" "}
-										{repo.defaultBranch}
-										{done ? " · already a project" : ""}
+			<div className="flex flex-wrap items-center gap-3">
+				<input
+					type="search"
+					value={query}
+					onChange={(event) => setQuery(event.target.value)}
+					placeholder="Filter repositories"
+					aria-label="Filter repositories"
+					autoComplete="off"
+					className={`${field} w-full max-w-sm`}
+				/>
+				<span className="font-mono text-xs text-subtle">
+					{visible.length === repos.length
+						? `${repos.length} repositories`
+						: `${visible.length} of ${repos.length}`}
+				</span>
+			</div>
+
+			{visible.length === 0 ? (
+				<p className="text-sm text-muted">No repositories match &ldquo;{query}&rdquo;.</p>
+			) : (
+				<ul className="flex flex-col gap-2">
+					{visible.map((repo) => {
+						const done = imported.has(repo.id);
+						return (
+							<li
+								key={repo.id}
+								className="pixel-inset bg-surface hover:bg-surface-2"
+							>
+								<label
+									className={`flex items-start gap-3 px-4 py-3 ${
+										done ? "opacity-60" : "cursor-pointer"
+									}`}
+								>
+									<input
+										type="checkbox"
+										checked={done || selected.has(repo.id)}
+										disabled={done}
+										onChange={() => toggle(repo.id)}
+										className="mt-1 size-4"
+									/>
+									<span className="min-w-0">
+										<span className="block truncate font-medium">
+											{repo.fullName}
+										</span>
+										<span className="block font-mono text-xs text-muted">
+											{repo.isPrivate ? "Private" : "Public"} ·{" "}
+											{repo.defaultBranch}
+											{done ? " · already a project" : ""}
+										</span>
 									</span>
-								</span>
-							</label>
-						</li>
-					);
-				})}
-			</ul>
+								</label>
+							</li>
+						);
+					})}
+				</ul>
+			)}
 
-			<div className="flex items-center gap-3">
+			<div className="sticky bottom-0 -mx-5 flex flex-wrap items-center gap-3 border-t border-border bg-background px-5 py-3 md:-mx-10 md:px-10">
 				<button
 					type="submit"
-					disabled={pending || allImported}
-					className="pixel pressable h-10.5 bg-accent px-5 text-sm font-medium text-accent-foreground disabled:opacity-60"
+					disabled={pending || selected.size === 0}
+					className={buttonClass()}
 				>
-					{pending ? "Importing..." : "Import selected"}
+					{pending
+						? "Importing..."
+						: selected.size === 0
+							? "Import"
+							: `Import ${selected.size} ${selected.size === 1 ? "repository" : "repositories"}`}
 				</button>
+				{selected.size > 0 && (
+					<button
+						type="button"
+						onClick={() => setSelected(new Set())}
+						className="text-sm underline"
+					>
+						Clear selection
+					</button>
+				)}
 				{state.status === "error" && (
 					<p role="alert" className="text-sm text-red">
 						{state.message}

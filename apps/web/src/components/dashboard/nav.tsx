@@ -3,30 +3,49 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const items = [
+type Item = { href: string; label: string; exact?: boolean };
+
+// Desktop: "main" sits under the New chat button, "account" at the bottom.
+// Mobile: one row with everything ("all").
+const main: Item[] = [
+	{ href: "/dashboard/chats", label: "Chats", exact: true },
 	{ href: "/dashboard/projects", label: "Projects" },
-	{ href: "/dashboard/tasks", label: "Tasks" },
-	{ href: "/dashboard/runs", label: "Runs" },
+];
+const account: Item[] = [
 	{ href: "/dashboard/credits", label: "Credits" },
 	{ href: "/dashboard/settings", label: "Settings" },
-] as const;
+];
 
-export function DashboardNav() {
-	const pathname = usePathname();
+export type NavGroup = "main" | "account" | "all";
 
+function itemsFor(group: NavGroup) {
+	if (group === "main") return main;
+	if (group === "account") return account;
+	return [...main, ...account];
+}
+
+function NavList({ pathname, group }: { pathname: string; group: NavGroup }) {
 	return (
-		<nav aria-label="Dashboard" className="flex gap-2 md:flex-col">
-			{items.map((item) => {
-				const active = pathname.startsWith(item.href);
+		<nav
+			aria-label={group === "account" ? "Account" : "Dashboard"}
+			className="-mx-1 flex gap-1 overflow-x-auto px-1 py-1 md:flex-col md:gap-0.5"
+		>
+			{itemsFor(group).map((item) => {
+				// "Chats" is only the list page on desktop, where the recent chats
+				// are listed (and highlighted) separately.
+				const active =
+					item.exact && group !== "all"
+						? pathname === item.href
+						: pathname.startsWith(item.href);
 				return (
 					<Link
 						key={item.href}
 						href={item.href}
 						aria-current={active ? "page" : undefined}
-						className={`px-3 py-2 text-sm ${
+						className={`shrink-0 border-l-2 px-3 py-2 text-sm ${
 							active
-								? "pixel-flat bg-accent text-accent-foreground"
-								: "text-muted hover:text-foreground"
+								? "border-accent bg-surface-2 font-medium text-foreground"
+								: "border-transparent text-muted hover:bg-surface-2 hover:text-foreground"
 						}`}
 					>
 						{item.label}
@@ -35,4 +54,14 @@ export function DashboardNav() {
 			})}
 		</nav>
 	);
+}
+
+// Reads the current path, so it must sit under a <Suspense> boundary.
+export function DashboardNav({ group = "all" }: { group?: NavGroup }) {
+	return <NavList pathname={usePathname()} group={group} />;
+}
+
+// What the layout shows until the path is known: the same links, none active.
+export function DashboardNavFallback({ group = "all" }: { group?: NavGroup }) {
+	return <NavList pathname="" group={group} />;
 }

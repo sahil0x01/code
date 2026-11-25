@@ -2,9 +2,12 @@ import { eq, sql } from "drizzle-orm";
 import type { Db } from "./index";
 import {
 	account,
+	chat,
 	installation,
+	message,
 	project,
 	projectEnvVar,
+	run,
 	session,
 	user,
 	userPreference,
@@ -97,6 +100,45 @@ export async function exportAccountData(db: Db, userId: string) {
 		.innerJoin(project, eq(project.id, projectEnvVar.projectId))
 		.where(eq(project.userId, userId));
 
+	const chats = await db
+		.select({
+			id: chat.id,
+			projectId: chat.projectId,
+			title: chat.title,
+			baseBranch: chat.baseBranch,
+			workingBranch: chat.workingBranch,
+			createdAt: chat.createdAt,
+			updatedAt: chat.updatedAt,
+		})
+		.from(chat)
+		.where(eq(chat.userId, userId));
+
+	const messages = await db
+		.select({
+			id: message.id,
+			chatId: message.chatId,
+			role: message.role,
+			content: message.content,
+			createdAt: message.createdAt,
+		})
+		.from(message)
+		.innerJoin(chat, eq(chat.id, message.chatId))
+		.where(eq(chat.userId, userId));
+
+	const runs = await db
+		.select({
+			id: run.id,
+			chatId: run.chatId,
+			messageId: run.messageId,
+			model: run.model,
+			status: run.status,
+			startedAt: run.startedAt,
+			finishedAt: run.finishedAt,
+			createdAt: run.createdAt,
+		})
+		.from(run)
+		.where(eq(run.userId, userId));
+
 	return {
 		exportedAt: new Date().toISOString(),
 		profile,
@@ -107,6 +149,9 @@ export async function exportAccountData(db: Db, userId: string) {
 		installations,
 		projects,
 		envVarNames,
+		chats,
+		messages,
+		runs,
 	};
 }
 

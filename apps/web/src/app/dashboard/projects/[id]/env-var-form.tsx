@@ -2,6 +2,7 @@
 
 import { useActionState, useId } from "react";
 import { saveEnvVar, type SetupState } from "@/actions/project-setup";
+import { buttonClass, field } from "@/components/ui/styles";
 
 const initialState: SetupState = { status: "idle" };
 
@@ -28,7 +29,7 @@ export function EnvVarForm({ projectId }: { projectId: string }) {
 				placeholder="API_KEY"
 				autoComplete="off"
 				spellCheck={false}
-				className="pixel-inset h-10.5 bg-surface px-3 font-mono text-sm focus:bg-background"
+				className={`${field} font-mono`}
 			/>
 
 			<label
@@ -44,14 +45,14 @@ export function EnvVarForm({ projectId }: { projectId: string }) {
 				required
 				maxLength={10000}
 				autoComplete="off"
-				className="pixel-inset h-10.5 bg-surface px-3 font-mono text-sm focus:bg-background"
+				className={`${field} font-mono`}
 			/>
 
 			<div className="flex items-center gap-3">
 				<button
 					type="submit"
 					disabled={pending}
-					className="pixel pressable h-10.5 bg-accent px-5 text-sm font-medium text-accent-foreground disabled:opacity-60"
+					className={buttonClass()}
 				>
 					{pending ? "Saving..." : "Save variable"}
 				</button>

@@ -1,6 +1,8 @@
+import { sql } from "drizzle-orm";
 import {
 	bigint,
 	boolean,
+	check,
 	index,
 	integer,
 	jsonb,
@@ -8,6 +10,7 @@ import {
 	text,
 	timestamp,
 	unique,
+	uniqueIndex,
 	uuid,
 } from "drizzle-orm/pg-core";
 
@@ -179,5 +182,87 @@ export const projectEnvVar = pgTable(
 	},
 	(t) => [
 		unique("project_env_var_project_name_unique").on(t.projectId, t.name),
+	],
+);
+
+export const chat = pgTable(
+	"chat",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		projectId: uuid("project_id")
+			.notNull()
+			.references(() => project.id, { onDelete: "cascade" }),
+		title: text("title").notNull(),
+		baseBranch: text("base_branch").notNull(),
+		workingBranch: text("working_branch"),
+		createdAt: timestamp("created_at", { withTimezone: true })
+			.notNull()
+			.defaultNow(),
+		updatedAt: timestamp("updated_at", { withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(t) => [index("chat_project_updated_idx").on(t.projectId, t.updatedAt)],
+);
+
+export const message = pgTable(
+	"message",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		chatId: uuid("chat_id")
+			.notNull()
+			.references(() => chat.id, { onDelete: "cascade" }),
+		role: text("role").$type<"user" | "assistant">().notNull(),
+		content: text("content").notNull(),
+		createdAt: timestamp("created_at", { withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(t) => [
+		index("message_chat_created_idx").on(t.chatId, t.createdAt),
+		check("message_role_check", sql`${t.role} in ('user', 'assistant')`),
+	],
+);
+
+export const run = pgTable(
+	"run",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		chatId: uuid("chat_id")
+			.notNull()
+			.references(() => chat.id, { onDelete: "cascade" }),
+		messageId: uuid("message_id")
+			.notNull()
+			.references(() => message.id, { onDelete: "cascade" }),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		model: text("model").notNull(),
+		status: text("status")
+			.$type<"queued" | "running" | "succeeded" | "failed" | "cancelled">()
+			.notNull()
+			.default("queued"),
+		startedAt: timestamp("started_at", { withTimezone: true }),
+		finishedAt: timestamp("finished_at", { withTimezone: true }),
+		createdAt: timestamp("created_at", { withTimezone: true })
+			.notNull()
+			.defaultNow(),
+		updatedAt: timestamp("updated_at", { withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(t) => [
+		index("run_chat_created_idx").on(t.chatId, t.createdAt),
+		index("run_user_status_idx").on(t.userId, t.status),
+		uniqueIndex("run_one_running_per_chat")
+			.on(t.chatId)
+			.where(sql`${t.status} = 'running'`),
+		check(
+			"run_status_check",
+			sql`${t.status} in ('queued', 'running', 'succeeded', 'failed', 'cancelled')`,
+		),
 	],
 );
