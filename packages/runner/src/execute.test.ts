@@ -258,6 +258,35 @@ describe.skipIf(!hasDocker)("executeRun", () => {
 		expect(await getRunLive(db, await fixtures.user(), chatId, runId)).toBeNull();
 	});
 
+	it("tells a follow-up what earlier runs already did", async () => {
+		const { userId, chatId, runId } = await setup({ message: "Add a memo" });
+		await executeRun(
+			deps(
+				new MockLanguageModelV4({
+					doGenerate: [
+						toolCalls(
+							{ name: "write", input: { path: "memo.txt", content: "hi" } },
+							{ name: "bash", input: { command: "exit 4" } },
+						),
+						answer("Added it."),
+					],
+				}),
+			),
+			runId,
+		);
+		const next = await followUp(userId, chatId, "Now extend it");
+		const model = new MockLanguageModelV4({ doGenerate: async () => answer("Done.") });
+
+		await executeRun(deps(model), next.runId);
+
+		const prompt = JSON.stringify(model.doGenerateCalls[0]?.prompt.at(-1));
+		expect(prompt).toContain("<earlier_work>");
+		expect(prompt).toContain("Changed: memo.txt");
+		expect(prompt).toContain("exit 4 -> failed, exit code 4");
+		expect(prompt).toContain("Now extend it");
+		expect((await listMessages(db, userId, chatId)).map((m) => m.content)).toContain("Now extend it");
+	});
+
 	it("continues a chat from the earlier run's files, in a new sandbox", async () => {
 		const { userId, chatId, runId, branch } = await setup({ message: "Start a memo" });
 		const first = new MockLanguageModelV4({

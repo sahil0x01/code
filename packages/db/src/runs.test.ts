@@ -16,6 +16,7 @@ import {
 	listRuns,
 	listRunActivity,
 	listRunSteps,
+	loadEarlierWork,
 	getChatForUser,
 	loadRunContext,
 	message,
@@ -770,5 +771,44 @@ describe("reasoning and usage", () => {
 		const [first] = await listRunActivity(db, userId, [created.runId]);
 		expect(first?.reasoning).toHaveLength(4000);
 		expect(first?.reasoningTokens).toBe(7);
+	});
+});
+
+describe("earlier work", () => {
+	it("returns this chat's earlier actions oldest first, clipped, and nothing from later runs", async () => {
+		const { userId, projectId } = await owner();
+		const first = await createChat(db, { userId, projectId, baseBranch: "main", model: "m", content: "one" });
+		if (!first.ok) throw new Error(first.reason);
+		await claimRun(db, first.runId);
+		await recordStep(db, first.runId, {
+			...step(0),
+			toolCalls: [
+				{ id: "a", name: "bash", input: { command: "pnpm test" } },
+				{ id: "b", name: "read", input: { path: "a.ts" } },
+			],
+			toolResults: [
+				{ id: "b", name: "read", output: "File not found", isError: true },
+				{ id: "a", name: "bash", output: `${"x".repeat(1000)}\n[exit code: 1]`, isError: false },
+			],
+		});
+		await finishRun(db, first.runId, { status: "succeeded", stopReason: "completed" });
+		const second = await addMessage(db, { userId, chatId: first.chatId, model: "m", content: "two" });
+		const third = await addMessage(db, { userId, chatId: first.chatId, model: "m", content: "three" });
+		if (!second.ok || !third.ok) throw new Error("not queued");
+
+		const work = await loadEarlierWork(db, second.runId);
+
+		expect(work).toHaveLength(1);
+		expect(work[0]).toMatchObject({ request: "one", status: "succeeded" });
+		expect(work[0]?.actions.map((a) => [a.name, a.target, a.isError])).toEqual([
+			["bash", "pnpm test", false],
+			["read", "a.ts", true],
+		]);
+		expect(work[0]?.actions[0]?.ending).toHaveLength(300);
+		expect(work[0]?.actions[0]?.ending.endsWith("[exit code: 1]")).toBe(true);
+
+		const other = await createChat(db, { userId, projectId, baseBranch: "main", model: "m", content: "other" });
+		if (!other.ok) throw new Error(other.reason);
+		expect(await loadEarlierWork(db, other.runId)).toEqual([]);
 	});
 });

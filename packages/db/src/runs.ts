@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { Db } from "./index";
 import {
 	type ChangedFile,
@@ -568,6 +568,75 @@ export async function isStopRequested(db: Db, runId: string) {
 		.from(run)
 		.where(eq(run.id, runId));
 	return row?.stopRequestedAt != null;
+}
+
+export type EarlierRun = {
+	id: string;
+	/** The message that run answered. */
+	request: string;
+	status: "queued" | "running" | "succeeded" | "failed" | "cancelled";
+	actions: {
+		name: string;
+		/** The call's main argument: a path, command or pattern. */
+		target: string;
+		isError: boolean;
+		/** The end of the result. */
+		ending: string;
+	}[];
+};
+
+const EARLIER_RUNS = 10;
+
+/**
+ * What the agent did in this chat before now: earlier runs, and this run's own saved steps if
+ * it was restarted. Oldest first. For the worker, so not filtered by owner.
+ */
+export async function loadEarlierWork(db: Db, runId: string): Promise<EarlierRun[]> {
+	const runs = await db
+		.select({ id: run.id, status: run.status, request: sql<string>`left(${message.content}, 300)` })
+		.from(run)
+		.innerJoin(message, eq(message.id, run.messageId))
+		.where(
+			and(
+				sql`${run.chatId} = (select r.chat_id from run r where r.id = ${runId})`,
+				sql`(${run.createdAt}, ${run.id}) <= (select r.created_at, r.id from run r where r.id = ${runId})`,
+			),
+		)
+		.orderBy(desc(run.createdAt), desc(run.id))
+		.limit(EARLIER_RUNS);
+	if (runs.length === 0) return [];
+
+	// Cut in SQL, so long outputs never leave the database.
+	const steps = await db
+		.select({
+			runId: runStep.runId,
+			actions: sql<EarlierRun["actions"]>`coalesce((
+				select jsonb_agg(
+					jsonb_build_object(
+						'name', c.call->>'name',
+						'target', left(coalesce(c.call->'input'->>'path', c.call->'input'->>'command', c.call->'input'->>'pattern', ''), 200),
+						'isError', coalesce((r.result->>'isError')::boolean, false),
+						'ending', right(coalesce(r.result->>'output', ''), 300)
+					) order by c.ord
+				)
+				from jsonb_array_elements(${runStep.toolCalls}) with ordinality as c(call, ord)
+				left join lateral (
+					select result from jsonb_array_elements(${runStep.toolResults}) as result
+					where result->>'id' = c.call->>'id' limit 1
+				) r on true
+			), '[]'::jsonb)`,
+		})
+		.from(runStep)
+		.where(inArray(runStep.runId, runs.map((row) => row.id)))
+		.orderBy(asc(runStep.runId), asc(runStep.stepIndex));
+
+	return runs
+		.reverse()
+		.map((row) => ({
+			...row,
+			actions: steps.filter((step) => step.runId === row.id).flatMap((step) => step.actions),
+		}))
+		.filter((row) => row.actions.length > 0);
 }
 
 export type ActivityCall = { id: string; name: string; label: string };

@@ -20,6 +20,7 @@ import {
 	finishRun,
 	getRunProgress,
 	isStopRequested,
+	loadEarlierWork,
 	loadRunContext,
 	queueRecordingDeletion,
 	type RunContext,
@@ -41,6 +42,7 @@ import { recordingKey } from "@nullfuse/storage";
 import type { LanguageModel } from "ai";
 import { checkAppTool } from "./check-app";
 import { liveWriter } from "./live";
+import { withEarlierWork, workSummary } from "./memory";
 import { recordChange, recordingInstructions, SCRIPT_PATH, uploadRecording } from "./recording";
 import { redactor } from "./redact";
 
@@ -409,6 +411,9 @@ async function perform(
 			})
 		: undefined;
 
+	// What earlier runs read, changed and ran, so a follow-up does not start from nothing.
+	const memory = workSummary(await loadEarlierWork(deps.db, runId), redact.text);
+
 	let agent: AgentRun | undefined;
 	let agentError: unknown;
 	try {
@@ -421,7 +426,7 @@ async function perform(
 				model: deps.createModel(context.run.model),
 				providerOptions: reasoningOptions(context.run.reasoning),
 				sandbox,
-				messages: context.messages,
+				messages: withEarlierWork(context.messages, memory),
 				env,
 				instructions: instructionsFor(
 					context,
