@@ -57,6 +57,41 @@
       "when": 1795595238706,
       "tag": "0007_colossal_kinsey_walden",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1795684812630,
+      "tag": "0008_steady_namor",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1795687137863,
+      "tag": "0009_flaky_the_enforcers",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1795688101993,
+      "tag": "0010_sharp_mentor",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1795690017946,
+      "tag": "0011_giant_daredevil",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1795692409358,
+      "tag": "0012_robust_caretaker",
+      "breakpoints": true
     }
   ]
 }

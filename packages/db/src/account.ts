@@ -8,6 +8,7 @@ import {
 	project,
 	projectEnvVar,
 	run,
+	runStep,
 	session,
 	user,
 	userPreference,
@@ -107,6 +108,8 @@ export async function exportAccountData(db: Db, userId: string) {
 			title: chat.title,
 			baseBranch: chat.baseBranch,
 			workingBranch: chat.workingBranch,
+			pullRequestNumber: chat.pullRequestNumber,
+			pullRequestUrl: chat.pullRequestUrl,
 			createdAt: chat.createdAt,
 			updatedAt: chat.updatedAt,
 		})
@@ -132,11 +135,35 @@ export async function exportAccountData(db: Db, userId: string) {
 			messageId: run.messageId,
 			model: run.model,
 			status: run.status,
+			stopReason: run.stopReason,
+			error: run.error,
+			changedFiles: run.changedFiles,
+			verify: run.verify,
+			verification: run.verification,
+			inputTokens: run.inputTokens,
+			outputTokens: run.outputTokens,
 			startedAt: run.startedAt,
 			finishedAt: run.finishedAt,
 			createdAt: run.createdAt,
 		})
 		.from(run)
+		.where(eq(run.userId, userId));
+
+	const runSteps = await db
+		.select({
+			id: runStep.id,
+			runId: runStep.runId,
+			stepIndex: runStep.stepIndex,
+			finishReason: runStep.finishReason,
+			text: runStep.text,
+			toolCalls: runStep.toolCalls,
+			toolResults: runStep.toolResults,
+			inputTokens: runStep.inputTokens,
+			outputTokens: runStep.outputTokens,
+			createdAt: runStep.createdAt,
+		})
+		.from(runStep)
+		.innerJoin(run, eq(run.id, runStep.runId))
 		.where(eq(run.userId, userId));
 
 	return {
@@ -152,6 +179,7 @@ export async function exportAccountData(db: Db, userId: string) {
 		chats,
 		messages,
 		runs,
+		runSteps,
 	};
 }
 

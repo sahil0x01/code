@@ -12,7 +12,8 @@
         "GITHUB_APP_SLUG",
         "GITHUB_APP_WEBHOOK_SECRET",
         "GITHUB_APP_PRIVATE_KEY_BASE64",
-        "ENV_ENCRYPTION_KEY"
+        "ENV_ENCRYPTION_KEY",
+        "TRIGGER_SECRET_KEY"
       ],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": [".next/**", "!.next/cache/**", "dist/**"]

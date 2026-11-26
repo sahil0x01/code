@@ -1,0 +1,28 @@
+{
+  "name": "@nullfuse/worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "dev": "trigger dev",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@nullfuse/agent": "workspace:*",
+    "@nullfuse/db": "workspace:*",
+    "@nullfuse/runner": "workspace:*",
+    "@nullfuse/sandbox": "workspace:*",
+    "@nullfuse/secrets": "workspace:*",
+    "@octokit/auth-app": "^8.3.1",
+    "@trigger.dev/sdk": "^4.8.10",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@trigger.dev/build": "^4.8.10",
+    "@types/node": "^24.19.2",
+    "trigger.dev": "4.8.10",
+    "typescript": "^5.9.3",
+    "vitest": "^5.1.1"
+  }
+}

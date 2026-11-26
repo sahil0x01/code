@@ -17,6 +17,8 @@ export const env = createEnv({
 				(value) => Buffer.from(value, "base64").length === 32,
 				"Must be 32 bytes, base64 encoded",
 			),
+		// Without it, messages are saved and runs stay queued.
+		TRIGGER_SECRET_KEY: z.string().min(1).optional(),
 	},
 	client: {
 		NEXT_PUBLIC_APP_URL: z.url(),
@@ -32,6 +34,7 @@ export const env = createEnv({
 		GITHUB_APP_WEBHOOK_SECRET: process.env.GITHUB_APP_WEBHOOK_SECRET,
 		GITHUB_APP_PRIVATE_KEY_BASE64: process.env.GITHUB_APP_PRIVATE_KEY_BASE64,
 		ENV_ENCRYPTION_KEY: process.env.ENV_ENCRYPTION_KEY,
+		TRIGGER_SECRET_KEY: process.env.TRIGGER_SECRET_KEY,
 	},
 	emptyStringAsUndefined: true,
 	skipValidation: !!process.env.SKIP_ENV_VALIDATION,

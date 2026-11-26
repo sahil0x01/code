@@ -1,11 +1,15 @@
-import { getChatForUser, listMessages, listRuns } from "@nullfuse/db";
+import {
+	getChatForUser,
+	listMessages,
+	listRunActivity,
+	listRuns,
+} from "@nullfuse/db";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { z } from "zod";
-import { cancelQueuedRun } from "@/actions/chats";
+import { AutoRefresh } from "@/components/dashboard/auto-refresh";
 import { PageHeader } from "@/components/dashboard/page-header";
-import { RunStatusBadge } from "@/components/dashboard/run-status";
-import { buttonClass } from "@/components/ui/styles";
+import { RunPanel } from "@/components/dashboard/run-panel";
 import { DEFAULT_MODEL_ID, isModelId } from "@/lib/chat";
 import { relativeTime } from "@/lib/time";
 import { db } from "@/server/db";
@@ -14,6 +18,36 @@ import { DeleteChatButton } from "./delete-chat-button";
 import { MessageForm } from "./message-form";
 
 export const metadata = { title: "Chat" };
+
+// Older runs show their summary; their steps are only loaded for the latest few.
+const RUNS_WITH_ACTIVITY = 5;
+
+type Message = Awaited<ReturnType<typeof listMessages>>[number];
+
+function Bubble({ message }: { message: Message }) {
+	const isUser = message.role === "user";
+	return (
+		<div className="flex flex-col gap-2">
+			<p className="flex items-center gap-2 font-mono text-xs uppercase text-subtle">
+				<span>{isUser ? "You" : "Agent"}</span>
+				<span aria-hidden="true">·</span>
+				<time
+					dateTime={message.createdAt.toISOString()}
+					title={message.createdAt.toLocaleString("en")}
+				>
+					{relativeTime(message.createdAt)}
+				</time>
+			</p>
+			<div
+				className={`pixel-inset whitespace-pre-wrap break-words p-4 text-[15px] leading-relaxed ${
+					isUser ? "bg-surface" : "bg-surface-2"
+				}`}
+			>
+				{message.content}
+			</div>
+		</div>
+	);
+}
 
 export default async function ChatPage({
 	params,
@@ -29,10 +63,23 @@ export default async function ChatPage({
 		listMessages(db, session.user.id, chat.id),
 		listRuns(db, session.user.id, chat.id),
 	]);
-
-	const runByMessage = new Map(
-		runs.map((run) => [run.messageId, run] as const),
+	const activity = await listRunActivity(
+		db,
+		session.user.id,
+		runs.slice(-RUNS_WITH_ACTIVITY).map((run) => run.id),
 	);
+
+	const runByMessage = new Map(runs.map((run) => [run.messageId, run] as const));
+	const runIds = new Set(runs.map((run) => run.id));
+	const stepsByRun = Map.groupBy(activity, (step) => step.runId);
+	const answersByRun = Map.groupBy(
+		messages.filter((message) => message.runId !== null && runIds.has(message.runId)),
+		(message) => message.runId,
+	);
+	const shown = messages.filter(
+		(message) => message.runId === null || !runIds.has(message.runId),
+	);
+
 	const unfinished = runs.filter(
 		(run) => run.status === "queued" || run.status === "running",
 	);
@@ -42,6 +89,8 @@ export default async function ChatPage({
 
 	return (
 		<div className="flex flex-col gap-8">
+			<AutoRefresh active={unfinished.length > 0} />
+
 			<PageHeader
 				crumb={{ href: "/dashboard/chats", label: "Chats" }}
 				title={chat.title}
@@ -62,51 +111,39 @@ export default async function ChatPage({
 				actions={<DeleteChatButton chatId={chat.id} />}
 			/>
 
+			{chat.pullRequestUrl?.startsWith("https://") && (
+				<a
+					href={chat.pullRequestUrl}
+					target="_blank"
+					rel="noreferrer"
+					className="w-fit font-mono text-sm underline hover:text-foreground"
+				>
+					Pull request #{chat.pullRequestNumber} ↗
+				</a>
+			)}
+			{!chat.pullRequestUrl && chat.pullRequestError && (
+				<p role="alert" className="text-sm text-red">
+					Could not open a pull request: {chat.pullRequestError}
+				</p>
+			)}
+
 			<ol className="flex flex-col gap-6">
-				{messages.map((message) => {
+				{shown.map((message) => {
 					const run = runByMessage.get(message.id);
-					const isUser = message.role === "user";
 					return (
-						<li key={message.id} className="flex flex-col gap-2">
-							<p className="flex items-center gap-2 font-mono text-xs uppercase text-subtle">
-								<span>{isUser ? "You" : "Agent"}</span>
-								<span aria-hidden="true">·</span>
-								<time
-									dateTime={message.createdAt.toISOString()}
-									title={message.createdAt.toLocaleString("en")}
-								>
-									{relativeTime(message.createdAt)}
-								</time>
-							</p>
-							<div
-								className={`pixel-inset whitespace-pre-wrap break-words p-4 text-[15px] leading-relaxed ${
-									isUser ? "bg-surface" : "bg-surface-2"
-								}`}
-							>
-								{message.content}
-							</div>
+						<li key={message.id} className="flex flex-col gap-3">
+							<Bubble message={message} />
 							{run && (
-								<div className="ml-3 flex flex-wrap items-center gap-x-4 gap-y-2 border-l-2 border-border pl-4">
-									<RunStatusBadge
-										status={run.status}
-										ahead={unfinished.findIndex((other) => other.id === run.id)}
-									/>
-									<span className="font-mono text-xs text-subtle">
-										{run.model}
-									</span>
-									{run.status === "queued" && (
-										<form action={cancelQueuedRun}>
-											<input type="hidden" name="runId" value={run.id} />
-											<button
-												type="submit"
-												className={buttonClass("secondary", "sm")}
-											>
-												Cancel
-											</button>
-										</form>
-									)}
-								</div>
+								<RunPanel
+									run={run}
+									steps={stepsByRun.get(run.id) ?? []}
+									ahead={unfinished.findIndex((other) => other.id === run.id)}
+								/>
 							)}
+							{run &&
+								(answersByRun.get(run.id) ?? []).map((answer) => (
+									<Bubble key={answer.id} message={answer} />
+								))}
 						</li>
 					);
 				})}

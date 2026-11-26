@@ -14,4 +14,5 @@ export * from "./chats";
 export * from "./installations";
 export * from "./preferences";
 export * from "./projects";
+export * from "./runs";
 export * from "./schema";

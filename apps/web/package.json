@@ -7,11 +7,14 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "typecheck": "next typegen && tsc --noEmit"
+    "typecheck": "next typegen && tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@nullfuse/db": "workspace:*",
+    "@nullfuse/secrets": "workspace:*",
     "@t3-oss/env-nextjs": "^0.13.11",
+    "@trigger.dev/sdk": "^4.8.10",
     "better-auth": "^1.7.27",
     "next": "16.4.6",
     "octokit": "^5.0.5",
@@ -28,6 +31,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.4.6",
     "tailwindcss": "4.3.3",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^5.1.1"
   }
 }

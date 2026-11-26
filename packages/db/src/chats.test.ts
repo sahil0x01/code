@@ -39,7 +39,7 @@ function startRaw(userId: string, projectId: string, content = "Fix the test") {
 		userId,
 		projectId,
 		baseBranch: "main",
-		model: "glm-5.3",
+		model: "deepseek-v4-pro",
 		content,
 	});
 }
@@ -51,7 +51,7 @@ async function start(userId: string, projectId: string, content?: string) {
 }
 
 function reply(userId: string, chatId: string, content = "And also this") {
-	return addMessage(db, { userId, chatId, model: "glm-5.3", content });
+	return addMessage(db, { userId, chatId, model: "deepseek-v4-pro", content });
 }
 
 // Drizzle wraps driver errors, so walk the cause chain to the Postgres code.
@@ -114,7 +114,7 @@ describe("createChat", () => {
 			id: result.runId,
 			messageId: result.messageId,
 			status: "queued",
-			model: "glm-5.3",
+			model: "deepseek-v4-pro",
 			startedAt: null,
 		});
 	});

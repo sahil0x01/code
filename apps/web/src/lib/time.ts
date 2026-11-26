@@ -24,3 +24,13 @@ export function relativeTime(date: Date, now = Date.now()) {
 	}
 	return "just now";
 }
+
+// "42s", "3m 5s", "1h 2m". Without an end it measures up to now.
+export function durationSince(start: Date, end?: Date | null) {
+	const ms = Math.max(0, (end?.getTime() ?? Date.now()) - start.getTime());
+	const seconds = Math.round(ms / 1000);
+	if (seconds < 60) return `${seconds}s`;
+	const minutes = Math.floor(seconds / 60);
+	if (minutes < 60) return `${minutes}m ${seconds % 60}s`;
+	return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+}

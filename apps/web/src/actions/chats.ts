@@ -7,6 +7,7 @@ import {
 	deleteChat,
 	getChatForUser,
 	getProjectForUser,
+	requestStop,
 	type SendResult,
 } from "@nullfuse/db";
 import { revalidatePath } from "next/cache";
@@ -14,6 +15,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { isModelId, MAX_MESSAGE_LENGTH } from "@/lib/chat";
 import { db } from "@/server/db";
+import { enqueueRun } from "@/server/enqueue";
 import { checkRepo } from "@/server/github-checks";
 import { requireSession } from "@/server/session";
 
@@ -25,17 +27,21 @@ export type ChatState =
 const content = z.string().trim().min(1).max(MAX_MESSAGE_LENGTH);
 const model = z.string().refine(isModelId);
 
+const verify = z.boolean();
+
 const startSchema = z.object({
 	projectId: z.uuid(),
 	baseBranch: z.string().trim().min(1).max(250),
 	model,
 	content,
+	verify,
 });
 
 const sendSchema = z.object({
 	chatId: z.uuid(),
 	model,
 	content,
+	verify,
 });
 
 const inputError: ChatState = {
@@ -68,6 +74,7 @@ export async function startChat(
 		baseBranch: formData.get("baseBranch"),
 		model: formData.get("model"),
 		content: formData.get("content"),
+		verify: formData.get("verify") === "on",
 	});
 	if (!input.success) return inputError;
 
@@ -98,6 +105,7 @@ export async function startChat(
 		const result = await createChat(db, { userId: user.id, ...input.data });
 		if (!result.ok) return failure(result.reason);
 		chatId = result.chatId;
+		await enqueueRun({ runId: result.runId, chatId });
 	} catch (error) {
 		console.error("start chat failed", error);
 		return { status: "error", message: "Something went wrong. Try again." };
@@ -117,6 +125,7 @@ export async function sendMessage(
 		chatId: formData.get("chatId"),
 		model: formData.get("model"),
 		content: formData.get("content"),
+		verify: formData.get("verify") === "on",
 	});
 	if (!input.success) return inputError;
 
@@ -135,6 +144,7 @@ export async function sendMessage(
 
 		const result = await addMessage(db, { userId: user.id, ...input.data });
 		if (!result.ok) return failure(result.reason);
+		await enqueueRun({ runId: result.runId, chatId: result.chatId });
 	} catch (error) {
 		console.error("send message failed", error);
 		return { status: "error", message: "Something went wrong. Try again." };
@@ -144,7 +154,9 @@ export async function sendMessage(
 	return { status: "success" };
 }
 
-export async function cancelQueuedRun(formData: FormData) {
+// A queued run is cancelled outright; a running one is asked to stop, and the
+// worker notices within a second.
+export async function stopRun(formData: FormData) {
 	const { user } = await requireSession();
 
 	const input = z
@@ -153,7 +165,7 @@ export async function cancelQueuedRun(formData: FormData) {
 	if (!input.success) return;
 
 	const cancelled = await cancelRun(db, user.id, input.data.runId);
-	if (!cancelled) return;
+	if (!cancelled) await requestStop(db, user.id, input.data.runId);
 
 	revalidatePath("/dashboard", "layout");
 }

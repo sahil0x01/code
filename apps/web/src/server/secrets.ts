@@ -1,23 +1,17 @@
 import "server-only";
+import {
+	decryptEnvValue as decrypt,
+	encryptEnvValue as encrypt,
+	parseEncryptionKey,
+} from "@nullfuse/secrets";
 import { env } from "@/env";
-import { decryptSecret, encryptSecret } from "@/lib/secret-box";
 
-const key = Buffer.from(env.ENV_ENCRYPTION_KEY, "base64");
+const key = parseEncryptionKey(env.ENV_ENCRYPTION_KEY);
 
-const context = (projectId: string, name: string) => `${projectId}:${name}`;
-
-export function encryptEnvValue(
-	projectId: string,
-	name: string,
-	value: string,
-) {
-	return encryptSecret(key, value, context(projectId, name));
+export function encryptEnvValue(projectId: string, name: string, value: string) {
+	return encrypt(key, projectId, name, value);
 }
 
-export function decryptEnvValue(
-	projectId: string,
-	name: string,
-	stored: string,
-) {
-	return decryptSecret(key, stored, context(projectId, name));
+export function decryptEnvValue(projectId: string, name: string, stored: string) {
+	return decrypt(key, projectId, name, stored);
 }

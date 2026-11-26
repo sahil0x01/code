@@ -37,7 +37,7 @@ async function countUnfinishedRuns(tx: Tx, userId: string) {
 
 async function enqueue(
 	tx: Tx,
-	input: { userId: string; chatId: string; model: string; content: string },
+	input: { userId: string; chatId: string; model: string; content: string; verify?: boolean },
 ) {
 	const msg = one(
 		await tx
@@ -53,6 +53,7 @@ async function enqueue(
 				messageId: msg.id,
 				userId: input.userId,
 				model: input.model,
+				verify: input.verify ?? false,
 			})
 			.returning({ id: run.id }),
 	);
@@ -67,6 +68,7 @@ export function createChat(
 		baseBranch: string;
 		model: string;
 		content: string;
+		verify?: boolean;
 	},
 ) {
 	return db.transaction(async (tx): Promise<SendResult> => {
@@ -105,7 +107,7 @@ export function createChat(
 
 export function addMessage(
 	db: Db,
-	input: { userId: string; chatId: string; model: string; content: string },
+	input: { userId: string; chatId: string; model: string; content: string; verify?: boolean },
 ) {
 	return db.transaction(async (tx): Promise<SendResult> => {
 		const [found] = await tx
@@ -173,6 +175,9 @@ export async function getChatForUser(db: Db, userId: string, chatId: string) {
 			title: chat.title,
 			baseBranch: chat.baseBranch,
 			workingBranch: chat.workingBranch,
+			pullRequestNumber: chat.pullRequestNumber,
+			pullRequestUrl: chat.pullRequestUrl,
+			pullRequestError: chat.pullRequestError,
 			projectId: chat.projectId,
 			projectName: project.fullName,
 			installationId: project.installationId,
@@ -190,6 +195,7 @@ export function listMessages(db: Db, userId: string, chatId: string) {
 			id: message.id,
 			role: message.role,
 			content: message.content,
+			runId: message.runId,
 			createdAt: message.createdAt,
 		})
 		.from(message)
@@ -205,6 +211,14 @@ export function listRuns(db: Db, userId: string, chatId: string) {
 			messageId: run.messageId,
 			model: run.model,
 			status: run.status,
+			stopReason: run.stopReason,
+			error: run.error,
+			changedFiles: run.changedFiles,
+			verify: run.verify,
+			verification: run.verification,
+			stopRequestedAt: run.stopRequestedAt,
+			inputTokens: run.inputTokens,
+			outputTokens: run.outputTokens,
 			startedAt: run.startedAt,
 			finishedAt: run.finishedAt,
 			createdAt: run.createdAt,

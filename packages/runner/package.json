@@ -1,0 +1,26 @@
+{
+  "name": "@nullfuse/runner",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@nullfuse/agent": "workspace:*",
+    "@nullfuse/db": "workspace:*",
+    "@nullfuse/sandbox": "workspace:*",
+    "ai": "^7.0.181"
+  },
+  "devDependencies": {
+    "@nullfuse/secrets": "workspace:*",
+    "@types/node": "^24.19.2",
+    "drizzle-orm": "^0.45.4",
+    "typescript": "^5.9.3",
+    "vitest": "^5.1.1"
+  }
+}

@@ -60,6 +60,11 @@ export function MessageForm({ chatId, defaultModel }: Props) {
 						))}
 					</select>
 
+<label className="flex items-center gap-2 text-sm text-muted">
+						<input type="checkbox" name="verify" className="size-4 accent-ink" />
+						Run tests after
+					</label>
+
 					<span className="ml-auto hidden font-mono text-xs text-subtle sm:inline">
 						Cmd or Ctrl + Enter
 					</span>

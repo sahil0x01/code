@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+	type AnyPgColumn,
 	bigint,
 	boolean,
 	check,
@@ -198,6 +199,10 @@ export const chat = pgTable(
 		title: text("title").notNull(),
 		baseBranch: text("base_branch").notNull(),
 		workingBranch: text("working_branch"),
+		pullRequestNumber: integer("pull_request_number"),
+		pullRequestUrl: text("pull_request_url"),
+		// Why the last attempt to open the PR failed, shown to the user.
+		pullRequestError: text("pull_request_error"),
 		createdAt: timestamp("created_at", { withTimezone: true })
 			.notNull()
 			.defaultNow(),
@@ -217,6 +222,10 @@ export const message = pgTable(
 			.references(() => chat.id, { onDelete: "cascade" }),
 		role: text("role").$type<"user" | "assistant">().notNull(),
 		content: text("content").notNull(),
+		// The run that wrote an assistant message. Null for the user's messages.
+		runId: uuid("run_id").references((): AnyPgColumn => run.id, {
+			onDelete: "set null",
+		}),
 		createdAt: timestamp("created_at", { withTimezone: true })
 			.notNull()
 			.defaultNow(),
@@ -226,6 +235,31 @@ export const message = pgTable(
 		check("message_role_check", sql`${t.role} in ('user', 'assistant')`),
 	],
 );
+
+export const runStopReasons = [
+	"completed",
+	"step-limit",
+	"token-budget",
+	"timeout",
+	"aborted",
+	"error",
+] as const;
+
+export type RunStopReason = (typeof runStopReasons)[number];
+
+export type RunVerification = {
+	command: string;
+	exitCode: number;
+	timedOut: boolean;
+	durationMs: number;
+	/** The end of the output, with secrets removed. */
+	output: string;
+};
+
+export type ChangedFile = {
+	path: string;
+	status: "added" | "modified" | "deleted" | "renamed";
+};
 
 export const run = pgTable(
 	"run",
@@ -247,6 +281,19 @@ export const run = pgTable(
 			.default("queued"),
 		startedAt: timestamp("started_at", { withTimezone: true }),
 		finishedAt: timestamp("finished_at", { withTimezone: true }),
+		stopReason: text("stop_reason").$type<RunStopReason>(),
+		error: text("error"),
+		changedFiles: jsonb("changed_files")
+			.$type<ChangedFile[]>()
+			.notNull()
+			.default([]),
+		stopRequestedAt: timestamp("stop_requested_at", { withTimezone: true }),
+		verify: boolean("verify").notNull().default(false),
+		verification: jsonb("verification").$type<RunVerification>(),
+		heartbeatAt: timestamp("heartbeat_at", { withTimezone: true }),
+		attempts: integer("attempts").notNull().default(0),
+		inputTokens: integer("input_tokens").notNull().default(0),
+		outputTokens: integer("output_tokens").notNull().default(0),
 		createdAt: timestamp("created_at", { withTimezone: true })
 			.notNull()
 			.defaultNow(),
@@ -264,5 +311,45 @@ export const run = pgTable(
 			"run_status_check",
 			sql`${t.status} in ('queued', 'running', 'succeeded', 'failed', 'cancelled')`,
 		),
+		check(
+			"run_stop_reason_check",
+			sql`${t.stopReason} is null or ${t.stopReason} in (${sql.raw(runStopReasons.map((reason) => `'${reason}'`).join(", "))})`,
+		),
 	],
+);
+
+export type StepToolCall = { id: string; name: string; input: unknown };
+
+export type StepToolResult = {
+	id: string;
+	name: string;
+	output: string;
+	isError: boolean;
+};
+
+export const runStep = pgTable(
+	"run_step",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		runId: uuid("run_id")
+			.notNull()
+			.references(() => run.id, { onDelete: "cascade" }),
+		stepIndex: integer("step_index").notNull(),
+		finishReason: text("finish_reason").notNull(),
+		text: text("text").notNull().default(""),
+		toolCalls: jsonb("tool_calls")
+			.$type<StepToolCall[]>()
+			.notNull()
+			.default([]),
+		toolResults: jsonb("tool_results")
+			.$type<StepToolResult[]>()
+			.notNull()
+			.default([]),
+		inputTokens: integer("input_tokens").notNull().default(0),
+		outputTokens: integer("output_tokens").notNull().default(0),
+		createdAt: timestamp("created_at", { withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(t) => [unique("run_step_run_index_unique").on(t.runId, t.stepIndex)],
 );

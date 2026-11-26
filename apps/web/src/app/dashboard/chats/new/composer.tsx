@@ -93,6 +93,11 @@ export function Composer({ projects, initialProjectId }: Props) {
 						))}
 					</select>
 
+<label className="flex items-center gap-2 text-sm text-muted">
+						<input type="checkbox" name="verify" className="size-4 accent-ink" />
+						Run tests after
+					</label>
+
 					<button
 						type="submit"
 						disabled={pending || content.trim() === ""}
