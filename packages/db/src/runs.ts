@@ -8,6 +8,7 @@ import {
 	projectEnvVar,
 	run,
 	type RunStopReason,
+	type RunLive,
 	type RunRecording,
 	type RunVerification,
 	runStep,
@@ -102,6 +103,7 @@ export function claimRun(db: Db, runId: string, options: { maxRunningPerUser?: n
 		const [started] = await tx
 			.update(run)
 			.set({
+				live: null,
 				status: "running",
 				startedAt: sql`coalesce(${run.startedAt}, ${now.toISOString()}::timestamptz)`,
 				heartbeatAt: now,
@@ -155,6 +157,7 @@ export function recordStep(db: Db, runId: string, step: StepRecord, attempt?: nu
 				outputTokens: sql`${run.outputTokens} + ${step.outputTokens}`,
 				cachedInputTokens: sql`${run.cachedInputTokens} + ${step.cachedInputTokens ?? 0}`,
 				reasoningTokens: sql`${run.reasoningTokens} + ${step.reasoningTokens ?? 0}`,
+				live: null,
 				updatedAt: new Date(),
 			})
 			.where(eq(run.id, runId));
@@ -203,6 +206,7 @@ export function finishRun(db: Db, runId: string, outcome: RunOutcome, attempt?: 
 		await tx
 			.update(run)
 			.set({
+				live: null,
 				status: outcome.status,
 				stopReason: outcome.stopReason,
 				error: outcome.error ?? null,
@@ -233,6 +237,7 @@ export function listRunSteps(db: Db, userId: string, runId: string) {
 			stepIndex: runStep.stepIndex,
 			finishReason: runStep.finishReason,
 			text: runStep.text,
+			reasoning: runStep.reasoning,
 			toolCalls: runStep.toolCalls,
 			toolResults: runStep.toolResults,
 			inputTokens: runStep.inputTokens,
@@ -418,6 +423,23 @@ export async function setRecording(
 		)
 		.returning({ id: run.id });
 	return rows.length > 0;
+}
+
+/** Shows what the model is writing. Ignored once the run or the attempt has moved on. */
+export async function setRunLive(db: Db, runId: string, live: RunLive | null, attempt: number) {
+	await db
+		.update(run)
+		.set({ live })
+		.where(and(eq(run.id, runId), eq(run.status, "running"), eq(run.attempts, attempt)));
+}
+
+/** For the owner's chat page. Null when the run is not theirs. */
+export async function getRunLive(db: Db, userId: string, chatId: string, runId: string) {
+	const [row] = await db
+		.select({ status: run.status, live: run.live })
+		.from(run)
+		.where(and(eq(run.id, runId), eq(run.chatId, chatId), eq(run.userId, userId)));
+	return row ?? null;
 }
 
 /** Proof of life. False means this attempt is no longer the current one, so the worker must stop. */

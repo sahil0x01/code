@@ -3,6 +3,7 @@ import { stopRun } from "@/actions/chats";
 import { buttonClass } from "@/components/ui/styles";
 import { formatTokens } from "@/lib/format";
 import { durationSince } from "@/lib/time";
+import { LiveOutput } from "./live-output";
 import { RunStatusBadge } from "./run-status";
 
 export type RunRow = Awaited<ReturnType<typeof listRuns>>[number];
@@ -164,6 +165,8 @@ export function RunPanel({
 					</ol>
 				)}
 			</details>
+
+			{run.status === "running" && <LiveOutput chatId={chatId} runId={run.id} />}
 
 			{run.status === "queued" && (
 				<form action={stopRun}>

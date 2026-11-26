@@ -42,6 +42,7 @@ export function getDeps(): Promise<RunnerDeps> {
 		const store = r2 && createR2Store(r2);
 		return {
 			browserImage: recordingImage,
+			liveUpdates: true,
 			...(store && {
 				recorder: {
 					uploadUrl: (key: string) => store.uploadUrl(key),

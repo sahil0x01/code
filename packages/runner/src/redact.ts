@@ -19,8 +19,18 @@ export function redactor(secrets: string[]) {
 		return value;
 	};
 
+	const longest = values[0]?.length ?? 0;
+
 	return {
 		text,
+		/**
+		 * For text still being written: the end is held back, because a secret that has only
+		 * half arrived would not match yet.
+		 */
+		partial: (input: string) => {
+			const clean = text(input);
+			return longest === 0 ? clean : clean.slice(0, Math.max(0, clean.length - longest + 1));
+		},
 		step: (step: StepRecord): StepRecord => ({
 			...step,
 			text: text(step.text),

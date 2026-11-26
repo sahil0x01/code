@@ -2,11 +2,12 @@ import { execFile } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { promisify } from "node:util";
 import { workingBranchFor } from "@nullfuse/agent";
-import { answer, type GitRemote, startGitRemote, toolCalls } from "@nullfuse/agent/testing";
+import { answer, asStream, type GitRemote, startGitRemote, toolCalls } from "@nullfuse/agent/testing";
 import {
 	addMessage,
 	chat,
 	claimRun,
+	getRunLive,
 	createChat,
 	installation,
 	listMessages,
@@ -218,6 +219,43 @@ describe.skipIf(!hasDocker)("executeRun", () => {
 		expect(spy.created).toBe(1);
 		expect(spy.destroyed).toBe(1);
 		expect(await containerGone(spy.ids[0] ?? "")).toBe(true);
+	});
+
+	it("shows the model's output while it works, with secrets removed, and clears it after", async () => {
+		const { userId, chatId, runId } = await setup({ env: { API_KEY: "s3cr3t-key-value" } });
+		let release = () => {};
+		const held = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		const model = new MockLanguageModelV4({
+			doStream: async () => {
+				const first = model.doStreamCalls.length === 1;
+				if (first) {
+					return asStream(
+						toolCalls({ name: "write", input: { path: "a.txt", content: "a" } }),
+						"Thinking about s3cr3t-key-value before I write the file",
+					);
+				}
+				await held;
+				return asStream(answer("Done."));
+			},
+		});
+		const seen: string[] = [];
+		const watching = setInterval(async () => {
+			const row = await getRunLive(db, userId, chatId, runId);
+			if (row?.live) seen.push(JSON.stringify(row.live));
+		}, 20);
+		setTimeout(release, 1500);
+
+		const result = await executeRun(deps(model, { liveUpdates: true }), runId);
+		clearInterval(watching);
+
+		expect(result).toMatchObject({ status: "succeeded" });
+		expect(seen.join()).not.toContain("s3cr3t-key-value");
+		expect(await getRunLive(db, userId, chatId, runId)).toEqual({ status: "succeeded", live: null });
+		const [step] = await listRunSteps(db, userId, runId);
+		expect(step?.reasoning).toBe("Thinking about [hidden] before I write the file");
+		expect(await getRunLive(db, await fixtures.user(), chatId, runId)).toBeNull();
 	});
 
 	it("continues a chat from the earlier run's files, in a new sandbox", async () => {

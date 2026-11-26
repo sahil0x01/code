@@ -262,6 +262,15 @@ export type RunVerification = {
 export const reasoningLevels = ["off", "low", "high", "max"] as const;
 export type ReasoningLevel = (typeof reasoningLevels)[number];
 
+/** What the model is writing right now, for the step that has not finished yet. */
+export type RunLive = {
+	stepIndex: number;
+	reasoning: string;
+	text: string;
+	/** The tool whose call the model is writing. */
+	tool: string | null;
+};
+
 export type RunRecording =
 	| {
 			status: "recorded";
@@ -314,6 +323,7 @@ export const run = pgTable(
 		record: boolean("record").notNull().default(false),
 		recording: jsonb("recording").$type<RunRecording>(),
 		heartbeatAt: timestamp("heartbeat_at", { withTimezone: true }),
+		live: jsonb("live").$type<RunLive>(),
 		attempts: integer("attempts").notNull().default(0),
 		inputTokens: integer("input_tokens").notNull().default(0),
 		outputTokens: integer("output_tokens").notNull().default(0),

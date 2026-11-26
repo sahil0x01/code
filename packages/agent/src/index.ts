@@ -1,4 +1,5 @@
 export {
+	type AgentDelta,
 	type AgentLimits,
 	type AgentRun,
 	type AgentStep,

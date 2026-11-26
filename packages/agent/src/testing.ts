@@ -1,3 +1,5 @@
+import type { LanguageModelV4StreamPart } from "@ai-sdk/provider";
+import { simulateReadableStream } from "ai";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import type { DockerDriver, Sandbox } from "@nullfuse/sandbox";
@@ -73,5 +75,32 @@ export const answer = (text: string, tokens = usage()) => ({
 	usage: tokens,
 	warnings: [],
 });
+
+/** The same scripted answers, for a model that is asked to stream. */
+export const asStream = (
+	result: ReturnType<typeof toolCalls> | ReturnType<typeof answer>,
+	reasoning = "",
+) => {
+	const parts: LanguageModelV4StreamPart[] = [{ type: "stream-start", warnings: [] }];
+	if (reasoning) {
+		parts.push({ type: "reasoning-start", id: "r" });
+		for (const delta of reasoning.split(/(?<= )/)) parts.push({ type: "reasoning-delta", id: "r", delta });
+		parts.push({ type: "reasoning-end", id: "r" });
+	}
+	for (const item of result.content) {
+		if (item.type === "text") {
+			parts.push({ type: "text-start", id: "t" });
+			for (const delta of item.text.split(/(?<= )/)) parts.push({ type: "text-delta", id: "t", delta });
+			parts.push({ type: "text-end", id: "t" });
+		} else {
+			parts.push({ type: "tool-input-start", id: item.toolCallId, toolName: item.toolName });
+			parts.push({ type: "tool-input-delta", id: item.toolCallId, delta: item.input });
+			parts.push({ type: "tool-input-end", id: item.toolCallId });
+			parts.push(item);
+		}
+	}
+	parts.push({ type: "finish", finishReason: result.finishReason, usage: result.usage });
+	return { stream: simulateReadableStream({ chunks: parts, initialDelayInMs: null, chunkDelayInMs: null }) };
+};
 
 export type { Sandbox };

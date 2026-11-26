@@ -31,6 +31,7 @@ import {
 	setPullRequest,
 	setPullRequestError,
 	setRecording,
+	setRunLive,
 	setVerification,
 	setWorkingBranchIfUnset,
 	touchRun,
@@ -39,6 +40,7 @@ import { readText, type Sandbox, type SandboxDriver } from "@nullfuse/sandbox";
 import { recordingKey } from "@nullfuse/storage";
 import type { LanguageModel } from "ai";
 import { checkAppTool } from "./check-app";
+import { liveWriter } from "./live";
 import { recordChange, recordingInstructions, SCRIPT_PATH, uploadRecording } from "./recording";
 import { redactor } from "./redact";
 
@@ -70,6 +72,8 @@ export type RunnerDeps = {
 	 * app, so the agent can check its work and record it.
 	 */
 	browserImage?(): Promise<string>;
+	/** Streams the model's output and saves it as it arrives, for the chat page. */
+	liveUpdates?: boolean;
 	/** Without it, runs that ask for a recording say it is not set up. */
 	recorder?: Recorder;
 };
@@ -392,6 +396,19 @@ async function perform(
 		}
 	};
 
+	const live = deps.liveUpdates
+		? liveWriter({
+				save: (value) =>
+					setRunLive(
+						deps.db,
+						runId,
+						{ ...value, stepIndex: value.stepIndex + before.steps },
+						attempt,
+					),
+				clean: redact.partial,
+			})
+		: undefined;
+
 	let agent: AgentRun | undefined;
 	let agentError: unknown;
 	try {
@@ -423,7 +440,9 @@ async function perform(
 					maxTokens: limits.maxTokens - before.tokens,
 				},
 				signal: abort,
+				onDelta: live?.add,
 				onStep: async (step) => {
+					await live?.next(step.stepNumber + 1);
 					const record = redact.step(toStepRecord(step));
 					await recordStep(
 						deps.db,

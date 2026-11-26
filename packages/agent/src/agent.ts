@@ -36,6 +36,11 @@ export type AgentRun = {
 	stoppedBy: AgentStopReason;
 };
 
+/** A piece of the model's output as it arrives. */
+export type AgentDelta =
+	| { kind: "reasoning" | "text"; text: string }
+	| { kind: "tool"; name: string };
+
 export type RunAgentOptions = {
 	model: LanguageModel;
 	sandbox: Sandbox;
@@ -51,6 +56,8 @@ export type RunAgentOptions = {
 	limits?: Partial<AgentLimits>;
 	/** Aborting stops the run and returns what happened so far. */
 	signal?: AbortSignal;
+	/** When given, the model's output is streamed and passed here as it arrives. */
+	onDelta?: (delta: AgentDelta) => void;
 	/** Called after every step, in order. */
 	onStep?: (step: AgentStep) => void | Promise<void>;
 };
@@ -121,12 +128,26 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRun> {
 	let text = "";
 	let aborted = false;
 	try {
-		const result = await agent.generate({
+		const call = {
 			messages: options.messages,
 			abortSignal: options.signal,
 			timeout: limits.timeoutMs,
-		});
-		text = result.text;
+		};
+		const { onDelta } = options;
+		if (!onDelta) {
+			text = (await agent.generate(call)).text;
+		} else {
+			// A stream reports aborts and provider errors as parts instead of throwing.
+			const result = await agent.stream(call);
+			for await (const part of result.stream) {
+				if (part.type === "reasoning-delta") onDelta({ kind: "reasoning", text: part.text });
+				else if (part.type === "text-delta") onDelta({ kind: "text", text: part.text });
+				else if (part.type === "tool-input-start") onDelta({ kind: "tool", name: part.toolName });
+				else if (part.type === "error") throw part.error;
+				else if (part.type === "abort") aborted = true;
+			}
+			text = steps.at(-1)?.text ?? "";
+		}
 	} catch (error) {
 		if (fatal) throw fatal.error;
 		if (!isAbort(error)) throw error;
