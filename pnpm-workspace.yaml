@@ -3,6 +3,8 @@ packages:
   - "packages/*"
   - "evals"
 allowBuilds:
+  "@depot/cli": false
+  protobufjs: false
   esbuild: false
   sharp: false
   unrs-resolver: false
