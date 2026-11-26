@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: "Privacy Policy" };
 
 export default function PrivacyPage() {
 	return (
-		<LegalPage title="Privacy Policy" updated="22 November 2026">
+		<LegalPage title="Privacy Policy" updated="26 November 2026">
 			<p>
 				This policy explains what NullFuse Code does with your data. It
 				describes what is live today: a website and a waitlist. We keep it short
@@ -108,6 +108,13 @@ export default function PrivacyPage() {
 				<Link href="/terms">Terms of Service</Link> apply from the start: we do
 				not use your code to train models, we do not keep copies of your
 				repository, and you can delete your account and your data.
+			</p>
+			<p>
+				If you ask for a screen recording of a change, we record your app running
+				in a temporary sandbox. The video can show anything your app displays. It
+				is stored privately with Cloudflare R2, only you can open it through your
+				account, and it is deleted after 30 days, or sooner when you delete the
+				chat or your account.
 			</p>
 
 			<h2>Changes</h2>

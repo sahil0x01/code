@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { type GitRemote, startGitRemote } from "@nullfuse/agent/testing";
 import { answer, toolCalls } from "@nullfuse/agent/testing";
-import { createChat, listRuns, project } from "@nullfuse/db";
+import { createChat, listRuns, project, recordingDeletion, user } from "@nullfuse/db";
 import { connect, Fixtures } from "@nullfuse/db/testing";
 import {
 	DockerDriver,
@@ -11,7 +11,7 @@ import {
 	type Sandbox,
 } from "@nullfuse/sandbox";
 import { MockLanguageModelV4 } from "ai/test";
-import { eq } from "drizzle-orm";
+import { eq, like } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { executeRun, type Recorder, type RunnerDeps } from "./execute";
 import { SCRIPT_PATH } from "./recording";
@@ -160,6 +160,27 @@ describe.skipIf(!hasDocker)("executeRun with a recording", () => {
 		expect(files).toContain("server.js");
 		expect(files).not.toContain("app-output.log");
 		expect(files).not.toContain("script.mjs");
+	});
+
+	it("queues the video for deletion when the account goes away during the upload", async () => {
+		const { userId, runId } = await setup();
+		const base = recorder();
+		await executeRun(
+			deps(writesApp(), {
+				...base,
+				uploadUrl: async (key) => {
+					await db.delete(user).where(eq(user.id, userId));
+					return base.uploadUrl(key);
+				},
+			}),
+			runId,
+		);
+
+		const queued = await db
+			.select()
+			.from(recordingDeletion)
+			.where(like(recordingDeletion.key, `%/${runId}-1.webm`));
+		expect(queued).toHaveLength(1);
 	});
 
 	it("says why when the agent writes no script, and keeps the run succeeded", async () => {

@@ -370,3 +370,13 @@ export const runStep = pgTable(
 	},
 	(t) => [unique("run_step_run_index_unique").on(t.runId, t.stepIndex)],
 );
+
+/**
+ * Videos waiting to be removed from storage. A database trigger on `run` adds a row whenever
+ * a recording stops being referenced, including through a cascade, so no code path can forget.
+ */
+export const recordingDeletion = pgTable("recording_deletion", {
+	key: text("key").primaryKey(),
+	attempts: integer("attempts").notNull().default(0),
+	createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});

@@ -398,7 +398,7 @@ export async function setRecording(
 	recording: RunRecording,
 	attempt?: number,
 ) {
-	await db
+	const rows = await db
 		.update(run)
 		.set({ recording, updatedAt: new Date() })
 		.where(
@@ -407,7 +407,9 @@ export async function setRecording(
 				eq(run.status, "running"),
 				attempt === undefined ? undefined : eq(run.attempts, attempt),
 			),
-		);
+		)
+		.returning({ id: run.id });
+	return rows.length > 0;
 }
 
 /** Proof of life. False means this attempt is no longer the current one, so the worker must stop. */

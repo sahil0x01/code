@@ -19,6 +19,7 @@ import {
 	getRunProgress,
 	isStopRequested,
 	loadRunContext,
+	queueRecordingDeletion,
 	type RunContext,
 	type RunOutcome,
 	type RunRecording,
@@ -507,8 +508,12 @@ async function perform(
 			} catch (error) {
 				recording = note("Recording failed.", describe(error));
 			}
-			await setRecording(deps.db, runId, recording, attempt);
-			if (recording.status === "recorded" && pullNumber !== null) {
+			const saved = await setRecording(deps.db, runId, recording, attempt);
+			// The chat was deleted or a newer attempt took over: nothing will point at this video.
+			if (!saved && recording.status === "recorded") {
+				await queueRecordingDeletion(deps.db, recording.key);
+			}
+			if (saved && recording.status === "recorded" && pullNumber !== null) {
 				await recordingPlan?.recorder
 					.linkPullRequest?.({
 						installationId: project.installationId,
