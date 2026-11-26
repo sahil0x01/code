@@ -14,7 +14,7 @@ import { ChatWorkspace } from "@/components/dashboard/chat-workspace";
 import { Markdown } from "@/components/dashboard/markdown";
 import { PullBar } from "@/components/dashboard/pull-bar";
 import { RunPanel } from "@/components/dashboard/run-panel";
-import { DEFAULT_MODEL_ID, isModelId } from "@/lib/chat";
+import { DEFAULT_MODEL_ID, DEFAULT_REASONING, isModelId } from "@/lib/chat";
 import { db } from "@/server/db";
 import { recordingStore } from "@/server/recordings";
 import { requireSession } from "@/server/session";
@@ -86,6 +86,7 @@ export default async function ChatPage({
 	const lastModel = runs.at(-1)?.model;
 	const defaultModel =
 		lastModel && isModelId(lastModel) ? lastModel : DEFAULT_MODEL_ID;
+	const defaultReasoning = runs.at(-1)?.reasoning ?? DEFAULT_REASONING;
 	const tests = runs.findLast((run) => run.verification)?.verification;
 	const testsPassed = tests && tests.exitCode === 0 && !tests.timedOut;
 	// A new step, status or PR can mean new commits on the branch.
@@ -164,6 +165,7 @@ export default async function ChatPage({
 							key={chat.id}
 							chatId={chat.id}
 							defaultModel={defaultModel}
+							defaultReasoning={defaultReasoning}
 							canRecord={chat.canRecord}
 							running={
 								running && { id: running.id, stopping: running.stopRequestedAt !== null }
@@ -199,6 +201,7 @@ export default async function ChatPage({
 								key={chat.id}
 								chatId={chat.id}
 								model={defaultModel}
+								reasoning={defaultReasoning}
 								refreshKey={refreshKey}
 							/>
 						</div>

@@ -1,10 +1,12 @@
 import type { Sandbox } from "@nullfuse/sandbox";
 import {
 	isStepCount,
+	type JSONValue,
 	type LanguageModel,
 	type ModelMessage,
 	type StepResult,
 	ToolLoopAgent,
+	type ToolSet,
 } from "ai";
 import { ToolError } from "./errors";
 import { SYSTEM_PROMPT } from "./prompt";
@@ -42,6 +44,10 @@ export type RunAgentOptions = {
 	/** Added to every command the bash tool runs. */
 	env?: Record<string, string>;
 	instructions?: string;
+	/** Settings only one provider understands, such as how hard to think. */
+	providerOptions?: Record<string, Record<string, JSONValue>>;
+	/** Offered to the model beside the built-in tools. */
+	tools?: ToolSet;
 	limits?: Partial<AgentLimits>;
 	/** Aborting stops the run and returns what happened so far. */
 	signal?: AbortSignal;
@@ -88,8 +94,12 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRun> {
 
 	const agent = new ToolLoopAgent({
 		model: options.model,
+		providerOptions: options.providerOptions,
 		instructions: options.instructions ?? SYSTEM_PROMPT,
-		tools: createTools({ sandbox: options.sandbox, env: options.env }),
+		tools: {
+			...createTools({ sandbox: options.sandbox, env: options.env }),
+			...(options.tools as Partial<AgentTools> | undefined),
+		},
 		stopWhen: [
 			isStepCount(limits.maxSteps),
 			({ steps }) => tokensUsed(steps as AgentStep[]) >= limits.maxTokens,

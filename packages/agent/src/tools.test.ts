@@ -1,6 +1,7 @@
 import { DockerDriver, dockerAvailable, readText, type Sandbox } from "@nullfuse/sandbox";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { ToolError } from "./errors";
+import { readProjectRules } from "./rules";
 import { bashTool, createTools } from "./tools";
 
 const IMAGE = process.env.SANDBOX_TEST_IMAGE ?? "alpine:3";
@@ -382,6 +383,41 @@ describe.skipIf(!hasDocker)("tools", () => {
 			expect(result.output).toContain("characters omitted");
 			expect(result.output.trimEnd().endsWith("THE-END")).toBe(true);
 			expect(result.output.length).toBeLessThan(31_000);
+		});
+	});
+
+	describe("parallel changes", () => {
+		it("keeps every edit when the model changes one file several times at once", async () => {
+			await sh("printf 'one\\ntwo\\nthree\\n' > shared.txt");
+			const results = await Promise.all([
+				call(t.edit, { path: "shared.txt", oldString: "one", newString: "1" }),
+				call(t.edit, { path: "./shared.txt", oldString: "two", newString: "2" }),
+				call(t.edit, { path: `${sandbox.workdir}/shared.txt`, oldString: "three", newString: "3" }),
+			]);
+			expect(results.every((result) => result.ok)).toBe(true);
+			expect((await sh("cat shared.txt")).stdout).toBe("1\n2\n3\n");
+		});
+
+		it("goes on after a change that fails", async () => {
+			await sh("printf 'a' > queue.txt");
+			const [bad, good] = await Promise.all([
+				call(t.edit, { path: "queue.txt", oldString: "missing", newString: "x" }),
+				call(t.edit, { path: "queue.txt", oldString: "a", newString: "b" }),
+			]);
+			expect([bad.ok, good.ok]).toEqual([false, true]);
+		});
+	});
+
+	describe("project rules", () => {
+		it("reads the root instruction files once each, and cuts huge ones", async () => {
+			expect(await readProjectRules(sandbox)).toEqual([]);
+			await sh("printf 'Use tabs.' > AGENTS.md && ln -s AGENTS.md CLAUDE.md");
+			expect(await readProjectRules(sandbox)).toEqual([{ file: "AGENTS.md", text: "Use tabs." }]);
+			await sh("rm CLAUDE.md && head -c 30000 /dev/zero | tr '\\0' x > CLAUDE.md");
+			const [, large] = await readProjectRules(sandbox);
+			expect(large?.text.length).toBeLessThan(20_100);
+			expect(large?.text).toContain("[cut: read CLAUDE.md");
+			await sh("rm AGENTS.md CLAUDE.md");
 		});
 	});
 

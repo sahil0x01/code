@@ -9,7 +9,6 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@daytona/sdk": "^2.2.0",
     "@nullfuse/agent": "workspace:*",
     "@nullfuse/db": "workspace:*",
     "@nullfuse/runner": "workspace:*",

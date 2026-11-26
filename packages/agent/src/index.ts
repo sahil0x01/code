@@ -9,7 +9,15 @@ export {
 } from "./agent";
 export { ToolError } from "./errors";
 export { withFallback } from "./fallback";
-export { createDeepSeekModel, DEEPSEEK_MODEL_IDS, type DeepSeekModelId } from "./model";
+export { readProjectRules } from "./rules";
+export {
+	createDeepSeekModel,
+	DEEPSEEK_MODEL_IDS,
+	type DeepSeekModelId,
+	REASONING_LEVELS,
+	type ReasoningLevel,
+	reasoningOptions,
+} from "./model";
 export { SYSTEM_PROMPT } from "./prompt";
 export { type StepRecord, toStepRecord } from "./record";
 export { shellQuote } from "./shell";

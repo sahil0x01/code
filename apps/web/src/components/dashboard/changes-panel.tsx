@@ -13,13 +13,14 @@ import { useDrafts } from "./use-drafts";
 type Props = {
 	chatId: string;
 	model: string;
+	reasoning: string;
 	/** Changes whenever the agent may have pushed new work. */
 	refreshKey: string;
 };
 
 type View = Diff | { state: "loading" | "not_pushed" | "disconnected" };
 
-export function ChangesPanel({ chatId, model, refreshKey }: Props) {
+export function ChangesPanel({ chatId, model, reasoning, refreshKey }: Props) {
 	const [view, setView] = useState<View>({ state: "loading" });
 	const [error, setError] = useState<string | null>(null);
 	const [reload, setReload] = useState(0);
@@ -66,6 +67,7 @@ export function ChangesPanel({ chatId, model, refreshKey }: Props) {
 			const form = new FormData();
 			form.set("chatId", chatId);
 			form.set("model", model);
+			form.set("reasoning", reasoning);
 			form.set("content", review);
 			const result = await sendMessage({ status: "idle" }, form).catch(() => ({
 				status: "error" as const,

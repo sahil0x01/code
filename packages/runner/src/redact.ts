@@ -24,6 +24,7 @@ export function redactor(secrets: string[]) {
 		step: (step: StepRecord): StepRecord => ({
 			...step,
 			text: text(step.text),
+			reasoning: text(step.reasoning),
 			toolCalls: step.toolCalls.map((call) => ({ ...call, input: deep(call.input) })),
 			toolResults: step.toolResults.map((result) => ({ ...result, output: text(result.output) })),
 		}),

@@ -3,11 +3,12 @@
 import { useActionState, useState } from "react";
 import { type ChatState, sendMessage, stopRun } from "@/actions/chats";
 import { buttonClass } from "@/components/ui/styles";
-import { MAX_MESSAGE_LENGTH, MODELS } from "@/lib/chat";
+import { MAX_MESSAGE_LENGTH, MODELS, REASONING_OPTIONS } from "@/lib/chat";
 
 type Props = {
 	chatId: string;
 	defaultModel: string;
+	defaultReasoning: string;
 	/** The run working right now, which can be stopped from here. */
 	running?: { id: string; stopping: boolean };
 	/** The project says how to start its app, so a run can record it. */
@@ -17,7 +18,14 @@ type Props = {
 const initialState: ChatState = { status: "idle" };
 const STOP_FORM = "stop-run";
 
-export function MessageForm({ chatId, defaultModel, running, canRecord }: Props) {
+export function MessageForm({
+	chatId,
+	defaultModel,
+	defaultReasoning,
+	running,
+	canRecord,
+}: Props) {
+	const [reasoning, setReasoning] = useState(defaultReasoning);
 	const [content, setContent] = useState("");
 	const [model, setModel] = useState(defaultModel);
 
@@ -69,6 +77,20 @@ export function MessageForm({ chatId, defaultModel, running, canRecord }: Props)
 							className="h-8 bg-transparent font-mono text-xs text-muted hover:text-foreground"
 						>
 							{MODELS.map((option) => (
+								<option key={option.id} value={option.id}>
+									{option.label}
+								</option>
+							))}
+						</select>
+
+						<select
+							name="reasoning"
+							value={reasoning}
+							onChange={(event) => setReasoning(event.target.value)}
+							aria-label="Reasoning level"
+							className="h-8 bg-transparent font-mono text-xs text-muted hover:text-foreground"
+						>
+							{REASONING_OPTIONS.map((option) => (
 								<option key={option.id} value={option.id}>
 									{option.label}
 								</option>

@@ -133,13 +133,21 @@ function imageTag(name: string, dir: string, files: string[]) {
 	return `${name}:${hash.digest("hex").slice(0, 12)}`;
 }
 
+/**
+ * The script that runs inside the browser sandbox. It is written there when needed, not built
+ * into the image: Daytona would have to upload it, which fails from a bundled worker.
+ */
+export function recordingHarness() {
+	return readFileSync(path.join(recordingDir(), "record.mjs"), "utf8");
+}
+
 export function sandboxImage() {
 	return imageTag("nullfuse-sandbox", imageDir(), ["Dockerfile"]);
 }
 
 /** The larger image with a browser, only for runs that record a video. */
 export function recordingImage() {
-	return imageTag("nullfuse-recording", recordingDir(), ["Dockerfile", "record.mjs"]);
+	return imageTag("nullfuse-recording", recordingDir(), ["Dockerfile"]);
 }
 
 async function ensureImage(tag: string, dir: string) {

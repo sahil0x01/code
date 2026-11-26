@@ -12,5 +12,3 @@ RUN apt-get update \
     && npm install --no-audit --no-fund @playwright/test@1.65.0 \
     && npx playwright install --with-deps chromium \
     && rm -rf /var/lib/apt/lists/* /root/.npm
-
-COPY record.mjs /opt/nullfuse/record.mjs

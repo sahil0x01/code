@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { type GitRemote, startGitRemote } from "@nullfuse/agent/testing";
 import { answer, toolCalls } from "@nullfuse/agent/testing";
-import { createChat, listRuns, project, recordingDeletion, user } from "@nullfuse/db";
+import { createChat, listRuns, listRunSteps, project, recordingDeletion, user } from "@nullfuse/db";
 import { connect, Fixtures } from "@nullfuse/db/testing";
 import {
 	DockerDriver,
@@ -107,6 +107,7 @@ describe.skipIf(!hasDocker)("executeRun with a recording", () => {
 			decryptEnvValue: () => randomBytes(4).toString("hex"),
 			author: { name: "NullFuse Code", email: "code@example.test" },
 			repoUrl: () => remote.url,
+			browserImage: ensureRecordingImage,
 			recorder,
 		};
 	}
@@ -123,7 +124,6 @@ describe.skipIf(!hasDocker)("executeRun with a recording", () => {
 		});
 
 	const recorder = (path = "/video", linked: unknown[] = []): Recorder => ({
-		image: ensureRecordingImage,
 		uploadUrl: async (key) => `${storageUrl}${path}/${key}?signature=do-not-log`,
 		linkPullRequest: async (input) => {
 			linked.push(input);
@@ -181,6 +181,49 @@ describe.skipIf(!hasDocker)("executeRun with a recording", () => {
 			.from(recordingDeletion)
 			.where(like(recordingDeletion.key, `%/${runId}-1.webm`));
 		expect(queued).toHaveLength(1);
+	});
+
+	it("lets the agent check the app in a browser, with the repository's rules in its prompt", async () => {
+		const { userId, chatId, runId } = await setup({ record: false });
+		const broken = app.replace("<h1>Notes</h1>", "<h1>Notes</h1><script>console.error('boom-in-page')</script><img src=/missing.png>");
+		const model = new MockLanguageModelV4({
+			doGenerate: [
+				toolCalls({ name: "write", input: { path: "server.js", content: broken } }),
+				toolCalls({ name: "check_app", input: {} }),
+				toolCalls({
+					name: "check_app",
+					input: {
+						script: "export default async ({ page, expect }) => { await page.goto('/'); await expect(page.getByRole('heading')).toHaveText('Other', { timeout: 1000 }); };",
+					},
+				}),
+				answer("Checked."),
+			],
+		});
+
+		await executeRun(deps(model), runId);
+
+		const outputs = (await listRunSteps(db, userId, runId)).flatMap((step) => step.toolResults);
+		const [, first, second] = outputs;
+		expect(first?.isError).toBeFalsy();
+		expect(first?.output).toContain('heading "Notes"');
+		expect(first?.output).toContain("boom-in-page");
+		expect(second?.output).toContain("The script failed");
+		expect(second?.output).toContain("Other");
+		const prompt = model.doGenerateCalls[0]?.prompt[0];
+		expect(prompt?.role === "system" && prompt.content).toContain("verify it with the check_app tool");
+		expect((await result(userId, chatId))?.status).toBe("succeeded");
+	});
+
+	it("tells the agent why the app could not be checked", async () => {
+		const { userId, runId } = await setup({ record: false, startCommand: "echo no-database >&2; exit 1" });
+		const model = new MockLanguageModelV4({
+			doGenerate: [toolCalls({ name: "check_app", input: {} }), answer("It does not start.")],
+		});
+
+		await executeRun(deps(model), runId);
+
+		const [step] = await listRunSteps(db, userId, runId);
+		expect(step?.toolResults[0]).toMatchObject({ isError: true, output: expect.stringContaining("no-database") });
 	});
 
 	it("says why when the agent writes no script, and keeps the run succeeded", async () => {

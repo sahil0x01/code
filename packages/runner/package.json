@@ -15,7 +15,8 @@
     "@nullfuse/db": "workspace:*",
     "@nullfuse/sandbox": "workspace:*",
     "@nullfuse/storage": "workspace:*",
-    "ai": "^7.0.181"
+    "ai": "^7.0.181",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@nullfuse/secrets": "workspace:*",

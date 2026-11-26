@@ -259,6 +259,9 @@ export type RunVerification = {
 	output: string;
 };
 
+export const reasoningLevels = ["off", "low", "high", "max"] as const;
+export type ReasoningLevel = (typeof reasoningLevels)[number];
+
 export type RunRecording =
 	| {
 			status: "recorded";
@@ -303,6 +306,9 @@ export const run = pgTable(
 			.notNull()
 			.default([]),
 		stopRequestedAt: timestamp("stop_requested_at", { withTimezone: true }),
+		reasoning: text("reasoning").$type<ReasoningLevel>().notNull().default("high"),
+		cachedInputTokens: integer("cached_input_tokens").notNull().default(0),
+		reasoningTokens: integer("reasoning_tokens").notNull().default(0),
 		verify: boolean("verify").notNull().default(false),
 		verification: jsonb("verification").$type<RunVerification>(),
 		record: boolean("record").notNull().default(false),
@@ -354,6 +360,7 @@ export const runStep = pgTable(
 		stepIndex: integer("step_index").notNull(),
 		finishReason: text("finish_reason").notNull(),
 		text: text("text").notNull().default(""),
+		reasoning: text("reasoning").notNull().default(""),
 		toolCalls: jsonb("tool_calls")
 			.$type<StepToolCall[]>()
 			.notNull()
@@ -364,6 +371,8 @@ export const runStep = pgTable(
 			.default([]),
 		inputTokens: integer("input_tokens").notNull().default(0),
 		outputTokens: integer("output_tokens").notNull().default(0),
+		cachedInputTokens: integer("cached_input_tokens").notNull().default(0),
+		reasoningTokens: integer("reasoning_tokens").notNull().default(0),
 		createdAt: timestamp("created_at", { withTimezone: true })
 			.notNull()
 			.defaultNow(),

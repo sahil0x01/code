@@ -12,6 +12,17 @@ function Step({ step }: { step: ActivityStep }) {
 
 	return (
 		<li className="flex flex-col gap-1">
+			{step.reasoning && (
+				<details>
+					<summary className="w-fit cursor-pointer font-mono text-xs text-subtle hover:text-foreground">
+						Thought
+						{step.reasoningTokens > 0 && ` · ${formatTokens(step.reasoningTokens)} tokens`}
+					</summary>
+					<p className="mt-1 max-h-64 overflow-y-auto whitespace-pre-wrap break-words text-sm text-muted">
+						{step.reasoning}
+					</p>
+				</details>
+			)}
 			{step.text && step.calls.length > 0 && (
 				<p className="whitespace-pre-wrap break-words text-sm">{step.text}</p>
 			)}
@@ -124,18 +135,24 @@ export function RunPanel({
 	ahead: number;
 }) {
 	const active = run.status === "queued" || run.status === "running";
-	const tokens = run.inputTokens + run.outputTokens;
+	const detail = (count: number, note: string) => (count > 0 ? ` (${formatTokens(count)} ${note})` : "");
 	const facts = [
 		steps.length > 0 && `${steps.length} ${steps.length === 1 ? "step" : "steps"}`,
 		run.startedAt && durationSince(run.startedAt, run.finishedAt),
-		tokens > 0 && `${formatTokens(tokens)} tokens`,
-		run.model,
+		run.inputTokens > 0 &&
+			`${formatTokens(run.inputTokens)} in${detail(run.cachedInputTokens, "cached")}`,
+		run.outputTokens > 0 &&
+			`${formatTokens(run.outputTokens)} out${detail(run.reasoningTokens, "thinking")}`,
+		`${run.model} · thinking ${run.reasoning}`,
 	].filter(Boolean);
 
 	return (
 		<div className="flex flex-col gap-2">
-			<details open={active}>
+			<details open={active} className="group">
 				<summary className="flex w-fit cursor-pointer flex-wrap items-center gap-x-3 gap-y-1 hover:text-foreground">
+					<span aria-hidden="true" className="font-mono text-xs text-subtle group-open:rotate-90">
+						▸
+					</span>
 					<RunStatusBadge status={run.status} ahead={ahead} />
 					<span className="font-mono text-xs text-subtle">{facts.join(" · ")}</span>
 				</summary>

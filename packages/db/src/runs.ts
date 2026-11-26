@@ -13,6 +13,7 @@ import {
 	runStep,
 	type StepToolCall,
 	type StepToolResult,
+	type ReasoningLevel,
 } from "./schema";
 
 export type ClaimResult =
@@ -123,6 +124,9 @@ export type StepRecord = {
 	toolResults: StepToolResult[];
 	inputTokens: number;
 	outputTokens: number;
+	reasoning?: string;
+	cachedInputTokens?: number;
+	reasoningTokens?: number;
 };
 
 // Saving the same step twice (a retried task) is a no-op, and its tokens are
@@ -149,6 +153,8 @@ export function recordStep(db: Db, runId: string, step: StepRecord, attempt?: nu
 			.set({
 				inputTokens: sql`${run.inputTokens} + ${step.inputTokens}`,
 				outputTokens: sql`${run.outputTokens} + ${step.outputTokens}`,
+				cachedInputTokens: sql`${run.cachedInputTokens} + ${step.cachedInputTokens ?? 0}`,
+				reasoningTokens: sql`${run.reasoningTokens} + ${step.reasoningTokens ?? 0}`,
 				updatedAt: new Date(),
 			})
 			.where(eq(run.id, runId));
@@ -247,6 +253,7 @@ export type RunContext = {
 		model: string;
 		verify: boolean;
 		record: boolean;
+		reasoning: ReasoningLevel;
 	};
 	chat: {
 		id: string;
@@ -281,6 +288,7 @@ export async function loadRunContext(db: Db, runId: string): Promise<RunContext 
 				model: run.model,
 				verify: run.verify,
 				record: run.record,
+				reasoning: run.reasoning,
 			},
 			chat: {
 				id: chat.id,
@@ -547,10 +555,13 @@ export type ActivityStep = {
 	stepIndex: number;
 	finishReason: string;
 	text: string;
+	/** The start and end of the model's thinking, if it shared any. */
+	reasoning: string;
 	calls: ActivityCall[];
 	results: ActivityResult[];
 	inputTokens: number;
 	outputTokens: number;
+	reasoningTokens: number;
 };
 
 // What the chat page shows, clipped in SQL so a long run does not send megabytes
@@ -568,6 +579,7 @@ export async function listRunActivity(
 			stepIndex: runStep.stepIndex,
 			finishReason: runStep.finishReason,
 			text: sql<string>`left(${runStep.text}, 600)`,
+			reasoning: sql<string>`left(${runStep.reasoning}, 4000)`,
 			calls: sql<ActivityCall[]>`coalesce((
 				select jsonb_agg(
 					jsonb_build_object(
@@ -590,6 +602,7 @@ export async function listRunActivity(
 			), '[]'::jsonb)`,
 			inputTokens: runStep.inputTokens,
 			outputTokens: runStep.outputTokens,
+			reasoningTokens: runStep.reasoningTokens,
 		})
 		.from(runStep)
 		.innerJoin(run, eq(run.id, runStep.runId))

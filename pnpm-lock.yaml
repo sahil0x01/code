@@ -257,9 +257,6 @@ importers:
 
   apps/worker:
     dependencies:
-      '@daytona/sdk':
-        specifier: ^2.2.0
-        version: 2.2.0(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2)
       '@nullfuse/agent':
         specifier: workspace:*
         version: link:../../packages/agent
@@ -371,6 +368,9 @@ importers:
       ai:
         specifier: ^7.0.181
         version: 7.0.181(zod@4.6.7)
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
     devDependencies:
       '@nullfuse/secrets':
         specifier: workspace:*
@@ -6075,23 +6075,9 @@ snapshots:
   '@colors/colors@1.5.0':
     optional: true
 
-  '@daytona/analytics-api-client@0.234.0(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2)':
-    dependencies:
-      axios: 1.21.1(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2)
-    transitivePeerDependencies:
-      - debug
-      - supports-color
-
   '@daytona/analytics-api-client@0.234.0(debug@4.4.3(supports-color@7.2.0))(supports-color@7.2.0)':
     dependencies:
       axios: 1.21.1(debug@4.4.3(supports-color@7.2.0))(supports-color@7.2.0)
-    transitivePeerDependencies:
-      - debug
-      - supports-color
-
-  '@daytona/api-client@0.234.0(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2)':
-    dependencies:
-      axios: 1.21.1(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2)
     transitivePeerDependencies:
       - debug
       - supports-color
@@ -6102,41 +6088,6 @@ snapshots:
     transitivePeerDependencies:
       - debug
       - supports-color
-
-  '@daytona/sdk@2.2.0(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2)':
-    dependencies:
-      '@aws-sdk/client-s3': 3.1177.0
-      '@aws-sdk/lib-storage': 3.1177.0(@aws-sdk/client-s3@3.1177.0)
-      '@daytona/analytics-api-client': 0.234.0(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2)
-      '@daytona/api-client': 0.234.0(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2)
-      '@daytona/toolbox-api-client': 0.234.0(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2)
-      '@iarna/toml': 2.2.5
-      '@opentelemetry/api': 1.10.0
-      '@opentelemetry/exporter-trace-otlp-http': 0.301.2(@opentelemetry/api@1.10.0)
-      '@opentelemetry/instrumentation-http': 0.301.2(@opentelemetry/api@1.10.0)(supports-color@10.2.2)
-      '@opentelemetry/otlp-exporter-base': 0.301.2(@opentelemetry/api@1.10.0)
-      '@opentelemetry/resources': 3.1.1(@opentelemetry/api@1.10.0)
-      '@opentelemetry/sdk-node': 0.301.2(@opentelemetry/api@1.10.0)(supports-color@10.2.2)
-      '@opentelemetry/sdk-trace': 3.1.1(@opentelemetry/api@1.10.0)
-      '@opentelemetry/semantic-conventions': 1.45.0
-      '@types/ws': 8.18.2
-      axios: 1.21.1(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2)
-      busboy: 1.6.0
-      expand-tilde: 2.0.2
-      form-data: 4.0.6
-      isomorphic-ws: 5.0.0(ws@8.23.0)
-      pathe: 2.0.3
-      shell-quote: 1.12.0
-      socket.io-client: 4.8.4(supports-color@10.2.2)
-      tar: 7.5.23
-      tinyglobby: 0.2.17
-      tslib: 2.9.1
-      ws: 8.23.0
-    transitivePeerDependencies:
-      - bufferutil
-      - debug
-      - supports-color
-      - utf-8-validate
 
   '@daytona/sdk@2.2.0(debug@4.4.3(supports-color@7.2.0))(supports-color@7.2.0)':
     dependencies:
@@ -6172,13 +6123,6 @@ snapshots:
       - debug
       - supports-color
       - utf-8-validate
-
-  '@daytona/toolbox-api-client@0.234.0(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2)':
-    dependencies:
-      axios: 1.21.1(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2)
-    transitivePeerDependencies:
-      - debug
-      - supports-color
 
   '@daytona/toolbox-api-client@0.234.0(debug@4.4.3(supports-color@7.2.0))(supports-color@7.2.0)':
     dependencies:
@@ -7102,16 +7046,6 @@ snapshots:
       '@opentelemetry/api': 1.9.1
       systeminformation: 5.33.26
 
-  '@opentelemetry/instrumentation-http@0.301.2(@opentelemetry/api@1.10.0)(supports-color@10.2.2)':
-    dependencies:
-      '@opentelemetry/api': 1.10.0
-      '@opentelemetry/core': 3.1.1(@opentelemetry/api@1.10.0)
-      '@opentelemetry/instrumentation': 0.301.2(@opentelemetry/api@1.10.0)(supports-color@10.2.2)
-      '@opentelemetry/semantic-conventions': 1.45.0
-      forwarded-parse: 2.2.0
-    transitivePeerDependencies:
-      - supports-color
-
   '@opentelemetry/instrumentation-http@0.301.2(@opentelemetry/api@1.10.0)(supports-color@7.2.0)':
     dependencies:
       '@opentelemetry/api': 1.10.0
@@ -7137,14 +7071,6 @@ snapshots:
       '@opentelemetry/api-logs': 0.219.0
       import-in-the-middle: 3.7.0
       require-in-the-middle: 8.0.1(supports-color@7.2.0)
-    transitivePeerDependencies:
-      - supports-color
-
-  '@opentelemetry/instrumentation@0.301.2(@opentelemetry/api@1.10.0)(supports-color@10.2.2)':
-    dependencies:
-      '@opentelemetry/api': 1.10.0
-      import-in-the-middle: 3.7.0
-      require-in-the-middle: 8.0.1(supports-color@10.2.2)
     transitivePeerDependencies:
       - supports-color
 
@@ -7238,35 +7164,6 @@ snapshots:
       '@opentelemetry/api': 1.10.0
       '@opentelemetry/core': 3.1.1(@opentelemetry/api@1.10.0)
       '@opentelemetry/resources': 3.1.1(@opentelemetry/api@1.10.0)
-
-  '@opentelemetry/sdk-node@0.301.2(@opentelemetry/api@1.10.0)(supports-color@10.2.2)':
-    dependencies:
-      '@opentelemetry/api': 1.10.0
-      '@opentelemetry/configuration': 0.301.2(@opentelemetry/api@1.10.0)
-      '@opentelemetry/context-async-hooks': 3.1.1(@opentelemetry/api@1.10.0)
-      '@opentelemetry/core': 3.1.1(@opentelemetry/api@1.10.0)
-      '@opentelemetry/exporter-logs-otlp-grpc': 0.301.2(@opentelemetry/api@1.10.0)
-      '@opentelemetry/exporter-logs-otlp-http': 0.301.2(@opentelemetry/api@1.10.0)
-      '@opentelemetry/exporter-logs-otlp-proto': 0.301.2(@opentelemetry/api@1.10.0)
-      '@opentelemetry/exporter-metrics-otlp-grpc': 0.301.2(@opentelemetry/api@1.10.0)
-      '@opentelemetry/exporter-metrics-otlp-http': 0.301.2(@opentelemetry/api@1.10.0)
-      '@opentelemetry/exporter-metrics-otlp-proto': 0.301.2(@opentelemetry/api@1.10.0)
-      '@opentelemetry/exporter-prometheus': 0.301.2(@opentelemetry/api@1.10.0)
-      '@opentelemetry/exporter-trace-otlp-grpc': 0.301.2(@opentelemetry/api@1.10.0)
-      '@opentelemetry/exporter-trace-otlp-http': 0.301.2(@opentelemetry/api@1.10.0)
-      '@opentelemetry/exporter-trace-otlp-proto': 0.301.2(@opentelemetry/api@1.10.0)
-      '@opentelemetry/exporter-zipkin': 3.1.1(@opentelemetry/api@1.10.0)
-      '@opentelemetry/instrumentation': 0.301.2(@opentelemetry/api@1.10.0)(supports-color@10.2.2)
-      '@opentelemetry/otlp-exporter-base': 0.301.2(@opentelemetry/api@1.10.0)
-      '@opentelemetry/otlp-grpc-exporter-base': 0.301.2(@opentelemetry/api@1.10.0)
-      '@opentelemetry/propagator-b3': 3.1.1(@opentelemetry/api@1.10.0)
-      '@opentelemetry/resources': 3.1.1(@opentelemetry/api@1.10.0)
-      '@opentelemetry/sdk-logs': 3.1.1(@opentelemetry/api@1.10.0)
-      '@opentelemetry/sdk-metrics': 3.1.1(@opentelemetry/api@1.10.0)
-      '@opentelemetry/sdk-trace': 3.1.1(@opentelemetry/api@1.10.0)
-      '@opentelemetry/semantic-conventions': 1.45.0
-    transitivePeerDependencies:
-      - supports-color
 
   '@opentelemetry/sdk-node@0.301.2(@opentelemetry/api@1.10.0)(supports-color@7.2.0)':
     dependencies:
@@ -8074,12 +7971,6 @@ snapshots:
 
   acorn@8.19.0: {}
 
-  agent-base@6.0.2(supports-color@10.2.2):
-    dependencies:
-      debug: 4.4.3(supports-color@10.2.2)
-    transitivePeerDependencies:
-      - supports-color
-
   agent-base@6.0.2(supports-color@7.2.0):
     dependencies:
       debug: 4.4.3(supports-color@7.2.0)
@@ -8214,16 +8105,6 @@ snapshots:
   aws4fetch@1.0.20: {}
 
   axe-core@4.14.1: {}
-
-  axios@1.21.1(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2):
-    dependencies:
-      follow-redirects: 1.16.3(debug@4.4.3(supports-color@10.2.2))
-      form-data: 4.0.6
-      https-proxy-agent: 5.0.1(supports-color@10.2.2)
-      proxy-from-env: 2.1.0
-    transitivePeerDependencies:
-      - debug
-      - supports-color
 
   axios@1.21.1(debug@4.4.3(supports-color@7.2.0))(supports-color@7.2.0):
     dependencies:
@@ -9220,10 +9101,6 @@ snapshots:
 
   flatted@3.4.4: {}
 
-  follow-redirects@1.16.3(debug@4.4.3(supports-color@10.2.2)):
-    optionalDependencies:
-      debug: 4.4.3(supports-color@10.2.2)
-
   follow-redirects@1.16.3(debug@4.4.3(supports-color@7.2.0)):
     optionalDependencies:
       debug: 4.4.3(supports-color@7.2.0)
@@ -9430,13 +9307,6 @@ snapshots:
       setprototypeof: 1.2.0
       statuses: 2.0.2
       toidentifier: 1.0.1
-
-  https-proxy-agent@5.0.1(supports-color@10.2.2):
-    dependencies:
-      agent-base: 6.0.2(supports-color@10.2.2)
-      debug: 4.4.3(supports-color@10.2.2)
-    transitivePeerDependencies:
-      - supports-color
 
   https-proxy-agent@5.0.1(supports-color@7.2.0):
     dependencies:

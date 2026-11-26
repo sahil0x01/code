@@ -5,10 +5,16 @@ export type StepRecord = {
 	stepIndex: number;
 	finishReason: string;
 	text: string;
+	/** The model's thinking before this step, when it shares it. */
+	reasoning: string;
 	toolCalls: { id: string; name: string; input: unknown }[];
 	toolResults: { id: string; name: string; output: string; isError: boolean }[];
 	inputTokens: number;
 	outputTokens: number;
+	/** Part of the input that came from the provider's cache. */
+	cachedInputTokens: number;
+	/** Part of the output spent thinking. */
+	reasoningTokens: number;
 };
 
 // The model sees full output; the database keeps enough to show what happened.
@@ -47,6 +53,7 @@ export function toStepRecord(step: AgentStep): StepRecord {
 		stepIndex: step.stepNumber,
 		finishReason: step.finishReason,
 		text: step.text,
+		reasoning: clip(step.reasoningText ?? "", MAX_OUTPUT_CHARS),
 		toolCalls: step.toolCalls.map((call) => ({
 			id: call.toolCallId,
 			name: call.toolName,
@@ -63,5 +70,7 @@ export function toStepRecord(step: AgentStep): StepRecord {
 		}),
 		inputTokens: step.usage.inputTokens ?? 0,
 		outputTokens: step.usage.outputTokens ?? 0,
+		cachedInputTokens: step.usage.inputTokenDetails?.cacheReadTokens ?? 0,
+		reasoningTokens: step.usage.outputTokenDetails?.reasoningTokens ?? 0,
 	};
 }

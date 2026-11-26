@@ -2,11 +2,12 @@ import type { Sandbox } from "@nullfuse/sandbox";
 import { tool } from "ai";
 import { z } from "zod";
 import { ToolError } from "../errors";
+import { createFileLock, type FileLock } from "./file-lock";
 import { pluralize, probePath } from "../shell";
 
 const MAX_CONTENT_CHARS = 500_000;
 
-export function writeTool(sandbox: Sandbox) {
+export function writeTool(sandbox: Sandbox, lock: FileLock = createFileLock(sandbox.workdir)) {
 	return tool({
 		description:
 			"Create a file with the given content, or replace an existing file completely. " +
@@ -19,17 +20,18 @@ export function writeTool(sandbox: Sandbox) {
 				.max(MAX_CONTENT_CHARS)
 				.describe("The complete new content of the file."),
 		}),
-		async execute({ path, content }) {
-			const info = await probePath(sandbox, path);
-			if (info.kind === "dir") throw new ToolError(`${path} is a directory.`);
-			if (info.kind === "other") throw new ToolError(`${path} is not a regular file.`);
+		execute: ({ path, content }) =>
+			lock(path, async () => {
+				const info = await probePath(sandbox, path);
+				if (info.kind === "dir") throw new ToolError(`${path} is a directory.`);
+				if (info.kind === "other") throw new ToolError(`${path} is not a regular file.`);
 
-			await sandbox.writeFile(path, content);
+				await sandbox.writeFile(path, content);
 
-			const lines =
-				content === "" ? 0 : content.split("\n").length - (content.endsWith("\n") ? 1 : 0);
-			const bytes = new TextEncoder().encode(content).length;
-			return `${info.kind === "file" ? "Overwrote" : "Created"} ${path} (${pluralize(lines, "line")}, ${pluralize(bytes, "byte")}).`;
-		},
+				const lines =
+					content === "" ? 0 : content.split("\n").length - (content.endsWith("\n") ? 1 : 0);
+				const bytes = new TextEncoder().encode(content).length;
+				return `${info.kind === "file" ? "Overwrote" : "Created"} ${path} (${pluralize(lines, "line")}, ${pluralize(bytes, "byte")}).`;
+			}),
 	});
 }

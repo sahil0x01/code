@@ -1,7 +1,6 @@
 import { randomBytes } from "node:crypto";
-import { readText, type Sandbox } from "@nullfuse/sandbox";
+import { readText, recordingHarness, type Sandbox } from "@nullfuse/sandbox";
 
-const HARNESS = "/opt/nullfuse/record.mjs";
 const START_TIMEOUT_MS = 90_000;
 const SCRIPT_TIMEOUT_MS = 60_000;
 const MAX_VIDEO_BYTES = 25 * 1024 * 1024;
@@ -49,7 +48,7 @@ function skipped(reason: keyof typeof skipReasons, detail = ""): Recording {
 }
 
 // The file is written by code running in the sandbox, so nothing in it is taken on trust.
-function parseResult(text: string, videoPath: string): Recording {
+export function parseResult(text: string, videoPath: string): Recording {
 	let value: Record<string, unknown>;
 	try {
 		value = Object(JSON.parse(text));
@@ -76,22 +75,33 @@ function parseResult(text: string, videoPath: string): Recording {
 	return skipped("no_result");
 }
 
-/** Records the app in a sandbox made from the recording image. Never throws for the app's own failures. */
-export async function recordChange(sandbox: Sandbox, request: RecordingRequest): Promise<Recording> {
+type HarnessRequest = Omit<RecordingRequest, "script"> & {
+	script?: string;
+	mode?: "check";
+	path?: string;
+};
+
+/** Runs the harness once and returns the text of its result file, or why there is none. */
+export async function runHarness(sandbox: Sandbox, request: HarnessRequest) {
 	// Outside the workspace, so none of this is committed with the change.
 	const base = `/tmp/nullfuse-recording-${randomBytes(6).toString("hex")}`;
 	const outDir = `${base}/out`;
 	const startTimeoutMs = request.startTimeoutMs ?? START_TIMEOUT_MS;
 	const scriptTimeoutMs = request.scriptTimeoutMs ?? SCRIPT_TIMEOUT_MS;
+	const script = request.script === undefined ? undefined : `${base}/script.mjs`;
 
-	await sandbox.writeFile(`${base}/script.mjs`, request.script);
+	const harness = `${base}/record.mjs`;
+	await sandbox.writeFile(harness, recordingHarness());
+	if (script) await sandbox.writeFile(script, request.script ?? "");
 	await sandbox.writeFile(
 		`${base}/spec.json`,
 		JSON.stringify({
+			mode: request.mode,
+			path: request.path,
 			startCommand: request.startCommand,
 			port: request.port,
 			workdir: sandbox.workdir,
-			script: `${base}/script.mjs`,
+			script,
 			outDir,
 			startTimeoutMs,
 			scriptTimeoutMs,
@@ -99,20 +109,25 @@ export async function recordChange(sandbox: Sandbox, request: RecordingRequest):
 		}),
 	);
 
-	const run = await sandbox.exec(`node ${HARNESS} ${base}/spec.json`, {
+	const run = await sandbox.exec(`node ${harness} ${base}/spec.json`, {
 		env: request.env,
 		signal: request.signal,
 		timeoutMs: startTimeoutMs + scriptTimeoutMs + OVERHEAD_MS,
 	});
-	if (run.timedOut) return skipped("timed_out");
+	if (run.timedOut) return { ok: false as const, skipped: skipped("timed_out") };
 
-	let result: string;
 	try {
-		result = await readText(sandbox, `${outDir}/result.json`);
+		const text = await readText(sandbox, `${outDir}/result.json`);
+		return { ok: true as const, text, outDir };
 	} catch {
-		return skipped("no_result", run.stderr);
+		return { ok: false as const, skipped: skipped("no_result", run.stderr) };
 	}
-	return parseResult(result, `${outDir}/video.webm`);
+}
+
+/** Records the app in a sandbox made from the recording image. Never throws for the app's own failures. */
+export async function recordChange(sandbox: Sandbox, request: RecordingRequest): Promise<Recording> {
+	const run = await runHarness(sandbox, request);
+	return run.ok ? parseResult(run.text, `${run.outDir}/video.webm`) : run.skipped;
 }
 
 /** Where the agent is asked to leave its script: outside the workspace, so it is never committed. */
@@ -121,7 +136,8 @@ export const SCRIPT_PATH = "/tmp/nullfuse-record/script.mjs";
 export function recordingInstructions(port: number) {
 	return `The user asked for a screen recording of this change. After the code works, write a Playwright script to ${SCRIPT_PATH} that shows it in the web app. It must be an ES module like:
 export default async ({ page, expect }) => { await page.goto("/"); /* use the changed feature, then assert the result with expect */ };
-Do not import anything, do not start the app (it is started for you on port ${port}), and keep it under 30 seconds. Prefer role, label and text locators. If the change has nothing visible in a web page, do not write the script.`;
+Do not import anything, do not start the app (it is started for you on port ${port}), and keep it under 30 seconds. Prefer role, label and text locators. If the change has nothing visible in a web page, do not write the script.
+Do not run the script yourself or build your own browser harness. To try the same steps first, pass the script to the check_app tool.`;
 }
 
 /** Sends the video straight from the sandbox, which only ever sees a link for this one object. */

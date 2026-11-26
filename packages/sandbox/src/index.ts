@@ -6,6 +6,7 @@ export {
 	dockerAvailable,
 	ensureRecordingImage,
 	ensureSandboxImage,
+	recordingHarness,
 	recordingImage,
 	sandboxImage,
 } from "./docker";

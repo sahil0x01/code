@@ -41,9 +41,9 @@ export function getDeps(): Promise<RunnerDeps> {
 		const r2 = r2ConfigFrom(env);
 		const store = r2 && createR2Store(r2);
 		return {
+			browserImage: recordingImage,
 			...(store && {
 				recorder: {
-					image: recordingImage,
 					uploadUrl: (key: string) => store.uploadUrl(key),
 					...(env.APP_URL && { linkPullRequest: createRecordingLinker(mint, env.APP_URL) }),
 				},

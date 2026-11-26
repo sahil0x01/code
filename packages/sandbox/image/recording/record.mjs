@@ -1,4 +1,5 @@
-// Runs inside the sandbox: starts the app, drives it with the agent's script and records it.
+// Runs inside the sandbox: starts the app and drives it with the agent's script, either to
+// record a video or (mode "check") to report what the page shows and any errors.
 import { spawn } from "node:child_process";
 import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
@@ -7,6 +8,8 @@ const spec = JSON.parse(await readFile(process.argv[2], "utf8"));
 const baseURL = `http://localhost:${spec.port}`;
 const video = `${spec.outDir}/video.webm`;
 const SIZE = { width: 1280, height: 720 };
+const checking = spec.mode === "check";
+const MAX_PROBLEMS = 20;
 
 let app;
 let appLog = "";
@@ -49,14 +52,17 @@ function within(ms, promise) {
 await rm(spec.outDir, { recursive: true, force: true });
 await mkdir(spec.outDir, { recursive: true });
 
-const { chromium, expect } = await import("@playwright/test");
+// Absolute, because this file is not inside the folder Playwright is installed in.
+const { chromium, expect } = await import("/opt/nullfuse/node_modules/@playwright/test/index.mjs");
 
 let script;
-try {
-	script = (await import(pathToFileURL(spec.script).href)).default;
-	if (typeof script !== "function") throw new Error("The script needs a default export function");
-} catch (error) {
-	await skip("bad_script", message(error));
+if (spec.script) {
+	try {
+		script = (await import(pathToFileURL(spec.script).href)).default;
+		if (typeof script !== "function") throw new Error("The script needs a default export function");
+	} catch (error) {
+		await skip("bad_script", message(error));
+	}
 }
 
 // Something already listening would be recorded in place of this change.
@@ -89,21 +95,58 @@ try {
 	const context = await browser.newContext({
 		baseURL,
 		viewport: SIZE,
-		recordVideo: { dir: spec.outDir, size: SIZE },
+		...(!checking && { recordVideo: { dir: spec.outDir, size: SIZE } }),
 	});
 	const page = await context.newPage();
 	page.setDefaultTimeout(10_000);
 
+	const consoleProblems = [];
+	const networkProblems = [];
+	const note = (list, text) => {
+		if (list.length < MAX_PROBLEMS) list.push(String(text).slice(0, 500));
+	};
+	page.on("console", (entry) => {
+		if (["error", "warning"].includes(entry.type())) note(consoleProblems, `${entry.type()}: ${entry.text()}`);
+	});
+	page.on("pageerror", (error) => note(consoleProblems, `uncaught: ${error.message}`));
+	page.on("requestfailed", (request) =>
+		note(networkProblems, `${request.method()} ${request.url()} ${request.failure()?.errorText ?? "failed"}`),
+	);
+	page.on("response", (response) => {
+		if (response.status() >= 400) note(networkProblems, `${response.status()} ${response.url()}`);
+	});
+
 	const started = Date.now();
 	let failure = null;
 	try {
-		await within(spec.scriptTimeoutMs, script({ page, expect, baseURL }));
+		await within(
+			spec.scriptTimeoutMs,
+			script ? script({ page, expect, baseURL }) : page.goto(spec.path ?? "/"),
+		);
 		// Leaves the final state on screen long enough to see it.
 		await page.waitForTimeout(1000);
 	} catch (error) {
 		failure = message(error);
 	}
 	const durationMs = Date.now() - started;
+
+	if (checking) {
+		const url = page.url();
+		const snapshot = await page
+			.locator("body")
+			.ariaSnapshot({ timeout: 5000 })
+			.catch((error) => `The page could not be read: ${message(error)}`);
+		await browser.close();
+		await finish({
+			status: "checked",
+			passed: failure === null,
+			error: failure,
+			url,
+			snapshot: snapshot.slice(0, 12_000),
+			console: consoleProblems,
+			network: networkProblems,
+		});
+	}
 
 	const recording = page.video();
 	await context.close();

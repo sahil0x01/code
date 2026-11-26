@@ -1,6 +1,7 @@
 import type { Sandbox } from "@nullfuse/sandbox";
 import { bashTool } from "./bash";
 import { editTool } from "./edit";
+import { createFileLock } from "./file-lock";
 import { grepTool } from "./grep";
 import { listTool } from "./list";
 import { readTool } from "./read";
@@ -15,12 +16,13 @@ export type ToolsOptions = {
 };
 
 export function createTools({ sandbox, env }: ToolsOptions) {
+	const lock = createFileLock(sandbox.workdir);
 	return {
 		list: listTool(sandbox),
 		read: readTool(sandbox),
 		grep: grepTool(sandbox),
-		edit: editTool(sandbox),
-		write: writeTool(sandbox),
+		edit: editTool(sandbox, lock),
+		write: writeTool(sandbox, lock),
 		bash: bashTool(sandbox, env),
 	};
 }

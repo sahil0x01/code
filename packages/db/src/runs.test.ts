@@ -740,3 +740,35 @@ describe("pull request on a chat", () => {
 		expect((await getChatForUser(db, userId, chatId))?.pullRequestError).toBeNull();
 	});
 });
+
+describe("reasoning and usage", () => {
+	it("saves the chosen level, each step's thinking and the run's token breakdown", async () => {
+		const { userId, projectId } = await owner();
+		const created = await createChat(db, {
+			userId,
+			projectId,
+			baseBranch: "main",
+			model: "m",
+			content: "hi",
+			reasoning: "max",
+		});
+		if (!created.ok) throw new Error(created.reason);
+		await claimRun(db, created.runId);
+		expect((await loadRunContext(db, created.runId))?.run.reasoning).toBe("max");
+
+		for (const index of [0, 1]) {
+			await recordStep(db, created.runId, {
+				...step(index),
+				reasoning: "x".repeat(5000),
+				cachedInputTokens: 40,
+				reasoningTokens: 7,
+			});
+		}
+
+		const [row] = await listRuns(db, userId, created.chatId);
+		expect(row).toMatchObject({ reasoning: "max", cachedInputTokens: 80, reasoningTokens: 14 });
+		const [first] = await listRunActivity(db, userId, [created.runId]);
+		expect(first?.reasoning).toHaveLength(4000);
+		expect(first?.reasoningTokens).toBe(7);
+	});
+});

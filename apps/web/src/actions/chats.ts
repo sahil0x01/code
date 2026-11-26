@@ -13,7 +13,13 @@ import {
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { isModelId, MAX_MESSAGE_LENGTH } from "@/lib/chat";
+import {
+	DEFAULT_REASONING,
+	isModelId,
+	isReasoningId,
+	MAX_MESSAGE_LENGTH,
+	type ReasoningId,
+} from "@/lib/chat";
 import { db } from "@/server/db";
 import { enqueueRun } from "@/server/enqueue";
 import { checkRepo } from "@/server/github-checks";
@@ -29,6 +35,7 @@ const model = z.string().refine(isModelId);
 
 const verify = z.boolean();
 const record = z.boolean();
+const reasoning = z.custom<ReasoningId>(isReasoningId).catch(DEFAULT_REASONING);
 
 const startSchema = z.object({
 	projectId: z.uuid(),
@@ -37,6 +44,7 @@ const startSchema = z.object({
 	content,
 	verify,
 	record,
+	reasoning,
 });
 
 const sendSchema = z.object({
@@ -45,6 +53,7 @@ const sendSchema = z.object({
 	content,
 	verify,
 	record,
+	reasoning,
 });
 
 const inputError: ChatState = {
@@ -79,6 +88,7 @@ export async function startChat(
 		content: formData.get("content"),
 		verify: formData.get("verify") === "on",
 		record: formData.get("record") === "on",
+		reasoning: formData.get("reasoning"),
 	});
 	if (!input.success) return inputError;
 
@@ -131,6 +141,7 @@ export async function sendMessage(
 		content: formData.get("content"),
 		verify: formData.get("verify") === "on",
 		record: formData.get("record") === "on",
+		reasoning: formData.get("reasoning"),
 	});
 	if (!input.success) return inputError;
 

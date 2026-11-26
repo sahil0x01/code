@@ -3,7 +3,13 @@
 import { useActionState, useState } from "react";
 import { type ChatState, startChat } from "@/actions/chats";
 import { buttonClass, field } from "@/components/ui/styles";
-import { DEFAULT_MODEL_ID, MAX_MESSAGE_LENGTH, MODELS } from "@/lib/chat";
+import {
+	DEFAULT_MODEL_ID,
+	MAX_MESSAGE_LENGTH,
+	MODELS,
+	DEFAULT_REASONING,
+	REASONING_OPTIONS,
+} from "@/lib/chat";
 
 type ProjectOption = {
 	id: string;
@@ -94,6 +100,19 @@ export function Composer({ projects, initialProjectId }: Props) {
 						{MODELS.map((option) => (
 							<option key={option.id} value={option.id}>
 								{option.label} ({option.hint})
+							</option>
+						))}
+					</select>
+
+					<select
+						name="reasoning"
+						defaultValue={DEFAULT_REASONING}
+						aria-label="Reasoning level"
+						className={field}
+					>
+						{REASONING_OPTIONS.map((option) => (
+							<option key={option.id} value={option.id}>
+								{option.label}
 							</option>
 						))}
 					</select>

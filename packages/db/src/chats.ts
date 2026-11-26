@@ -1,6 +1,8 @@
 import { and, asc, count, desc, eq, inArray, sql } from "drizzle-orm";
 import type { Db } from "./index";
-import { chat, message, project, run } from "./schema";
+import { chat, message, project, run,
+	type ReasoningLevel,
+} from "./schema";
 
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
@@ -44,6 +46,7 @@ async function enqueue(
 		content: string;
 		verify?: boolean;
 		record?: boolean;
+		reasoning?: ReasoningLevel;
 	},
 ) {
 	const msg = one(
@@ -62,6 +65,7 @@ async function enqueue(
 				model: input.model,
 				verify: input.verify ?? false,
 				record: input.record ?? false,
+				reasoning: input.reasoning,
 			})
 			.returning({ id: run.id }),
 	);
@@ -78,6 +82,7 @@ export function createChat(
 		content: string;
 		verify?: boolean;
 		record?: boolean;
+		reasoning?: ReasoningLevel;
 	},
 ) {
 	return db.transaction(async (tx): Promise<SendResult> => {
@@ -123,6 +128,7 @@ export function addMessage(
 		content: string;
 		verify?: boolean;
 		record?: boolean;
+		reasoning?: ReasoningLevel;
 	},
 ) {
 	return db.transaction(async (tx): Promise<SendResult> => {
@@ -227,6 +233,9 @@ export function listRuns(db: Db, userId: string, chatId: string) {
 			id: run.id,
 			messageId: run.messageId,
 			model: run.model,
+			reasoning: run.reasoning,
+			cachedInputTokens: run.cachedInputTokens,
+			reasoningTokens: run.reasoningTokens,
 			status: run.status,
 			stopReason: run.stopReason,
 			error: run.error,

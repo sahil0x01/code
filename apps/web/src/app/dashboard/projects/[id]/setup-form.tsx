@@ -87,8 +87,8 @@ export function SetupForm({
 				className={`${field} w-32 font-mono`}
 			/>
 			<p className="text-sm text-muted">
-				With both set, you can tick &quot;Record video&quot; on a message to get a video of the
-				change.
+				With both set, the agent can check its changes in a real browser, and you can tick
+				&quot;Record video&quot; on a message to get a video.
 			</p>
 
 			<div className="flex items-center gap-3">
