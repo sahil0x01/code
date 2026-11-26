@@ -12,6 +12,7 @@ import {
 	type SandboxDriver,
 	SandboxError,
 } from "./types";
+import { findImageDir } from "./image-dir";
 
 const LABEL = "nullfuse.sandbox";
 const DEFAULT_IMAGE = "node:24-bookworm-slim";
@@ -122,27 +123,42 @@ export async function destroyAllDockerSandboxes() {
 	if (ids.length > 0) await runDocker(["rm", "-f", ...ids]);
 }
 
-const IMAGE_DIR = path.join(import.meta.dirname, "..", "image");
+const imageDir = () => findImageDir(import.meta.dirname);
+const recordingDir = () => path.join(imageDir(), "recording");
 
-// Tagged with a hash of the Dockerfile, so editing it builds a new image.
-export function sandboxImage() {
-	const hash = createHash("sha256")
-		.update(readFileSync(path.join(IMAGE_DIR, "Dockerfile")))
-		.digest("hex")
-		.slice(0, 12);
-	return `nullfuse-sandbox:${hash}`;
+// Tagged with a hash of the files that go in, so editing one builds a new image.
+function imageTag(name: string, dir: string, files: string[]) {
+	const hash = createHash("sha256");
+	for (const file of files) hash.update(readFileSync(path.join(dir, file)));
+	return `${name}:${hash.digest("hex").slice(0, 12)}`;
 }
 
-export async function ensureSandboxImage() {
-	const tag = sandboxImage();
+export function sandboxImage() {
+	return imageTag("nullfuse-sandbox", imageDir(), ["Dockerfile"]);
+}
+
+/** The larger image with a browser, only for runs that record a video. */
+export function recordingImage() {
+	return imageTag("nullfuse-recording", recordingDir(), ["Dockerfile", "record.mjs"]);
+}
+
+async function ensureImage(tag: string, dir: string) {
 	const found = await runDocker(["image", "inspect", tag]);
 	if (found.exitCode === 0) return tag;
 
-	const built = await runDocker(["build", "--quiet", "-t", tag, IMAGE_DIR], {
+	const built = await runDocker(["build", "--quiet", "-t", tag, dir], {
 		timeoutMs: 15 * 60_000,
 	});
 	if (built.exitCode !== 0) throw failure("Building the sandbox image", built);
 	return tag;
+}
+
+export function ensureSandboxImage() {
+	return ensureImage(sandboxImage(), imageDir());
+}
+
+export function ensureRecordingImage() {
+	return ensureImage(recordingImage(), recordingDir());
 }
 
 function failure(action: string, result: RunResult) {

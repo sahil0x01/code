@@ -37,7 +37,14 @@ async function countUnfinishedRuns(tx: Tx, userId: string) {
 
 async function enqueue(
 	tx: Tx,
-	input: { userId: string; chatId: string; model: string; content: string; verify?: boolean },
+	input: {
+		userId: string;
+		chatId: string;
+		model: string;
+		content: string;
+		verify?: boolean;
+		record?: boolean;
+	},
 ) {
 	const msg = one(
 		await tx
@@ -54,6 +61,7 @@ async function enqueue(
 				userId: input.userId,
 				model: input.model,
 				verify: input.verify ?? false,
+				record: input.record ?? false,
 			})
 			.returning({ id: run.id }),
 	);
@@ -69,6 +77,7 @@ export function createChat(
 		model: string;
 		content: string;
 		verify?: boolean;
+		record?: boolean;
 	},
 ) {
 	return db.transaction(async (tx): Promise<SendResult> => {
@@ -107,7 +116,14 @@ export function createChat(
 
 export function addMessage(
 	db: Db,
-	input: { userId: string; chatId: string; model: string; content: string; verify?: boolean },
+	input: {
+		userId: string;
+		chatId: string;
+		model: string;
+		content: string;
+		verify?: boolean;
+		record?: boolean;
+	},
 ) {
 	return db.transaction(async (tx): Promise<SendResult> => {
 		const [found] = await tx
@@ -182,6 +198,7 @@ export async function getChatForUser(db: Db, userId: string, chatId: string) {
 			projectName: project.fullName,
 			installationId: project.installationId,
 			connected: sql<boolean>`${project.installationId} is not null`,
+			canRecord: sql<boolean>`${project.startCommand} is not null and ${project.appPort} is not null`,
 		})
 		.from(chat)
 		.innerJoin(project, eq(chat.projectId, project.id))
@@ -215,6 +232,8 @@ export function listRuns(db: Db, userId: string, chatId: string) {
 			error: run.error,
 			changedFiles: run.changedFiles,
 			verify: run.verify,
+			record: run.record,
+			recording: run.recording,
 			verification: run.verification,
 			stopRequestedAt: run.stopRequestedAt,
 			inputTokens: run.inputTokens,
@@ -274,4 +293,13 @@ export async function cancelRun(db: Db, userId: string, runId: string) {
 		)
 		.returning({ chatId: run.chatId });
 	return row ?? null;
+}
+
+/** One run's recording, only for the user who owns the chat. */
+export async function getRunRecording(db: Db, userId: string, chatId: string, runId: string) {
+	const [row] = await db
+		.select({ recording: run.recording })
+		.from(run)
+		.where(and(eq(run.id, runId), eq(run.chatId, chatId), eq(run.userId, userId)));
+	return row?.recording ?? null;
 }

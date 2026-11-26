@@ -8,6 +8,7 @@ import {
 	projectEnvVar,
 	run,
 	type RunStopReason,
+	type RunRecording,
 	type RunVerification,
 	runStep,
 	type StepToolCall,
@@ -239,7 +240,14 @@ export function listRunSteps(db: Db, userId: string, runId: string) {
 }
 
 export type RunContext = {
-	run: { id: string; chatId: string; userId: string; model: string; verify: boolean };
+	run: {
+		id: string;
+		chatId: string;
+		userId: string;
+		model: string;
+		verify: boolean;
+		record: boolean;
+	};
 	chat: {
 		id: string;
 		baseBranch: string;
@@ -253,6 +261,8 @@ export type RunContext = {
 		installationId: number | null;
 		installCommand: string | null;
 		testCommand: string | null;
+		startCommand: string | null;
+		appPort: number | null;
 	};
 	/** The conversation up to and including the message this run answers. */
 	messages: { role: "user" | "assistant"; content: string }[];
@@ -264,7 +274,14 @@ export type RunContext = {
 export async function loadRunContext(db: Db, runId: string): Promise<RunContext | null> {
 	const [row] = await db
 		.select({
-			run: { id: run.id, chatId: run.chatId, userId: run.userId, model: run.model, verify: run.verify },
+			run: {
+				id: run.id,
+				chatId: run.chatId,
+				userId: run.userId,
+				model: run.model,
+				verify: run.verify,
+				record: run.record,
+			},
 			chat: {
 				id: chat.id,
 				baseBranch: chat.baseBranch,
@@ -278,6 +295,8 @@ export async function loadRunContext(db: Db, runId: string): Promise<RunContext 
 				installationId: project.installationId,
 				installCommand: project.installCommand,
 				testCommand: project.testCommand,
+				startCommand: project.startCommand,
+				appPort: project.appPort,
 			},
 		})
 		.from(run)
@@ -364,6 +383,24 @@ export async function setVerification(
 	await db
 		.update(run)
 		.set({ verification, updatedAt: new Date() })
+		.where(
+			and(
+				eq(run.id, runId),
+				eq(run.status, "running"),
+				attempt === undefined ? undefined : eq(run.attempts, attempt),
+			),
+		);
+}
+
+export async function setRecording(
+	db: Db,
+	runId: string,
+	recording: RunRecording,
+	attempt?: number,
+) {
+	await db
+		.update(run)
+		.set({ recording, updatedAt: new Date() })
 		.where(
 			and(
 				eq(run.id, runId),

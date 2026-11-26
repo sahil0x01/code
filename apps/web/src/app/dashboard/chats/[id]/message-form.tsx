@@ -10,12 +10,14 @@ type Props = {
 	defaultModel: string;
 	/** The run working right now, which can be stopped from here. */
 	running?: { id: string; stopping: boolean };
+	/** The project says how to start its app, so a run can record it. */
+	canRecord: boolean;
 };
 
 const initialState: ChatState = { status: "idle" };
 const STOP_FORM = "stop-run";
 
-export function MessageForm({ chatId, defaultModel, running }: Props) {
+export function MessageForm({ chatId, defaultModel, running, canRecord }: Props) {
 	const [content, setContent] = useState("");
 	const [model, setModel] = useState(defaultModel);
 
@@ -77,6 +79,13 @@ export function MessageForm({ chatId, defaultModel, running }: Props) {
 							<input type="checkbox" name="verify" className="size-3.5 accent-ink" />
 							Run tests
 						</label>
+
+						{canRecord && (
+							<label className="flex items-center gap-1.5 font-mono text-xs text-muted">
+								<input type="checkbox" name="record" className="size-3.5 accent-ink" />
+								Record video
+							</label>
+						)}
 
 						<span className="ml-auto hidden font-mono text-xs text-subtle lg:inline">
 							Shift + Enter for a new line

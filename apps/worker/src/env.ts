@@ -22,6 +22,13 @@ const schema = z.object({
 	RUN_MAX_ATTEMPTS: z.coerce.number().int().positive().default(3),
 	// A chat model name (see models.ts) used when the chosen model keeps failing.
 	FALLBACK_MODEL: z.string().min(1).optional(),
+	// Screen recordings are on only when all four R2 values are set.
+	R2_ACCOUNT_ID: z.string().optional(),
+	R2_BUCKET: z.string().optional(),
+	R2_ACCESS_KEY_ID: z.string().optional(),
+	R2_SECRET_ACCESS_KEY: z.string().optional(),
+	// Where the web app lives, to link recordings from pull requests.
+	APP_URL: z.url().optional(),
 });
 
 export type WorkerEnv = z.infer<typeof schema>;

@@ -68,7 +68,61 @@ function Verification({ verification }: { verification: RunRow["verification"] }
 	);
 }
 
-export function RunPanel({ run, steps, ahead }: { run: RunRow; steps: ActivityStep[]; ahead: number }) {
+function Recording({ chatId, run, canPlay }: { chatId: string; run: RunRow; canPlay: boolean }) {
+	const { recording } = run;
+	if (!recording) return <p className="text-sm text-muted">No video was recorded.</p>;
+	if (recording.status === "skipped") {
+		return (
+			<details>
+				<summary className="w-fit cursor-pointer text-sm text-muted">{recording.message}</summary>
+				{recording.detail && (
+					<pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words font-mono text-xs">
+						{recording.detail}
+					</pre>
+				)}
+			</details>
+		);
+	}
+	if (!canPlay) {
+		return (
+			<p role="alert" className="text-sm text-red">
+				A video was recorded, but the web app has no video storage settings. Add the four R2
+				values to its environment and restart it.
+			</p>
+		);
+	}
+	const source = `/api/chats/${chatId}/runs/${run.id}/video`;
+	return (
+		<figure className="flex flex-col gap-1.5">
+			<figcaption className="flex flex-wrap items-center gap-3 font-mono text-xs uppercase">
+				<span className={recording.passed ? "text-green" : "text-red"}>
+					Recording · {recording.passed ? "checks passed" : "checks failed"}
+				</span>
+				<a href={source} target="_blank" rel="noreferrer" className="text-muted underline">
+					Open ↗
+				</a>
+			</figcaption>
+			<video src={source} controls muted preload="metadata" className="w-full border border-border" />
+			{recording.error && (
+				<p className="whitespace-pre-wrap break-words font-mono text-xs text-red">{recording.error}</p>
+			)}
+		</figure>
+	);
+}
+
+export function RunPanel({
+	chatId,
+	run,
+	steps,
+	ahead,
+	canPlay,
+}: {
+	chatId: string;
+	canPlay: boolean;
+	run: RunRow;
+	steps: ActivityStep[];
+	ahead: number;
+}) {
 	const active = run.status === "queued" || run.status === "running";
 	const tokens = run.inputTokens + run.outputTokens;
 	const facts = [
@@ -110,6 +164,8 @@ export function RunPanel({ run, steps, ahead }: { run: RunRow; steps: ActivitySt
 			)}
 
 			{run.verify && !active && <Verification verification={run.verification} />}
+
+			{run.record && !active && <Recording chatId={chatId} run={run} canPlay={canPlay} />}
 
 			{run.status === "running" && steps.length === 0 && (
 				<p className="text-sm text-muted">Setting up the workspace...</p>

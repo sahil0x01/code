@@ -103,3 +103,35 @@ export function createPullRequestOpener(mint: Mint, fetcher: typeof fetch = fetc
 		}
 	};
 }
+
+const SECTION = /\n*<!-- nullfuse-recording -->[\s\S]*?<!-- \/nullfuse-recording -->/;
+
+/** Replaces only the recording section of a PR description, leaving the rest as written. */
+export function withRecordingSection(body: string, link: string, passed: boolean) {
+	const section = `<!-- nullfuse-recording -->\n### Recording\n[Watch the latest recording](${link}) (${
+		passed ? "the script's checks passed" : "the script's checks failed"
+	}; sign-in required, kept for 30 days).\n<!-- /nullfuse-recording -->`;
+	return `${body.replace(SECTION, "").trimEnd()}\n\n${section}`.trim();
+}
+
+export function createRecordingLinker(mint: Mint, appUrl: string, fetcher: typeof fetch = fetch) {
+	return async (input: {
+		installationId: number;
+		repository: string;
+		number: number;
+		chatId: string;
+		runId: string;
+		passed: boolean;
+	}) => {
+		const token = await mint({ installationId: input.installationId, repository: input.repository });
+		const path = `/repos/${input.repository}/pulls/${input.number}`;
+		const pull = (await call(token, path, {}, fetcher)) as unknown as { body: string | null };
+		const link = new URL(`/api/chats/${input.chatId}/runs/${input.runId}/video`, appUrl).href;
+		await call(
+			token,
+			path,
+			{ method: "PATCH", body: { body: withRecordingSection(pull.body ?? "", link, input.passed) } },
+			fetcher,
+		);
+	};
+}

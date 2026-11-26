@@ -19,6 +19,11 @@ export const env = createEnv({
 			),
 		// Without it, messages are saved and runs stay queued.
 		TRIGGER_SECRET_KEY: z.string().min(1).optional(),
+		// Screen recordings can be watched only when all four are set.
+		R2_ACCOUNT_ID: z.string().min(1).optional(),
+		R2_BUCKET: z.string().min(1).optional(),
+		R2_ACCESS_KEY_ID: z.string().min(1).optional(),
+		R2_SECRET_ACCESS_KEY: z.string().min(1).optional(),
 	},
 	client: {
 		NEXT_PUBLIC_APP_URL: z.url(),
@@ -35,6 +40,10 @@ export const env = createEnv({
 		GITHUB_APP_PRIVATE_KEY_BASE64: process.env.GITHUB_APP_PRIVATE_KEY_BASE64,
 		ENV_ENCRYPTION_KEY: process.env.ENV_ENCRYPTION_KEY,
 		TRIGGER_SECRET_KEY: process.env.TRIGGER_SECRET_KEY,
+		R2_ACCOUNT_ID: process.env.R2_ACCOUNT_ID,
+		R2_BUCKET: process.env.R2_BUCKET,
+		R2_ACCESS_KEY_ID: process.env.R2_ACCESS_KEY_ID,
+		R2_SECRET_ACCESS_KEY: process.env.R2_SECRET_ACCESS_KEY,
 	},
 	emptyStringAsUndefined: true,
 	skipValidation: !!process.env.SKIP_ENV_VALIDATION,

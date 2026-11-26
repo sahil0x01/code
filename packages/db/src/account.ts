@@ -87,6 +87,8 @@ export async function exportAccountData(db: Db, userId: string) {
 			createdAt: project.createdAt,
 			installCommand: project.installCommand,
 			testCommand: project.testCommand,
+			startCommand: project.startCommand,
+			appPort: project.appPort,
 		})
 		.from(project)
 		.where(eq(project.userId, userId));
@@ -139,6 +141,8 @@ export async function exportAccountData(db: Db, userId: string) {
 			error: run.error,
 			changedFiles: run.changedFiles,
 			verify: run.verify,
+			record: run.record,
+			recording: run.recording,
 			verification: run.verification,
 			inputTokens: run.inputTokens,
 			outputTokens: run.outputTokens,

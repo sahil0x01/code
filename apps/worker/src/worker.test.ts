@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { loadEnv } from "./env";
-import { createPullRequestOpener, createTokenMinter, GitHubError } from "./github";
+import {
+	createPullRequestOpener,
+	createRecordingLinker,
+	createTokenMinter,
+	GitHubError,
+	withRecordingSection,
+} from "./github";
 import { deepseekModelId } from "./models";
 
 const valid = {
@@ -109,5 +115,38 @@ describe("createPullRequestOpener", () => {
 	it("passes other errors on", async () => {
 		const { fetcher } = fake([reply(500, { message: "boom" })]);
 		await expect(createPullRequestOpener(mint, fetcher)(input)).rejects.toBeInstanceOf(GitHubError);
+	});
+});
+
+describe("recording link", () => {
+	it("adds a section once and replaces it later, keeping the rest", () => {
+		const first = withRecordingSection("What changed.", "https://app.test/a", true);
+		const second = withRecordingSection(`${first}\n\nReviewer note`, "https://app.test/b", false);
+		expect(second).toContain("What changed.");
+		expect(second).toContain("Reviewer note");
+		expect(second).toContain("https://app.test/b");
+		expect(second).toContain("checks failed");
+		expect(second).not.toContain("https://app.test/a");
+		expect(second.match(/### Recording/g)).toHaveLength(1);
+	});
+
+	it("updates only the PR description", async () => {
+		const sent: { method?: string; body?: string }[] = [];
+		const fetcher = (async (_url: string, init: { method?: string; body?: string }) => {
+			sent.push(init);
+			return new Response(JSON.stringify({ body: "B" }), { status: 200 });
+		}) as unknown as typeof fetch;
+		await createRecordingLinker(async () => "token", "https://app.test", fetcher)({
+			installationId: 1,
+			repository: "me/repo",
+			number: 2,
+			chatId: "c",
+			runId: "r",
+			passed: true,
+		});
+		expect(sent[1]?.method).toBe("PATCH");
+		const body = JSON.parse(sent[1]?.body ?? "{}");
+		expect(Object.keys(body)).toEqual(["body"]);
+		expect(body.body).toContain("https://app.test/api/chats/c/runs/r/video");
 	});
 });

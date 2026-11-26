@@ -21,17 +21,21 @@ import {
 	loadRunContext,
 	type RunContext,
 	type RunOutcome,
+	type RunRecording,
 	type RunVerification,
 	recordStep,
 	setChangedFiles,
 	setPullRequest,
 	setPullRequestError,
+	setRecording,
 	setVerification,
 	setWorkingBranchIfUnset,
 	touchRun,
 } from "@nullfuse/db";
-import type { Sandbox, SandboxDriver } from "@nullfuse/sandbox";
+import { readText, type Sandbox, type SandboxDriver } from "@nullfuse/sandbox";
+import { recordingKey } from "@nullfuse/storage";
 import type { LanguageModel } from "ai";
+import { recordChange, recordingInstructions, SCRIPT_PATH, uploadRecording } from "./recording";
 import { redactor } from "./redact";
 
 export type RunnerDeps = {
@@ -57,6 +61,23 @@ export type RunnerDeps = {
 	maxRunningPerUser?: number;
 	/** Opens the chat's PR. Returns null when the branch has nothing to propose yet. */
 	openPullRequest?(input: PullRequestInput): Promise<{ number: number; url: string } | null>;
+	/** Without it, runs that ask for a recording say it is not set up. */
+	recorder?: Recorder;
+};
+
+export type Recorder = {
+	/** The sandbox image with a browser, prepared on first use. */
+	image(): Promise<string>;
+	uploadUrl(key: string): Promise<string>;
+	/** Points the PR at the latest recording. */
+	linkPullRequest?(input: {
+		installationId: number;
+		repository: string;
+		number: number;
+		chatId: string;
+		runId: string;
+		passed: boolean;
+	}): Promise<void>;
 };
 
 export type PullRequestInput = {
@@ -108,6 +129,7 @@ function instructionsFor(
 	branch: string,
 	setup: string | undefined,
 	resumed: boolean,
+	recordPort: number | undefined,
 ) {
 	const lines = [
 		SYSTEM_PROMPT,
@@ -116,6 +138,7 @@ function instructionsFor(
 	];
 	if (context.project.testCommand) lines.push(`To run the tests: ${context.project.testCommand}`);
 	if (setup) lines.push(setup);
+	if (recordPort !== undefined) lines.push(recordingInstructions(recordPort));
 	if (resumed) {
 		lines.push(
 			"This task was interrupted and restarted. Your earlier work is on the branch; check `git status` and `git diff` to see where you left off, then continue instead of starting over.",
@@ -218,7 +241,30 @@ async function perform(
 		return { status: "failed", stopReason: "token-budget", error: "Stopped: reached the token budget." };
 	}
 
-	const sandbox = await deps.driver.create({ image: deps.image });
+	// Why a requested recording cannot happen, or what is needed to make it.
+	let recordingBlocked: string | undefined;
+	let recordingPlan: { startCommand: string; port: number; recorder: Recorder } | undefined;
+	let image = deps.image;
+	if (context.run.record) {
+		if (!project.startCommand || project.appPort === null) {
+			recordingBlocked = "Set a start command and port on the project to record videos.";
+		} else if (!deps.recorder) {
+			recordingBlocked = "Video recording isn't set up on this server.";
+		} else {
+			try {
+				image = await deps.recorder.image();
+				recordingPlan = {
+					startCommand: project.startCommand,
+					port: project.appPort,
+					recorder: deps.recorder,
+				};
+			} catch (error) {
+				recordingBlocked = `The recording sandbox could not be prepared: ${redact.text(describe(error))}`;
+			}
+		}
+	}
+
+	const sandbox = await deps.driver.create({ image });
 	track(sandbox);
 	await prepareWorkspace(sandbox, spec);
 
@@ -226,34 +272,42 @@ async function perform(
 	const stop = new AbortController();
 	let diskExceeded = false;
 	const maxDiskMb = deps.maxDiskMb ?? DEFAULT_MAX_DISK_MB;
-	let polling = false;
-	const poll = setInterval(async () => {
-		if (polling) return;
-		polling = true;
-		try {
-			if (await isStopRequested(deps.db, runId)) stop.abort();
-		} catch {
-			// Checked again on the next tick.
-		} finally {
-			polling = false;
-		}
-	}, deps.stopPollMs ?? 1000);
-	// A newer attempt owns the run now, so this one must stop touching it.
-	let beating = false;
-	const heartbeat = setInterval(async () => {
-		if (beating) return;
-		beating = true;
-		try {
-			if (!(await touchRun(deps.db, runId, attempt))) {
-				fence.superseded = true;
-				stop.abort();
+	// Keeps the run alive and listens for Stop while there is long work. Returns how to end it.
+	const watch = () => {
+		let polling = false;
+		const poll = setInterval(async () => {
+			if (polling) return;
+			polling = true;
+			try {
+				if (await isStopRequested(deps.db, runId)) stop.abort();
+			} catch {
+				// Checked again on the next tick.
+			} finally {
+				polling = false;
 			}
-		} catch {
-			// Retried on the next beat; a database outage is the sweeper's problem.
-		} finally {
-			beating = false;
-		}
-	}, deps.heartbeatMs ?? DEFAULT_HEARTBEAT_MS);
+		}, deps.stopPollMs ?? 1000);
+		// A newer attempt owns the run now, so this one must stop touching it.
+		let beating = false;
+		const heartbeat = setInterval(async () => {
+			if (beating) return;
+			beating = true;
+			try {
+				if (!(await touchRun(deps.db, runId, attempt))) {
+					fence.superseded = true;
+					stop.abort();
+				}
+			} catch {
+				// Retried on the next beat; a database outage is the sweeper's problem.
+			} finally {
+				beating = false;
+			}
+		}, deps.heartbeatMs ?? DEFAULT_HEARTBEAT_MS);
+		return () => {
+			clearInterval(poll);
+			clearInterval(heartbeat);
+		};
+	};
+	let unwatch = watch();
 	const abort = signal ? AbortSignal.any([signal, stop.signal]) : stop.signal;
 
 	let lastFiles: Awaited<ReturnType<typeof changedFiles>> = [];
@@ -317,7 +371,13 @@ async function perform(
 				sandbox,
 				messages: context.messages,
 				env,
-				instructions: instructionsFor(context, branch, setup, before.steps > 0),
+				instructions: instructionsFor(
+					context,
+					branch,
+					setup,
+					before.steps > 0,
+					recordingPlan?.port,
+				),
 				limits: {
 					...deps.limits,
 					maxSteps: limits.maxSteps - before.steps,
@@ -344,8 +404,7 @@ async function perform(
 			agentError = error;
 		}
 	} finally {
-		clearInterval(poll);
-		clearInterval(heartbeat);
+		unwatch();
 	}
 	// A hung worker can wake up after the run moved on; it must not save over the new attempt.
 	if (!fence.superseded && !(await touchRun(deps.db, runId, attempt).catch(() => true))) {
@@ -369,6 +428,7 @@ async function perform(
 		saveError = `The work could not be saved to GitHub: ${describe(error)}`;
 	}
 
+	let pullNumber = chat.pullRequestNumber;
 	// A PR failing must not fail the run: the work is saved, and the page says why.
 	if (saveError === undefined && deps.openPullRequest && chat.pullRequestNumber === null) {
 		try {
@@ -380,9 +440,88 @@ async function perform(
 				title: redact.text(pullRequestTitle(context)),
 				body: redact.text(pullRequestBody(agent?.text ?? "", lastFiles, verification)),
 			});
-			if (pr) await setPullRequest(deps.db, chat.id, pr);
+			if (pr) {
+				await setPullRequest(deps.db, chat.id, pr);
+				pullNumber = pr.number;
+			}
 		} catch (error) {
 			await setPullRequestError(deps.db, chat.id, describe(error)).catch(() => {});
+		}
+	}
+
+	// Recorded last, so nothing the running app writes is committed.
+	if (context.run.record) {
+		const note = (message: string, detail = ""): RunRecording => ({
+			status: "skipped",
+			message,
+			detail: redact.text(detail),
+		});
+		const makeRecording = async (): Promise<RunRecording> => {
+			if (!recordingPlan) return note(recordingBlocked ?? "Recording was not possible.");
+			if (agent?.stoppedBy !== "completed" || diskExceeded || abort.aborted) {
+				return note("Not recorded: the run didn't finish.");
+			}
+			let script: string;
+			try {
+				script = await readText(sandbox, SCRIPT_PATH);
+			} catch {
+				return note("Not recorded: the agent found nothing to show in a web page.");
+			}
+			const result = await recordChange(sandbox, {
+				startCommand: recordingPlan.startCommand,
+				port: recordingPlan.port,
+				script,
+				env,
+				signal: abort,
+			});
+			if (result.status === "skipped") return note(result.message, result.detail);
+			const key = recordingKey({
+				userId: context.run.userId,
+				chatId: chat.id,
+				runId,
+				attempt,
+			});
+			const problem = await uploadRecording(
+				sandbox,
+				result.path,
+				await recordingPlan.recorder.uploadUrl(key),
+				abort,
+			);
+			if (problem) return note("The video could not be uploaded.", problem);
+			const { passed, error, durationMs, bytes } = result;
+			return {
+				status: "recorded",
+				key,
+				passed,
+				error: error === null ? null : redact.text(error),
+				durationMs,
+				bytes,
+			};
+		};
+
+		unwatch = watch();
+		try {
+			let recording: RunRecording;
+			try {
+				recording = await makeRecording();
+			} catch (error) {
+				recording = note("Recording failed.", describe(error));
+			}
+			await setRecording(deps.db, runId, recording, attempt);
+			if (recording.status === "recorded" && pullNumber !== null) {
+				await recordingPlan?.recorder
+					.linkPullRequest?.({
+						installationId: project.installationId,
+						repository: project.fullName,
+						number: pullNumber,
+						chatId: chat.id,
+						runId,
+						passed: recording.passed,
+					})
+					.catch((error) => console.warn("could not link the recording", describe(error)));
+			}
+		} finally {
+			unwatch();
 		}
 	}
 

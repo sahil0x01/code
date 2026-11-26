@@ -24,10 +24,19 @@ const command = z
 	.max(500)
 	.transform((value) => (value === "" ? null : value));
 
+const port = z
+	.string()
+	.trim()
+	.regex(/^\d{0,5}$/)
+	.transform((value) => (value === "" ? null : Number(value)))
+	.pipe(z.number().int().min(1).max(65_535).nullable());
+
 const setupSchema = z.object({
 	projectId: z.uuid(),
 	installCommand: command,
 	testCommand: command,
+	startCommand: command,
+	appPort: port,
 });
 
 export async function saveSetup(
@@ -40,12 +49,18 @@ export async function saveSetup(
 		projectId: formData.get("projectId"),
 		installCommand: formData.get("installCommand") ?? "",
 		testCommand: formData.get("testCommand") ?? "",
+		startCommand: formData.get("startCommand") ?? "",
+		appPort: formData.get("appPort") ?? "",
 	});
 	if (!input.success) {
 		return {
 			status: "error",
-			message: "Commands can be up to 500 characters.",
+			message: "Commands can be up to 500 characters, and the port is 1 to 65535.",
 		};
+	}
+
+	if ((input.data.startCommand === null) !== (input.data.appPort === null)) {
+		return { status: "error", message: "Set both the start command and the port, or neither." };
 	}
 
 	try {
@@ -55,6 +70,8 @@ export async function saveSetup(
 		await updateProjectSetup(db, project.id, {
 			installCommand: input.data.installCommand,
 			testCommand: input.data.testCommand,
+			startCommand: input.data.startCommand,
+			appPort: input.data.appPort,
 		});
 		revalidatePath(`/dashboard/projects/${project.id}`);
 	} catch (error) {

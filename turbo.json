@@ -13,7 +13,11 @@
         "GITHUB_APP_WEBHOOK_SECRET",
         "GITHUB_APP_PRIVATE_KEY_BASE64",
         "ENV_ENCRYPTION_KEY",
-        "TRIGGER_SECRET_KEY"
+        "TRIGGER_SECRET_KEY",
+        "R2_ACCOUNT_ID",
+        "R2_BUCKET",
+        "R2_ACCESS_KEY_ID",
+        "R2_SECRET_ACCESS_KEY"
       ],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": [".next/**", "!.next/cache/**", "dist/**"]

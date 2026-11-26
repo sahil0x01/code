@@ -14,6 +14,7 @@
     "@nullfuse/agent": "workspace:*",
     "@nullfuse/db": "workspace:*",
     "@nullfuse/sandbox": "workspace:*",
+    "@nullfuse/storage": "workspace:*",
     "ai": "^7.0.181"
   },
   "devDependencies": {

@@ -1,10 +1,18 @@
 import { createDeepSeekModel, withFallback } from "@nullfuse/agent";
 import { createDb } from "@nullfuse/db";
 import type { RunnerDeps } from "@nullfuse/runner";
-import { DaytonaDriver, DockerDriver, ensureDaytonaSnapshot, ensureSandboxImage } from "@nullfuse/sandbox";
+import {
+	DaytonaDriver,
+	DockerDriver,
+	ensureDaytonaRecordingSnapshot,
+	ensureDaytonaSnapshot,
+	ensureRecordingImage,
+	ensureSandboxImage,
+} from "@nullfuse/sandbox";
 import { decryptEnvValue, parseEncryptionKey } from "@nullfuse/secrets";
+import { createR2Store, r2ConfigFrom } from "@nullfuse/storage";
 import { loadEnv } from "./env";
-import { createPullRequestOpener, createTokenMinter } from "./github";
+import { createPullRequestOpener, createRecordingLinker, createTokenMinter } from "./github";
 import { deepseekModelId } from "./models";
 
 let cached: Promise<RunnerDeps> | undefined;
@@ -21,13 +29,25 @@ export function getDeps(): Promise<RunnerDeps> {
 		});
 		// Docker runs only where a Docker daemon is (a laptop or your own server); Trigger's cloud needs Daytona.
 		let sandbox: Pick<RunnerDeps, "driver" | "image">;
+		let recordingImage: () => Promise<string> = ensureRecordingImage;
 		if (env.SANDBOX_DRIVER === "daytona" && env.DAYTONA_API_KEY) {
+			const apiKey = env.DAYTONA_API_KEY;
+			recordingImage = async () => (await ensureDaytonaRecordingSnapshot(apiKey)).snapshot;
 			const { client, snapshot } = await ensureDaytonaSnapshot(env.DAYTONA_API_KEY, env.DAYTONA_SNAPSHOT);
 			sandbox = { driver: new DaytonaDriver({ client, snapshot }) };
 		} else {
 			sandbox = { driver: new DockerDriver(), image: await ensureSandboxImage() };
 		}
+		const r2 = r2ConfigFrom(env);
+		const store = r2 && createR2Store(r2);
 		return {
+			...(store && {
+				recorder: {
+					image: recordingImage,
+					uploadUrl: (key: string) => store.uploadUrl(key),
+					...(env.APP_URL && { linkPullRequest: createRecordingLinker(mint, env.APP_URL) }),
+				},
+			}),
 			db: createDb(env.DATABASE_URL),
 			...sandbox,
 			createModel: (modelKey) => {

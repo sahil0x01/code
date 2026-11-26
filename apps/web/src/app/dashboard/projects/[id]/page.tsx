@@ -65,13 +65,15 @@ export default async function ProjectPage({
 			<section className="flex flex-col gap-3">
 				<h2 className="font-semibold">Setup commands</h2>
 				<p className="max-w-xl text-sm text-muted">
-					The agent runs these in a fresh sandbox before it starts work. Leave a
-					field empty if the project does not need it.
+					These run in a fresh sandbox. Leave a field empty if the project does not
+					need it.
 				</p>
 				<SetupForm
 					projectId={project.id}
 					installCommand={project.installCommand ?? ""}
 					testCommand={project.testCommand ?? ""}
+					startCommand={project.startCommand ?? ""}
+					appPort={project.appPort?.toString() ?? ""}
 				/>
 			</section>
 

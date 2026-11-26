@@ -13,6 +13,7 @@
   "dependencies": {
     "@nullfuse/db": "workspace:*",
     "@nullfuse/secrets": "workspace:*",
+    "@nullfuse/storage": "workspace:*",
     "@t3-oss/env-nextjs": "^0.13.11",
     "@trigger.dev/sdk": "^4.8.10",
     "better-auth": "^1.7.27",

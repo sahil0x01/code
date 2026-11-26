@@ -16,6 +16,7 @@ import { PullBar } from "@/components/dashboard/pull-bar";
 import { RunPanel } from "@/components/dashboard/run-panel";
 import { DEFAULT_MODEL_ID, isModelId } from "@/lib/chat";
 import { db } from "@/server/db";
+import { recordingStore } from "@/server/recordings";
 import { requireSession } from "@/server/session";
 import { DeleteChatButton } from "./delete-chat-button";
 import { MessageForm } from "./message-form";
@@ -95,6 +96,7 @@ export default async function ChatPage({
 	].join("|");
 
 	const running = runs.find((run) => run.status === "running");
+	const canPlay = recordingStore() !== null;
 	const hasPull = chat.pullRequestNumber !== null && chat.pullRequestUrl?.startsWith("https://");
 
 	return (
@@ -139,6 +141,8 @@ export default async function ChatPage({
 										<MessageView message={message} />
 										{run && (
 											<RunPanel
+												chatId={chat.id}
+												canPlay={canPlay}
 												run={run}
 												steps={stepsByRun.get(run.id) ?? []}
 												ahead={unfinished.findIndex((other) => other.id === run.id)}
@@ -160,6 +164,7 @@ export default async function ChatPage({
 							key={chat.id}
 							chatId={chat.id}
 							defaultModel={defaultModel}
+							canRecord={chat.canRecord}
 							running={
 								running && { id: running.id, stopping: running.stopRequestedAt !== null }
 							}

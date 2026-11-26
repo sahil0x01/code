@@ -5,7 +5,12 @@ import { type ChatState, startChat } from "@/actions/chats";
 import { buttonClass, field } from "@/components/ui/styles";
 import { DEFAULT_MODEL_ID, MAX_MESSAGE_LENGTH, MODELS } from "@/lib/chat";
 
-type ProjectOption = { id: string; fullName: string; defaultBranch: string };
+type ProjectOption = {
+	id: string;
+	fullName: string;
+	defaultBranch: string;
+	canRecord: boolean;
+};
 
 type Props = {
 	projects: ProjectOption[];
@@ -97,6 +102,12 @@ export function Composer({ projects, initialProjectId }: Props) {
 						<input type="checkbox" name="verify" className="size-4 accent-ink" />
 						Run tests after
 					</label>
+					{projects.find((project) => project.id === projectId)?.canRecord && (
+						<label className="flex items-center gap-2 text-sm text-muted">
+							<input type="checkbox" name="record" className="size-4 accent-ink" />
+							Record video
+						</label>
+					)}
 
 					<button
 						type="submit"

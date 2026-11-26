@@ -11,6 +11,7 @@ export function listProjects(db: Db, userId: string) {
 			fullName: project.fullName,
 			defaultBranch: project.defaultBranch,
 			isPrivate: project.isPrivate,
+			canRecord: sql<boolean>`${project.startCommand} is not null and ${project.appPort} is not null`,
 		})
 		.from(project)
 		.where(eq(project.userId, userId))
@@ -133,6 +134,8 @@ export async function getProjectForUser(
 			installationId: project.installationId,
 			installCommand: project.installCommand,
 			testCommand: project.testCommand,
+			startCommand: project.startCommand,
+			appPort: project.appPort,
 		})
 		.from(project)
 		.where(and(eq(project.id, projectId), eq(project.userId, userId)));
@@ -142,7 +145,12 @@ export async function getProjectForUser(
 export async function updateProjectSetup(
 	db: Db,
 	projectId: string,
-	setup: { installCommand: string | null; testCommand: string | null },
+	setup: {
+		installCommand: string | null;
+		testCommand: string | null;
+		startCommand?: string | null;
+		appPort?: number | null;
+	},
 ) {
 	await db
 		.update(project)

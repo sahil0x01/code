@@ -152,6 +152,9 @@ export const project = pgTable(
 		isPrivate: boolean("is_private").notNull(),
 		installCommand: text("install_command"),
 		testCommand: text("test_command"),
+		// How to run the app for a verification recording, and the port it listens on.
+		startCommand: text("start_command"),
+		appPort: integer("app_port"),
 		createdAt: timestamp("created_at", { withTimezone: true })
 			.notNull()
 			.defaultNow(),
@@ -256,6 +259,18 @@ export type RunVerification = {
 	output: string;
 };
 
+export type RunRecording =
+	| {
+			status: "recorded";
+			/** Where the video is in object storage. */
+			key: string;
+			passed: boolean;
+			error: string | null;
+			durationMs: number;
+			bytes: number;
+	  }
+	| { status: "skipped"; message: string; detail: string };
+
 export type ChangedFile = {
 	path: string;
 	status: "added" | "modified" | "deleted" | "renamed";
@@ -290,6 +305,8 @@ export const run = pgTable(
 		stopRequestedAt: timestamp("stop_requested_at", { withTimezone: true }),
 		verify: boolean("verify").notNull().default(false),
 		verification: jsonb("verification").$type<RunVerification>(),
+		record: boolean("record").notNull().default(false),
+		recording: jsonb("recording").$type<RunRecording>(),
 		heartbeatAt: timestamp("heartbeat_at", { withTimezone: true }),
 		attempts: integer("attempts").notNull().default(0),
 		inputTokens: integer("input_tokens").notNull().default(0),

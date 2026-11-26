@@ -11,6 +11,8 @@ import {
 	type SandboxDriver,
 	SandboxError,
 } from "./types";
+import { recordingImage } from "./docker";
+import { findImageDir } from "./image-dir";
 
 const DEFAULT_WORKDIR = "/home/daytona/workspace";
 const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
@@ -178,7 +180,8 @@ export class DaytonaDriver implements SandboxDriver {
 		let box: DaytonaBox;
 		try {
 			box = await this.options.client.create({
-				snapshot: this.options.snapshot,
+				// For this driver an image is the name of another snapshot.
+				snapshot: options.image ?? this.options.snapshot,
 				...((options.memoryMb || options.cpus) && {
 					resources: {
 						...(options.cpus && { cpu: options.cpus }),
@@ -207,17 +210,42 @@ export class DaytonaDriver implements SandboxDriver {
 	}
 }
 
-const IMAGE_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "image");
+const imageDir = () => findImageDir(path.dirname(fileURLToPath(import.meta.url)));
+
+/** A CommonJS package imported from a bundle may carry its exports only on `default`. */
+export function commonJsExports<T extends object>(imported: T): T {
+	return (imported as { default?: T }).default ?? imported;
+}
 
 // SDK 2.x moved the documented client to `.v0`; v2 is a different API and is not used yet.
-// Builds the snapshot from the same Dockerfile the Docker driver uses, unless it exists.
-export async function ensureDaytonaSnapshot(apiKey: string, name = "nullfuse-sandbox") {
-	const [{ Daytona }, { Image }] = await Promise.all([import("@daytona/sdk"), import("@daytona/sdk/v0")]);
+async function ensureSnapshot(
+	apiKey: string,
+	name: string,
+	dockerfile: string,
+	resources?: { cpu: number; memory: number },
+) {
+	const [{ Daytona }, sdk] = await Promise.all([import("@daytona/sdk"), import("@daytona/sdk/v0")]);
+	const { Image } = commonJsExports(sdk);
 	const v0 = new Daytona({ apiKey }).v0;
 	try {
 		await v0.snapshot.get(name);
 	} catch {
-		await v0.snapshot.create({ name, image: Image.fromDockerfile(path.join(IMAGE_DIR, "Dockerfile")) });
+		await v0.snapshot.create({ name, image: Image.fromDockerfile(dockerfile), resources });
 	}
 	return { client: v0 as unknown as DaytonaClient, snapshot: name };
+}
+
+// Builds the snapshot from the same Dockerfile the Docker driver uses, unless it exists.
+export function ensureDaytonaSnapshot(apiKey: string, name = "nullfuse-sandbox") {
+	return ensureSnapshot(apiKey, name, path.join(imageDir(), "Dockerfile"));
+}
+
+/** The snapshot with a browser. Its name changes with its files, so edits build a new one. */
+export function ensureDaytonaRecordingSnapshot(apiKey: string) {
+	return ensureSnapshot(
+		apiKey,
+		recordingImage().replace(":", "-"),
+		path.join(imageDir(), "recording", "Dockerfile"),
+		{ cpu: 2, memory: 4 },
+	);
 }

@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { type DaytonaBox, type DaytonaClient, DaytonaDriver } from "./daytona";
+import { commonJsExports, type DaytonaBox, type DaytonaClient, DaytonaDriver } from "./daytona";
 import { MAX_OUTPUT_BYTES, type Sandbox } from "./types";
 
 // Stands in for the Daytona service: runs commands in a local shell. The real
@@ -165,5 +165,13 @@ describe("DaytonaDriver", () => {
 		await sandbox.destroy();
 		await sandbox.destroy();
 		expect(box.deleted).toBe(1);
+	});
+});
+
+describe("commonJsExports", () => {
+	it("reads exports from a bundled module and from a native one", () => {
+		const exports = { Image: "image" };
+		expect(commonJsExports({ default: exports } as unknown as typeof exports).Image).toBe("image");
+		expect(commonJsExports(exports).Image).toBe("image");
 	});
 });

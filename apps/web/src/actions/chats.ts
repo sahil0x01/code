@@ -28,6 +28,7 @@ const content = z.string().trim().min(1).max(MAX_MESSAGE_LENGTH);
 const model = z.string().refine(isModelId);
 
 const verify = z.boolean();
+const record = z.boolean();
 
 const startSchema = z.object({
 	projectId: z.uuid(),
@@ -35,6 +36,7 @@ const startSchema = z.object({
 	model,
 	content,
 	verify,
+	record,
 });
 
 const sendSchema = z.object({
@@ -42,6 +44,7 @@ const sendSchema = z.object({
 	model,
 	content,
 	verify,
+	record,
 });
 
 const inputError: ChatState = {
@@ -75,6 +78,7 @@ export async function startChat(
 		model: formData.get("model"),
 		content: formData.get("content"),
 		verify: formData.get("verify") === "on",
+		record: formData.get("record") === "on",
 	});
 	if (!input.success) return inputError;
 
@@ -126,6 +130,7 @@ export async function sendMessage(
 		model: formData.get("model"),
 		content: formData.get("content"),
 		verify: formData.get("verify") === "on",
+		record: formData.get("record") === "on",
 	});
 	if (!input.success) return inputError;
 

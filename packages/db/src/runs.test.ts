@@ -382,7 +382,13 @@ describe("loadRunContext", () => {
 		expect(context).toMatchObject({
 			run: { id: first.runId, chatId: first.chatId, userId, model: "deepseek-v4-pro" },
 			chat: { id: first.chatId, baseBranch: "main", workingBranch: null },
-			project: { id: projectId, installCommand: null, testCommand: null },
+			project: {
+				id: projectId,
+				installCommand: null,
+				testCommand: null,
+				startCommand: null,
+				appPort: null,
+			},
 		});
 		expect(context?.project.installationId).not.toBeNull();
 		expect(context?.messages).toEqual([{ role: "user", content: "First question" }]);
