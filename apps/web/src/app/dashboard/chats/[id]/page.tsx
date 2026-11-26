@@ -8,10 +8,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { z } from "zod";
 import { AutoRefresh } from "@/components/dashboard/auto-refresh";
-import { PageHeader } from "@/components/dashboard/page-header";
+import { ChangesPanel } from "@/components/dashboard/changes-panel";
+import { ChatThread } from "@/components/dashboard/chat-thread";
+import { ChatWorkspace } from "@/components/dashboard/chat-workspace";
+import { Markdown } from "@/components/dashboard/markdown";
+import { PullBar } from "@/components/dashboard/pull-bar";
 import { RunPanel } from "@/components/dashboard/run-panel";
 import { DEFAULT_MODEL_ID, isModelId } from "@/lib/chat";
-import { relativeTime } from "@/lib/time";
 import { db } from "@/server/db";
 import { requireSession } from "@/server/session";
 import { DeleteChatButton } from "./delete-chat-button";
@@ -24,27 +27,23 @@ const RUNS_WITH_ACTIVITY = 5;
 
 type Message = Awaited<ReturnType<typeof listMessages>>[number];
 
-function Bubble({ message }: { message: Message }) {
-	const isUser = message.role === "user";
-	return (
-		<div className="flex flex-col gap-2">
-			<p className="flex items-center gap-2 font-mono text-xs uppercase text-subtle">
-				<span>{isUser ? "You" : "Agent"}</span>
-				<span aria-hidden="true">·</span>
-				<time
-					dateTime={message.createdAt.toISOString()}
-					title={message.createdAt.toLocaleString("en")}
-				>
-					{relativeTime(message.createdAt)}
-				</time>
-			</p>
+function MessageView({ message }: { message: Message }) {
+	const sent = message.createdAt.toLocaleString("en");
+	if (message.role === "user") {
+		return (
 			<div
-				className={`pixel-inset whitespace-pre-wrap break-words p-4 text-[15px] leading-relaxed ${
-					isUser ? "bg-surface" : "bg-surface-2"
-				}`}
+				title={sent}
+				className="ml-auto w-fit max-w-[85%] whitespace-pre-wrap break-words border border-border bg-surface-2 px-4 py-2.5 text-[15px] leading-relaxed"
 			>
+				<span className="sr-only">You: </span>
 				{message.content}
 			</div>
+		);
+	}
+	return (
+		<div title={sent}>
+			<span className="sr-only">Agent: </span>
+			<Markdown text={message.content} />
 		</div>
 	);
 }
@@ -86,16 +85,29 @@ export default async function ChatPage({
 	const lastModel = runs.at(-1)?.model;
 	const defaultModel =
 		lastModel && isModelId(lastModel) ? lastModel : DEFAULT_MODEL_ID;
+	const tests = runs.findLast((run) => run.verification)?.verification;
+	const testsPassed = tests && tests.exitCode === 0 && !tests.timedOut;
+	// A new step, status or PR can mean new commits on the branch.
+	const refreshKey = [
+		chat.workingBranch,
+		chat.pullRequestNumber,
+		...runs.map((run) => `${run.status}:${stepsByRun.get(run.id)?.length ?? 0}`),
+	].join("|");
+
+	const running = runs.find((run) => run.status === "running");
+	const hasPull = chat.pullRequestNumber !== null && chat.pullRequestUrl?.startsWith("https://");
 
 	return (
-		<div className="flex flex-col gap-8">
+		// Covers the area beside the sidebar so each column can scroll by itself.
+		<div className="flex min-h-[70dvh] flex-col bg-background md:fixed md:inset-y-0 md:right-0 md:left-64 md:min-h-0">
 			<AutoRefresh active={unfinished.length > 0} />
 
-			<PageHeader
-				crumb={{ href: "/dashboard/chats", label: "Chats" }}
-				title={chat.title}
-				description={
-					<span className="font-mono text-xs">
+			<header className="flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border pb-3 md:px-5 md:py-2.5">
+				<div className="min-w-0 flex-1">
+					<h1 className="truncate text-sm font-semibold" title={chat.title}>
+						{chat.title}
+					</h1>
+					<p className="truncate font-mono text-xs text-muted">
 						<Link
 							href={`/dashboard/projects/${chat.projectId}`}
 							className="underline hover:text-foreground"
@@ -106,59 +118,88 @@ export default async function ChatPage({
 						{chat.baseBranch}
 						{chat.workingBranch ? ` → ${chat.workingBranch}` : ""}
 						{chat.connected ? "" : " · disconnected"}
-					</span>
-				}
-				actions={<DeleteChatButton chatId={chat.id} />}
-			/>
-
-			{chat.pullRequestUrl?.startsWith("https://") && (
-				<a
-					href={chat.pullRequestUrl}
-					target="_blank"
-					rel="noreferrer"
-					className="w-fit font-mono text-sm underline hover:text-foreground"
-				>
-					Pull request #{chat.pullRequestNumber} ↗
-				</a>
-			)}
-			{!chat.pullRequestUrl && chat.pullRequestError && (
-				<p role="alert" className="text-sm text-red">
-					Could not open a pull request: {chat.pullRequestError}
-				</p>
-			)}
-
-			<ol className="flex flex-col gap-6">
-				{shown.map((message) => {
-					const run = runByMessage.get(message.id);
-					return (
-						<li key={message.id} className="flex flex-col gap-3">
-							<Bubble message={message} />
-							{run && (
-								<RunPanel
-									run={run}
-									steps={stepsByRun.get(run.id) ?? []}
-									ahead={unfinished.findIndex((other) => other.id === run.id)}
-								/>
-							)}
-							{run &&
-								(answersByRun.get(run.id) ?? []).map((answer) => (
-									<Bubble key={answer.id} message={answer} />
-								))}
-						</li>
-					);
-				})}
-			</ol>
-
-			<div className="sticky bottom-0 -mx-5 border-t border-border bg-background px-5 pt-4 pb-5 md:-mx-10 md:px-10 md:pb-6">
-				{chat.connected ? (
-					<MessageForm chatId={chat.id} defaultModel={defaultModel} />
-				) : (
-					<p className="text-sm text-muted">
-						This project is disconnected from GitHub, so the chat is read-only.
-						Reconnect the project to keep working.
 					</p>
+				</div>
+				{tests && (
+					<span className={`font-mono text-xs ${testsPassed ? "text-green" : "text-red"}`}>
+						{testsPassed ? "Tests passed" : "Tests failed"}
+					</span>
 				)}
-			</div>
+				<DeleteChatButton chatId={chat.id} />
+			</header>
+
+			<ChatWorkspace
+				thread={
+					<ChatThread key={chat.id}>
+						<ol className="flex flex-col gap-6">
+							{shown.map((message) => {
+								const run = runByMessage.get(message.id);
+								return (
+									<li key={message.id} className="flex flex-col gap-4">
+										<MessageView message={message} />
+										{run && (
+											<RunPanel
+												run={run}
+												steps={stepsByRun.get(run.id) ?? []}
+												ahead={unfinished.findIndex((other) => other.id === run.id)}
+											/>
+										)}
+										{run &&
+											(answersByRun.get(run.id) ?? []).map((answer) => (
+												<MessageView key={answer.id} message={answer} />
+											))}
+									</li>
+								);
+							})}
+						</ol>
+					</ChatThread>
+				}
+				composer={
+					chat.connected ? (
+						<MessageForm
+							key={chat.id}
+							chatId={chat.id}
+							defaultModel={defaultModel}
+							running={
+								running && { id: running.id, stopping: running.stopRequestedAt !== null }
+							}
+						/>
+					) : (
+						<p className="text-sm text-muted">
+							This project is disconnected from GitHub, so the chat is read-only. Reconnect the
+							project to keep working.
+						</p>
+					)
+				}
+				changes={
+					<>
+						{hasPull && chat.pullRequestNumber !== null && chat.pullRequestUrl && (
+							<PullBar
+								key={chat.id}
+								chatId={chat.id}
+								number={chat.pullRequestNumber}
+								url={chat.pullRequestUrl}
+								model={defaultModel}
+								busy={unfinished.length > 0}
+								refreshKey={refreshKey}
+							/>
+						)}
+						{!chat.pullRequestUrl && chat.pullRequestError && (
+							<p role="alert" className="shrink-0 px-4 pt-3 text-sm text-red">
+								Could not open a pull request: {chat.pullRequestError}
+							</p>
+						)}
+						<div className="min-h-0 flex-1 md:overflow-y-auto">
+							<ChangesPanel
+								key={chat.id}
+								chatId={chat.id}
+								model={defaultModel}
+								refreshKey={refreshKey}
+							/>
+						</div>
+					</>
+				}
+			/>
 		</div>
 	);
 }

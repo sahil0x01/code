@@ -21,6 +21,7 @@ export function ChatLinks({ chats }: { chats: Item[] }) {
 						<Link
 							href={href}
 							aria-current={active ? "page" : undefined}
+							title={chat.title}
 							className={`flex items-center gap-2.5 border-l-2 px-3 py-1.5 text-sm ${
 								active
 									? "border-accent bg-surface-2 font-medium text-foreground"
@@ -28,7 +29,7 @@ export function ChatLinks({ chats }: { chats: Item[] }) {
 							}`}
 						>
 							<RunStatusDot status={chat.status} />
-							<span className="truncate">{chat.title}</span>
+							<span className="min-w-0 truncate">{chat.title}</span>
 						</Link>
 					</li>
 				);

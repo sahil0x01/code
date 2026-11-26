@@ -10,12 +10,12 @@ export async function SidebarChats() {
 	const chats = await listChats(db, user.id, { limit: 12 });
 
 	return (
-		<div className="flex min-h-0 flex-1 flex-col gap-2">
+		<div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
 			<p className={heading}>Recent</p>
 			{chats.length === 0 ? (
 				<p className="px-3 text-sm text-subtle">No chats yet.</p>
 			) : (
-				<div className="min-h-0 overflow-y-auto">
+				<div className="min-h-0 overflow-x-hidden overflow-y-auto">
 					<ChatLinks
 						chats={chats.map((chat) => ({
 							id: chat.id,
