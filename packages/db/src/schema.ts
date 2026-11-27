@@ -326,6 +326,8 @@ export const run = pgTable(
 		verify: boolean("verify").notNull().default(false),
 		verification: jsonb("verification").$type<RunVerification>(),
 		record: boolean("record").notNull().default(false),
+		// Merge the latest base branch into the chat's branch before answering.
+		updateBase: boolean("update_base").notNull().default(false),
 		recording: jsonb("recording").$type<RunRecording>(),
 		heartbeatAt: timestamp("heartbeat_at", { withTimezone: true }),
 		// Set while the run waits for room to start. Cleared once it has a sandbox.

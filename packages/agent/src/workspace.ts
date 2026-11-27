@@ -130,11 +130,13 @@ export async function saveProgress(
 		return { saved: false, reason: "too_large", files, bytes };
 	}
 
+	// A merge is committed even when its result matches what the branch already had.
+	const merging = (await git(sandbox, "rev-parse -q --verify MERGE_HEAD")).exitCode === 0;
 	const changes = await git(sandbox, "diff --cached --quiet");
 	if (changes.exitCode !== 0 && changes.exitCode !== 1) {
 		throw new WorkspaceError(`git diff failed: ${changes.stderr.trim()}`);
 	}
-	const committed = changes.exitCode === 1;
+	const committed = merging || changes.exitCode === 1;
 	if (committed) {
 		await mustGit(
 			sandbox,
@@ -182,4 +184,76 @@ export function parseStatus(output: string): ChangedFile[] {
 export async function changedFiles(sandbox: Sandbox) {
 	const result = await mustGit(sandbox, "status --porcelain=v1 -z -uall");
 	return parseStatus(result.stdout);
+}
+
+/** Everything that differs from a commit, whether or not it has been committed since. */
+export async function changedSince(sandbox: Sandbox, base: string): Promise<ChangedFile[]> {
+	const tracked = await mustGit(sandbox, `diff --name-status -z -M ${shellQuote(base)} --`);
+	const untracked = await mustGit(sandbox, "ls-files --others --exclude-standard -z");
+	const parts = tracked.stdout.split("\0");
+	const files: ChangedFile[] = [];
+	for (let index = 0; index + 1 < parts.length; index += 2) {
+		const code = parts[index]?.[0];
+		// Renames list the old path first.
+		if (code === "R" || code === "C") index++;
+		const path = parts[index + 1] ?? "";
+		let status: ChangedFile["status"] = "modified";
+		if (code === "A") status = "added";
+		else if (code === "D") status = "deleted";
+		else if (code === "R" || code === "C") status = "renamed";
+		files.push({ path, status });
+	}
+	for (const path of untracked.stdout.split("\0").filter(Boolean)) files.push({ path, status: "added" });
+	return files.sort((a, b) => a.path.localeCompare(b.path)).slice(0, MAX_CHANGED_FILES);
+}
+
+export type BaseMerge =
+	| { state: "current" }
+	| { state: "merged" | "conflicts"; baseSha: string; conflicts: string[] };
+
+/**
+ * Merges the latest base branch into the working branch without committing, so conflicts
+ * can be resolved first. Call after `prepareWorkspace`; `saveProgress` commits the merge.
+ */
+export async function startBaseMerge(sandbox: Sandbox, spec: WorkspaceSpec): Promise<BaseMerge> {
+	const q = shellQuote;
+	// The clone is shallow, and a merge needs the history both branches share.
+	const shallow = await mustGit(sandbox, "rev-parse --is-shallow-repository");
+	if (shallow.stdout.trim() === "true") {
+		await mustGit(
+			sandbox,
+			`fetch --unshallow -- ${q(spec.repoUrl)} ${q(`refs/heads/${spec.workingBranch}`)}`,
+			{ spec },
+		);
+	}
+	await mustGit(sandbox, `fetch -- ${q(spec.repoUrl)} ${q(`refs/heads/${spec.baseBranch}`)}`, { spec });
+	const baseSha = (await mustGit(sandbox, "rev-parse FETCH_HEAD")).stdout.trim();
+	if ((await git(sandbox, `merge-base --is-ancestor ${q(baseSha)} HEAD`)).exitCode === 0) {
+		return { state: "current" };
+	}
+
+	const merge = await git(sandbox, `merge --no-ff --no-commit ${q(baseSha)}`);
+	const unmerged = await mustGit(sandbox, "diff --name-only --diff-filter=U -z");
+	const conflicts = unmerged.stdout.split("\0").filter(Boolean);
+	if (merge.exitCode !== 0 && conflicts.length === 0) {
+		throw new WorkspaceError(`git merge failed: ${merge.stderr.trim() || merge.stdout.trim()}`);
+	}
+	return { state: conflicts.length > 0 ? "conflicts" : "merged", baseSha, conflicts };
+}
+
+/** Why a started merge must not be saved, or null when it can. */
+export async function mergeProblem(sandbox: Sandbox, merge: BaseMerge) {
+	if (merge.state === "current") return null;
+	const q = shellQuote;
+	const head = await git(sandbox, "rev-parse -q --verify MERGE_HEAD");
+	const underway = head.stdout.trim() === merge.baseSha;
+	if (!underway && (await git(sandbox, `merge-base --is-ancestor ${q(merge.baseSha)} HEAD`)).exitCode !== 0) {
+		return "The merge was abandoned.";
+	}
+	if (merge.conflicts.length === 0) return null;
+	const marked = await sandbox.exec(
+		`grep -lE '^(<{7}|>{7})( |$)' -- ${merge.conflicts.map(q).join(" ")} 2>/dev/null; true`,
+	);
+	const left = marked.stdout.split("\n").filter(Boolean);
+	return left.length > 0 ? `Conflicts are still unresolved in ${left.join(", ")}.` : null;
 }

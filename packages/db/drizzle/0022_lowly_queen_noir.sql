@@ -1,0 +1,1 @@
+ALTER TABLE "run" ADD COLUMN "update_base" boolean DEFAULT false NOT NULL;

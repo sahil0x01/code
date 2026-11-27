@@ -153,6 +153,7 @@ export async function exportAccountData(db: Db, userId: string) {
 			outputTokens: run.outputTokens,
 			modelCost: run.modelCost,
 			sandboxCost: run.sandboxCost,
+			updateBase: run.updateBase,
 			startedAt: run.startedAt,
 			finishedAt: run.finishedAt,
 			createdAt: run.createdAt,

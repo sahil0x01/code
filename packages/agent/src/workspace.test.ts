@@ -11,7 +11,10 @@ import {
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
 	changedFiles,
+	changedSince,
 	MAX_COMMIT_FILES,
+	mergeProblem,
+	startBaseMerge,
 	parseStatus,
 	prepareWorkspace,
 	saveProgress,
@@ -355,5 +358,85 @@ describe.skipIf(!hasDocker)("workspace in a real sandbox", () => {
 
 		await saveProgress(box, spec, "WIP: save");
 		expect(await changedFiles(box)).toEqual([]);
+	});
+
+	it("lists files changed since the start, committed or not", async () => {
+		const box = await newBox();
+		const spec = specFor();
+		const { headSha } = await prepareWorkspace(box, spec);
+		await box.writeFile("saved.txt", "one\n");
+		await saveProgress(box, spec);
+		await box.writeFile("fresh.txt", "two\n");
+		await box.exec("rm README.md");
+
+		expect(await changedSince(box, headSha)).toEqual([
+			{ path: "fresh.txt", status: "added" },
+			{ path: "README.md", status: "deleted" },
+			{ path: "saved.txt", status: "added" },
+		]);
+	});
+
+	// A chat branch with one saved change, then another change that reaches main.
+	async function diverged(chatLine: string, mainLine: string, mainFile = "README.md") {
+		const spec = specFor();
+		const base = { ...spec, baseBranch: `base-${randomUUID().slice(0, 8)}` };
+		await remote.git(`branch ${base.baseBranch} main`);
+		const first = await newBox();
+		await prepareWorkspace(first, base);
+		await first.writeFile("README.md", chatLine);
+		await saveProgress(first, base);
+		const other = await newBox();
+		const toBase = { ...base, workingBranch: base.baseBranch };
+		await prepareWorkspace(other, toBase);
+		await other.writeFile(mainFile, mainLine);
+		await saveProgress(other, toBase);
+		const box = await newBox();
+		await prepareWorkspace(box, base);
+		return { box, spec: base };
+	}
+	const onBranch = async (branch: string, file: string) => (await remote.git(`show ${branch}:${file}`)).stdout;
+
+	it("merges a base that moved on, and saves it as a merge", async () => {
+		const { box, spec } = await diverged("from the chat\n", "from main\n", "other.txt");
+
+		const merge = await startBaseMerge(box, spec);
+		expect(merge).toMatchObject({ state: "merged", conflicts: [] });
+		expect(await mergeProblem(box, merge)).toBeNull();
+		await saveProgress(box, spec, "Merge");
+
+		expect(await onBranch(spec.workingBranch, "other.txt")).toBe("from main\n");
+		expect(await onBranch(spec.workingBranch, "README.md")).toBe("from the chat\n");
+		expect((await remote.git(`log -1 --format=%P ${spec.workingBranch}`)).stdout.trim().split(" ")).toHaveLength(2);
+	});
+
+	it("reports conflicts until they are resolved", async () => {
+		const { box, spec } = await diverged("from the chat\n", "from main\n");
+
+		const merge = await startBaseMerge(box, spec);
+		expect(merge).toMatchObject({ state: "conflicts", conflicts: ["README.md"] });
+		expect(await mergeProblem(box, merge)).toContain("README.md");
+
+		await box.writeFile("README.md", "from the chat\n");
+		expect(await mergeProblem(box, merge)).toBeNull();
+		await saveProgress(box, spec, "Merge");
+		// Kept the chat's own text, and the merge is still recorded.
+		expect((await startBaseMerge(box, spec)).state).toBe("current");
+	});
+
+	it("refuses to save a merge that was abandoned", async () => {
+		const { box, spec } = await diverged("from the chat\n", "from main\n");
+		const merge = await startBaseMerge(box, spec);
+		await box.exec("git merge --abort");
+
+		expect(await mergeProblem(box, merge)).toContain("abandoned");
+	});
+
+	it("does nothing when the branch already has the base", async () => {
+		const box = await newBox();
+		const spec = specFor();
+		await prepareWorkspace(box, spec);
+		await saveProgress(box, spec);
+
+		expect(await startBaseMerge(box, spec)).toEqual({ state: "current" });
 	});
 });

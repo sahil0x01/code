@@ -84,3 +84,42 @@ export async function fixCheck(input: z.input<typeof fixInput>): Promise<PullAct
 	revalidatePath("/dashboard", "layout");
 	return { ok: true };
 }
+
+const updateInput = z.object({ chatId: z.uuid(), model: z.string().refine(isModelId) });
+
+/** Queues a run that merges the base branch into the chat's branch and resolves conflicts. */
+export async function updateFromBase(input: z.input<typeof updateInput>): Promise<PullActionResult> {
+	const { user } = await requireSession();
+	const parsed = updateInput.safeParse(input);
+	if (!parsed.success) return failed(retry);
+	const { chatId, model } = parsed.data;
+
+	try {
+		const pull = await ownedPull(user.id, chatId);
+		if (!pull) return failed("That pull request was not found.");
+		const runs = await listRuns(db, user.id, chatId);
+		if (runs.some((run) => run.status === "queued" || run.status === "running")) {
+			return failed("The agent is still working in this chat. Wait or stop it first.");
+		}
+		const sent = await addMessage(db, {
+			userId: user.id,
+			chatId,
+			model,
+			content: `Update this branch with the latest ${pull.chat.baseBranch} and resolve any conflicts.`,
+			verify: true,
+			updateBase: true,
+		});
+		if (!sent.ok) {
+			return failed(
+				sent.reason === "queue_full" ? "You have too many unfinished runs." : "The message could not be sent.",
+			);
+		}
+		await enqueueRun({ runId: sent.runId, chatId: sent.chatId });
+	} catch (error) {
+		console.error("update from base failed", error);
+		return failed(retry);
+	}
+
+	revalidatePath("/dashboard", "layout");
+	return { ok: true };
+}

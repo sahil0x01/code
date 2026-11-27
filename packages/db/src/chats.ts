@@ -45,6 +45,7 @@ async function enqueue(
 		content: string;
 		verify?: boolean;
 		record?: boolean;
+		updateBase?: boolean;
 		reasoning?: ReasoningLevel;
 	},
 ) {
@@ -64,6 +65,7 @@ async function enqueue(
 				model: input.model,
 				verify: input.verify ?? false,
 				record: input.record ?? false,
+				updateBase: input.updateBase ?? false,
 				reasoning: input.reasoning,
 			})
 			.returning({ id: run.id }),
@@ -127,6 +129,7 @@ export function addMessage(
 		content: string;
 		verify?: boolean;
 		record?: boolean;
+		updateBase?: boolean;
 		reasoning?: ReasoningLevel;
 	},
 ) {
@@ -322,4 +325,37 @@ export async function getRunRecording(db: Db, userId: string, chatId: string, ru
 		.from(run)
 		.where(and(eq(run.id, runId), eq(run.chatId, chatId), eq(run.userId, userId)));
 	return row?.recording ?? null;
+}
+
+export type Overlap = { chatId: string; title: string; files: string[] };
+
+/**
+ * Other open chats in the same project whose runs changed files this chat changed too,
+ * so a conflict can be expected. Runs that only merged the base branch are left out.
+ */
+export async function listOverlaps(db: Db, userId: string, chatId: string): Promise<Overlap[]> {
+	const rows = await db
+		.select({ chatId: chat.id, title: chat.title, state: chatState, files: run.changedFiles })
+		.from(chat)
+		.innerJoin(run, and(eq(run.chatId, chat.id), eq(run.updateBase, false)))
+		.where(
+			and(
+				eq(chat.userId, userId),
+				sql`${chat.projectId} = (select c.project_id from chat c where c.id = ${chatId} and c.user_id = ${userId})`,
+			),
+		)
+		.orderBy(desc(chat.updatedAt));
+
+	const mine = new Set(rows.filter((row) => row.chatId === chatId).flatMap((row) => row.files.map((f) => f.path)));
+	const others = new Map<string, { title: string; files: Set<string> }>();
+	for (const row of rows) {
+		if (row.chatId === chatId || row.state === "done") continue;
+		for (const { path } of row.files) {
+			if (!mine.has(path)) continue;
+			const found = others.get(row.chatId) ?? { title: row.title, files: new Set<string>() };
+			others.set(row.chatId, found);
+			found.files.add(path);
+		}
+	}
+	return [...others].map(([id, { title, files }]) => ({ chatId: id, title, files: [...files].sort() }));
 }

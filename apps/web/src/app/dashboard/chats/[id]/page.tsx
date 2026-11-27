@@ -1,6 +1,7 @@
 import {
 	getChatForUser,
 	listMessages,
+	listOverlaps,
 	listRunActivity,
 	listRuns,
 } from "@nullfuse/db";
@@ -53,6 +54,28 @@ function MessageView({ message }: { message: Message }) {
 	);
 }
 
+function Overlaps({ overlaps }: { overlaps: Awaited<ReturnType<typeof listOverlaps>> }) {
+	if (overlaps.length === 0) return null;
+	const count = overlaps.length === 1 ? "1 other open chat" : `${overlaps.length} other open chats`;
+	return (
+		<details className="shrink-0 border-b border-border bg-surface px-3 py-2 md:px-5">
+			<summary className="w-fit cursor-pointer font-mono text-xs text-muted">
+				{count} changed the same files. Merging one may cause conflicts in the others.
+			</summary>
+			<ul className="flex max-h-40 flex-col gap-1 overflow-y-auto pt-2 font-mono text-xs">
+				{overlaps.map((other) => (
+					<li key={other.chatId} className="flex flex-wrap gap-x-2">
+						<Link href={`/dashboard/chats/${other.chatId}`} className="underline hover:text-foreground">
+							{other.title}
+						</Link>
+						<span className="break-all text-subtle">{other.files.join(", ")}</span>
+					</li>
+				))}
+			</ul>
+		</details>
+	);
+}
+
 export default async function ChatPage({
 	params,
 }: PageProps<"/dashboard/chats/[id]">) {
@@ -63,9 +86,10 @@ export default async function ChatPage({
 	const chat = await getChatForUser(db, session.user.id, id);
 	if (!chat) notFound();
 
-	const [messages, runs] = await Promise.all([
+	const [messages, runs, overlaps] = await Promise.all([
 		listMessages(db, session.user.id, chat.id),
 		listRuns(db, session.user.id, chat.id),
+		listOverlaps(db, session.user.id, chat.id),
 	]);
 	const activity = await listRunActivity(
 		db,
@@ -157,6 +181,8 @@ export default async function ChatPage({
 				)}
 				<DeleteChatButton chatId={chat.id} />
 			</header>
+
+			{chat.state !== "done" && <Overlaps overlaps={overlaps} />}
 
 			<ChatWorkspace
 				thread={

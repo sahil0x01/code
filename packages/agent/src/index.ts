@@ -34,8 +34,12 @@ export {
 	writeTool,
 } from "./tools";
 export {
+	type BaseMerge,
 	type ChangedFile,
 	changedFiles,
+	changedSince,
+	mergeProblem,
+	startBaseMerge,
 	MAX_CHANGED_FILES,
 	MAX_COMMIT_BYTES,
 	MAX_COMMIT_FILES,

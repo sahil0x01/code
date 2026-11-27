@@ -2,15 +2,18 @@ import {
 	type AgentLimits,
 	type AgentRun,
 	type AgentStep,
-	changedFiles,
+	type BaseMerge,
+	changedSince,
 	DEFAULT_LIMITS,
 	modelCost,
+	mergeProblem,
 	prepareWorkspace,
 	priceModel,
 	readProjectRules,
 	reasoningOptions,
 	runAgent,
 	saveProgress,
+	startBaseMerge,
 	SYSTEM_PROMPT,
 	toStepRecord,
 	workingBranchFor,
@@ -154,6 +157,7 @@ function instructionsFor(
 	rules: { file: string; text: string }[],
 	canCheckApp: boolean,
 	browserProblem: string | undefined,
+	merge: BaseMerge | undefined,
 ) {
 	const lines = [
 		SYSTEM_PROMPT,
@@ -180,6 +184,12 @@ function instructionsFor(
 			...rules.map((rule) => `<${rule.file}>\n${rule.text}\n</${rule.file}>`),
 		);
 	}
+	if (merge?.state === "conflicts") {
+		lines.push(
+			`A merge of ${context.chat.baseBranch} into this branch is in progress, and these files conflict: ${merge.conflicts.join(", ")}.`,
+			"Resolve every conflict so that the intent of both sides is kept, and remove all conflict markers. A file deleted on one side has no markers: decide whether it should stay. Do not run git commit, merge --abort, reset or checkout; the merge is committed for you when you finish. Then check that the project still works.",
+		);
+	}
 	if (resumed) {
 		lines.push(
 			"This task was interrupted and restarted. Your earlier work is on the branch; check `git status` and `git diff` to see where you left off, then continue instead of starting over.",
@@ -188,7 +198,23 @@ function instructionsFor(
 	return lines.join("\n");
 }
 
+class MergeNotSaved extends Error {}
+
+function mergedWithoutModel(context: RunContext, merge: BaseMerge): AgentRun {
+	const base = context.chat.baseBranch;
+	return {
+		text:
+			merge.state === "current"
+				? `The branch already has the latest ${base}.`
+				: `Merged the latest ${base} into the branch. There were no conflicts.`,
+		steps: [],
+		usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+		stoppedBy: "completed",
+	};
+}
+
 function commitMessage(context: RunContext) {
+	if (context.run.updateBase) return `Merge ${context.chat.baseBranch} into the chat's branch`;
 	const last = context.messages.filter((m) => m.role === "user").at(-1)?.content ?? "";
 	const title = (last.trim().split("\n")[0] ?? "").slice(0, 60);
 	return title ? `WIP: ${title}` : "WIP: save progress";
@@ -323,7 +349,13 @@ async function perform(
 	const sandbox = await deps.driver.create({ image });
 	track(sandbox, deps.sandboxHourlyCost?.[app ? "browser" : "plain"] ?? 0);
 	await clearRunWaiting(deps.db, runId, attempt);
-	await prepareWorkspace(sandbox, spec);
+	const workspace = await prepareWorkspace(sandbox, spec);
+	// A branch that was never saved starts from the base, so there is nothing to merge.
+	const merge: BaseMerge | undefined = !context.run.updateBase
+		? undefined
+		: workspace.resumed
+			? await startBaseMerge(sandbox, spec)
+			: { state: "current" };
 	// Read before the agent runs, so a run cannot rewrite the rules it was given.
 	const rules = await readProjectRules(sandbox);
 
@@ -369,11 +401,20 @@ async function perform(
 	let unwatch = watch();
 	const abort = signal ? AbortSignal.any([signal, stop.signal]) : stop.signal;
 
-	let lastFiles: Awaited<ReturnType<typeof changedFiles>> = [];
+	let lastFiles: Awaited<ReturnType<typeof changedSince>> = [];
 	let verification: RunVerification | undefined;
 	const syncFiles = async () => {
 		try {
-			lastFiles = await changedFiles(sandbox);
+			if (merge) {
+				// What the base brought in is not this run's work; only the conflicts are.
+				lastFiles =
+					merge.state === "current" ? [] : merge.conflicts.map((path) => ({ path, status: "modified" }));
+			} else {
+				const now = await changedSince(sandbox, workspace.headSha);
+				// An attempt that resumed starts from saved work, so earlier files are added back.
+				const seen = new Set(now.map((file) => file.path));
+				lastFiles = [...before.changedFiles.filter((file) => !seen.has(file.path)), ...now];
+			}
 			await setChangedFiles(deps.db, runId, lastFiles, attempt);
 		} catch {
 			// The list is shown again after the next step.
@@ -408,6 +449,8 @@ async function perform(
 
 	let sinceCheckpoint = 0;
 	const checkpoint = async () => {
+		// A half-resolved merge must not reach the branch.
+		if (merge) return;
 		if (++sinceCheckpoint < (deps.checkpointEverySteps ?? DEFAULT_CHECKPOINT_STEPS)) return;
 		sinceCheckpoint = 0;
 		try {
@@ -457,7 +500,8 @@ async function perform(
 			: undefined;
 		try {
 			await checkDisk();
-			agent = await runAgent({
+			// A merge without conflicts needs no model.
+			agent = merge && merge.state !== "conflicts" ? mergedWithoutModel(context, merge) : await runAgent({
 				model: deps.createModel(context.run.model),
 				providerOptions: reasoningOptions(context.run.reasoning),
 				sandbox,
@@ -472,6 +516,7 @@ async function perform(
 					rules,
 					app !== undefined,
 					browserProblem,
+					merge,
 				),
 				tools: app && { check_app: checkAppTool(sandbox, { ...app, env }) },
 				limits: {
@@ -517,15 +562,20 @@ async function perform(
 		agentError = new Error(`Stopped: the workspace grew past ${maxDiskMb} MB.`);
 	}
 
-	// Whatever happened, keep the work done so far.
+	// Whatever happened, keep the work done so far. A merge is saved only when it is sound.
 	let saveError: string | undefined;
 	try {
+		const unsound = merge ? await mergeProblem(sandbox, merge) : null;
+		if (unsound) throw new MergeNotSaved(unsound);
 		const saved = await saveProgress(sandbox, spec, commitMessage(context));
 		if (!saved.saved) {
 			saveError = `The changes were not saved: ${saved.files} files and ${saved.bytes} bytes are too many to commit. Add generated folders to .gitignore.`;
 		}
 	} catch (error) {
-		saveError = `The work could not be saved to GitHub: ${describe(error)}`;
+		saveError =
+			error instanceof MergeNotSaved
+				? `The branch was left as it was. ${error.message}`
+				: `The work could not be saved to GitHub: ${describe(error)}`;
 	}
 
 	let pullNumber = chat.pullRequestNumber;

@@ -678,6 +678,58 @@ describe.skipIf(!hasDocker)("executeRun", () => {
 		expect(row?.changedFiles).toEqual([{ path: "notes.txt", status: "added" }]);
 	});
 
+	async function moveMain(file: string, text: string) {
+		const box = await docker.create({ image, memoryMb: 512 });
+		try {
+			const script = `git clone -q ${remote.url} . && printf '%s\\n' '${text}' > ${file} && git add -A && git -c user.name=M -c user.email=m@example.test commit -qm main && git push -q origin HEAD:main`;
+			expect((await box.exec(script)).exitCode).toBe(0);
+		} finally {
+			await box.destroy();
+		}
+	}
+
+	async function updateFromBase(userId: string, chatId: string) {
+		const sent = await addMessage(db, { userId, chatId, model: "deepseek-v4-pro", content: "Update from main", updateBase: true });
+		if (!sent.ok) throw new Error(sent.reason);
+		return sent.runId;
+	}
+
+	const writes = (path: string, content: string) =>
+		new MockLanguageModelV4({
+			doGenerate: [toolCalls({ name: "write", input: { path, content } }), answer("done")],
+		});
+
+	it("merges a base that moved on without asking the model, when nothing conflicts", async () => {
+		const { userId, chatId, runId, branch } = await setup();
+		await executeRun(deps(writes("chat-only.txt", "mine\n")), runId);
+		await moveMain(`main-only-${randomBytes(3).toString("hex")}.txt`, "theirs");
+		const model = new MockLanguageModelV4({ doGenerate: [] });
+
+		const result = await executeRun(deps(model), await updateFromBase(userId, chatId));
+
+		expect(result).toMatchObject({ status: "succeeded" });
+		expect(model.doGenerateCalls).toHaveLength(0);
+		expect((await remote.git(`log -1 --format=%P ${branch}`)).stdout.trim().split(" ")).toHaveLength(2);
+		expect((await listMessages(db, userId, chatId)).at(-1)?.content).toContain("no conflicts");
+	});
+
+	it.each([
+		["resolves them", "both\n", "succeeded", "both\n"],
+		["leaves markers behind", "<<<<<<< HEAD\nmine\n", "failed", "mine\n"],
+	])("gives conflicts to the agent, which %s", async (_how, resolution, status, onBranch) => {
+		const file = `shared-${randomBytes(3).toString("hex")}.txt`;
+		const { userId, chatId, runId, branch } = await setup();
+		await executeRun(deps(writes(file, "mine\n")), runId);
+		await moveMain(file, "theirs");
+		const model = writes(file, resolution);
+
+		const result = await executeRun(deps(model), await updateFromBase(userId, chatId));
+
+		expect(result).toMatchObject({ status });
+		expect(systemPrompt(model)).toContain(file);
+		expect((await remote.git(`show ${branch}:${file}`)).stdout).toBe(onBranch);
+	});
+
 	it("puts a run back in the queue when there is no room for its sandbox", async () => {
 		const { userId, chatId, runId } = await setup();
 		const full: SandboxDriver = {

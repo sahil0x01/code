@@ -319,6 +319,7 @@ export type RunContext = {
 		model: string;
 		verify: boolean;
 		record: boolean;
+		updateBase: boolean;
 		reasoning: ReasoningLevel;
 	};
 	chat: {
@@ -354,6 +355,7 @@ export async function loadRunContext(db: Db, runId: string): Promise<RunContext 
 				model: run.model,
 				verify: run.verify,
 				record: run.record,
+				updateBase: run.updateBase,
 				reasoning: run.reasoning,
 			},
 			chat: {
@@ -438,7 +440,12 @@ export async function setChangedFiles(
 /** What an earlier attempt already did, so a restarted run continues instead of starting over. */
 export async function getRunProgress(db: Db, runId: string) {
 	const [row] = await db
-		.select({ inputTokens: run.inputTokens, outputTokens: run.outputTokens, modelCost: run.modelCost })
+		.select({
+			inputTokens: run.inputTokens,
+			outputTokens: run.outputTokens,
+			modelCost: run.modelCost,
+			changedFiles: run.changedFiles,
+		})
 		.from(run)
 		.where(eq(run.id, runId));
 	const [{ steps } = { steps: 0 }] = await db
@@ -449,6 +456,7 @@ export async function getRunProgress(db: Db, runId: string) {
 		steps,
 		tokens: (row?.inputTokens ?? 0) + (row?.outputTokens ?? 0),
 		cost: row?.modelCost ?? 0,
+		changedFiles: row?.changedFiles ?? [],
 	};
 }
 

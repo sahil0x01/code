@@ -155,6 +155,13 @@
       "when": 1795774266914,
       "tag": "0021_tense_molly_hayes",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1795775123369,
+      "tag": "0022_lowly_queen_noir",
+      "breakpoints": true
     }
   ]
 }

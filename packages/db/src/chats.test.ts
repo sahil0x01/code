@@ -5,7 +5,12 @@ import {
 	addMessage,
 	cancelRun,
 	chat,
+	claimRun,
 	createChat,
+	finishRun,
+	listOverlaps,
+	setChangedFiles,
+	setChatDone,
 	deleteChat,
 	exportAccountData,
 	getChatForUser,
@@ -454,5 +459,28 @@ describe("account export", () => {
 		expect(data?.chats.map((c) => c.id)).toEqual([created.chatId]);
 		expect(data?.messages.map((m) => m.content)).toEqual(["My secret task"]);
 		expect(data?.runs.map((r) => r.id)).toEqual([created.runId]);
+	});
+});
+
+describe("listOverlaps", () => {
+	it("names the other open chats that changed the same files", async () => {
+		const userId = await fixtures.user();
+		const projectId = await fixtures.project(userId);
+		const make = async (content: string, paths: string[]) => {
+			const created = await createChat(db, { userId, projectId, baseBranch: "main", model: "deepseek-v4-pro", content });
+			if (!created.ok) throw new Error(created.reason);
+			await claimRun(db, created.runId);
+			await setChangedFiles(db, created.runId, paths.map((path) => ({ path, status: "modified" as const })));
+			await finishRun(db, created.runId, { status: "succeeded", stopReason: "completed" });
+			return created.chatId;
+		};
+		const mine = await make("Mine", ["a.ts", "b.ts"]);
+		const same = await make("Same", ["b.ts", "c.ts"]);
+		await make("Apart", ["d.ts"]);
+		const closed = await make("Closed", ["a.ts"]);
+		await setChatDone(db, userId, closed, true);
+
+		expect(await listOverlaps(db, userId, mine)).toEqual([{ chatId: same, title: "Same", files: ["b.ts"] }]);
+		expect(await listOverlaps(db, await fixtures.user(), mine)).toEqual([]);
 	});
 });

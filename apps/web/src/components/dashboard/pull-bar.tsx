@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
-import { fixCheck, mergePullRequest, type PullActionResult } from "@/actions/pull-request";
+import { fixCheck, mergePullRequest, type PullActionResult, updateFromBase } from "@/actions/pull-request";
 import { buttonClass } from "@/components/ui/styles";
 import { type CheckState, type PullResponse, type PullStatus, summarizeChecks } from "@/lib/pr";
 
@@ -135,6 +135,14 @@ export function PullBar({ chatId, number, url, model, busy, refreshKey }: Props)
 
 				{open && pull && (
 					<span className="ml-auto flex flex-wrap items-center gap-3">
+						<button
+							type="button"
+							disabled={pending || busy}
+							onClick={() => act(() => updateFromBase({ chatId, model }))}
+							className={buttonClass("secondary", "sm")}
+						>
+							Update from base
+						</button>
 						{confirming === pull.headSha ? (
 							<>
 								<button
