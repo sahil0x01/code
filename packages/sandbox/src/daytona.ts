@@ -245,12 +245,15 @@ export function ensureDaytonaSnapshot(apiKey: string, name = "nullfuse-sandbox")
 	return ensureSnapshot(apiKey, name, path.join(imageDir(), "Dockerfile"));
 }
 
-/** The snapshot with a browser. Its name changes with its files, so edits build a new one. */
+// 2 GiB lets five browser runs fit in Daytona's first-tier pool of 10 GiB.
+const BROWSER_RESOURCES = { cpu: 2, memory: 2 };
+
+/** The snapshot with a browser. Its name changes with its files and size, so edits build a new one. */
 export function ensureDaytonaRecordingSnapshot(apiKey: string) {
 	return ensureSnapshot(
 		apiKey,
-		recordingImage().replace(":", "-"),
+		`${recordingImage().replace(":", "-")}-${BROWSER_RESOURCES.memory}gb`,
 		path.join(imageDir(), "recording", "Dockerfile"),
-		{ cpu: 2, memory: 4 },
+		BROWSER_RESOURCES,
 	);
 }
