@@ -3,9 +3,9 @@
 import type { RunStatus } from "@nullfuse/db";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { RunStatusDot } from "./run-status";
+import { RunStatusDot, UnreadMark } from "./run-status";
 
-type Item = { id: string; title: string; status: RunStatus | null };
+type Item = { id: string; title: string; status: RunStatus | null; unread: boolean };
 
 // The sidebar's recent chats. Client side only to highlight the open one.
 export function ChatLinks({ chats }: { chats: Item[] }) {
@@ -29,7 +29,12 @@ export function ChatLinks({ chats }: { chats: Item[] }) {
 							}`}
 						>
 							<RunStatusDot status={chat.status} />
-							<span className="min-w-0 truncate">{chat.title}</span>
+							<span
+								className={`min-w-0 truncate ${chat.unread ? "font-semibold text-foreground" : ""}`}
+							>
+								{chat.title}
+							</span>
+							{chat.unread && <UnreadMark />}
 						</Link>
 					</li>
 				);

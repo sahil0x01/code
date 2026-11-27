@@ -1,6 +1,6 @@
 "use server";
 
-import { addMessage, getChatForUser, listRuns } from "@nullfuse/db";
+import { addMessage, getChatForUser, listRuns, setChatDone } from "@nullfuse/db";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { isModelId } from "@/lib/chat";
@@ -38,6 +38,10 @@ export async function mergePullRequest(input: z.input<typeof mergeInput>): Promi
 		}
 		const result = await mergePull(pull.client, pull.chat.projectName, pull.number, parsed.data.sha);
 		if (!result.ok) return result;
+		// The merge already happened, so a failure here must not report it as failed.
+		await setChatDone(db, user.id, pull.chat.id, true).catch((error) =>
+			console.error("mark chat done failed", error),
+		);
 	} catch (error) {
 		console.error("merge pull request failed", error);
 		return failed(retry);

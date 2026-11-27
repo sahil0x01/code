@@ -3,6 +3,7 @@
 import { useActionState, useId } from "react";
 import { saveSettings, type SettingsState } from "@/actions/settings";
 import { buttonClass, field } from "@/components/ui/styles";
+import { BrowserNotifications } from "./browser-notifications";
 import { SettingsSection } from "./section";
 
 type Props = {
@@ -56,7 +57,7 @@ export function SettingsForm(props: Props) {
 							defaultChecked={props.notifyRunFinished}
 							className="size-4"
 						/>
-						Tell me in the app when a run finishes
+						Notify me when a run finishes
 					</label>
 					<label className="flex items-center gap-3 text-sm">
 						<input
@@ -65,9 +66,10 @@ export function SettingsForm(props: Props) {
 							defaultChecked={props.notifyRunFailed}
 							className="size-4"
 						/>
-						Tell me in the app when a run fails
+						Notify me when a run fails
 					</label>
 				</fieldset>
+				<BrowserNotifications />
 			</SettingsSection>
 
 			<div className="flex items-center gap-3">

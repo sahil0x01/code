@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useNeedsReview } from "./inbox";
 
 type Item = { href: string; label: string; exact?: boolean };
 
@@ -25,6 +26,8 @@ function itemsFor(group: NavGroup) {
 }
 
 function NavList({ pathname, group }: { pathname: string; group: NavGroup }) {
+	const needsReview = useNeedsReview();
+
 	return (
 		<nav
 			aria-label={group === "account" ? "Account" : "Dashboard"}
@@ -49,6 +52,12 @@ function NavList({ pathname, group }: { pathname: string; group: NavGroup }) {
 						}`}
 					>
 						{item.label}
+						{item.href === "/dashboard/chats" && needsReview > 0 && (
+							<span className="ml-2 inline-block bg-accent px-1.5 font-mono text-xs text-accent-foreground">
+								{needsReview}
+								<span className="sr-only"> to review</span>
+							</span>
+						)}
 					</Link>
 				);
 			})}

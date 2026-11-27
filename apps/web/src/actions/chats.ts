@@ -7,8 +7,10 @@ import {
 	deleteChat,
 	getChatForUser,
 	getProjectForUser,
+	markChatSeen,
 	requestStop,
 	type SendResult,
+	setChatDone,
 } from "@nullfuse/db";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -183,6 +185,26 @@ export async function stopRun(formData: FormData) {
 	const cancelled = await cancelRun(db, user.id, input.data.runId);
 	if (!cancelled) await requestStop(db, user.id, input.data.runId);
 
+	revalidatePath("/dashboard", "layout");
+}
+
+export async function markSeen(input: { chatId: string; until: string }) {
+	const { user } = await requireSession();
+	const parsed = z.object({ chatId: z.uuid(), until: z.iso.datetime() }).safeParse(input);
+	if (!parsed.success) return;
+
+	await markChatSeen(db, user.id, parsed.data.chatId, new Date(parsed.data.until));
+	revalidatePath("/dashboard", "layout");
+}
+
+export async function setDone(formData: FormData) {
+	const { user } = await requireSession();
+	const parsed = z
+		.object({ chatId: z.uuid(), done: z.enum(["true", "false"]) })
+		.safeParse({ chatId: formData.get("chatId"), done: formData.get("done") });
+	if (!parsed.success) return;
+
+	await setChatDone(db, user.id, parsed.data.chatId, parsed.data.done === "true");
 	revalidatePath("/dashboard", "layout");
 }
 

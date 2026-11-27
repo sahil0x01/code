@@ -11,6 +11,7 @@ export type Db = ReturnType<typeof createDb>;
 
 export * from "./account";
 export * from "./chats";
+export * from "./inbox";
 export * from "./installations";
 export * from "./preferences";
 export * from "./projects";

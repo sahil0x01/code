@@ -11,6 +11,8 @@ import { AutoRefresh } from "@/components/dashboard/auto-refresh";
 import { ChangesPanel } from "@/components/dashboard/changes-panel";
 import { ChatThread } from "@/components/dashboard/chat-thread";
 import { ChatWorkspace } from "@/components/dashboard/chat-workspace";
+import { DoneButton } from "@/components/dashboard/done-button";
+import { MarkSeen } from "@/components/dashboard/mark-seen";
 import { Markdown } from "@/components/dashboard/markdown";
 import { PullBar } from "@/components/dashboard/pull-bar";
 import { RunPanel } from "@/components/dashboard/run-panel";
@@ -83,6 +85,12 @@ export default async function ChatPage({
 	const unfinished = runs.filter(
 		(run) => run.status === "queued" || run.status === "running",
 	);
+	const latestResult = runs.reduce<Date | null>(
+		(latest, run) =>
+			run.finishedAt && (!latest || run.finishedAt > latest) ? run.finishedAt : latest,
+		null,
+	);
+	const reviewable = runs.some((run) => run.startedAt && run.finishedAt);
 	const lastModel = runs.at(-1)?.model;
 	const defaultModel =
 		lastModel && isModelId(lastModel) ? lastModel : DEFAULT_MODEL_ID;
@@ -104,6 +112,9 @@ export default async function ChatPage({
 		// Covers the area beside the sidebar so each column can scroll by itself.
 		<div className="flex min-h-[70dvh] flex-col bg-background md:fixed md:inset-y-0 md:right-0 md:left-64 md:min-h-0">
 			<AutoRefresh active={unfinished.length > 0} />
+			{chat.unread && latestResult && (
+				<MarkSeen chatId={chat.id} until={latestResult.toISOString()} />
+			)}
 
 			<header className="flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border pb-3 md:px-5 md:py-2.5">
 				<div className="min-w-0 flex-1">
@@ -127,6 +138,9 @@ export default async function ChatPage({
 					<span className={`font-mono text-xs ${testsPassed ? "text-green" : "text-red"}`}>
 						{testsPassed ? "Tests passed" : "Tests failed"}
 					</span>
+				)}
+				{chat.state !== "running" && reviewable && (
+					<DoneButton chatId={chat.id} done={chat.state === "done"} />
 				)}
 				<DeleteChatButton chatId={chat.id} />
 			</header>

@@ -206,6 +206,10 @@ export const chat = pgTable(
 		pullRequestUrl: text("pull_request_url"),
 		// Why the last attempt to open the PR failed, shown to the user.
 		pullRequestError: text("pull_request_error"),
+		// Runs that finished after this are unread.
+		seenAt: timestamp("seen_at", { withTimezone: true }),
+		// The chat needs review again once a run finishes after this.
+		doneAt: timestamp("done_at", { withTimezone: true }),
 		createdAt: timestamp("created_at", { withTimezone: true })
 			.notNull()
 			.defaultNow(),

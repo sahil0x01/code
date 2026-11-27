@@ -21,6 +21,7 @@ export async function SidebarChats() {
 							id: chat.id,
 							title: chat.title,
 							status: chat.lastRunStatus,
+							unread: chat.unread,
 						}))}
 					/>
 				</div>

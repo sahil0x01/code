@@ -28,6 +28,16 @@ export function RunStatusDot({ status }: { status: RunStatus | null }) {
 	);
 }
 
+/** A result the user has not opened yet. */
+export function UnreadMark() {
+	return (
+		<span className="ml-auto shrink-0 font-mono text-xs text-foreground">
+			<span aria-hidden="true">new</span>
+			<span className="sr-only">Unread result</span>
+		</span>
+	);
+}
+
 export function RunStatusBadge({
 	status,
 	ahead = 0,

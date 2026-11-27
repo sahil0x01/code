@@ -1,8 +1,7 @@
 import { and, asc, count, desc, eq, inArray, sql } from "drizzle-orm";
 import type { Db } from "./index";
-import { chat, message, project, run,
-	type ReasoningLevel,
-} from "./schema";
+import { chatState, chatUnread } from "./inbox";
+import { chat, message, project, run, type ReasoningLevel } from "./schema";
 
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
@@ -171,6 +170,8 @@ export function listChats(
 			updatedAt: chat.updatedAt,
 			projectId: chat.projectId,
 			projectName: project.fullName,
+			state: chatState,
+			unread: chatUnread,
 			lastRunStatus: sql<RunStatus | null>`(
 				select ${run.status} from ${run}
 				where ${run.chatId} = ${chat.id}
@@ -203,6 +204,8 @@ export async function getChatForUser(db: Db, userId: string, chatId: string) {
 			projectId: chat.projectId,
 			projectName: project.fullName,
 			installationId: project.installationId,
+			state: chatState,
+			unread: chatUnread,
 			connected: sql<boolean>`${project.installationId} is not null`,
 			canRecord: sql<boolean>`${project.startCommand} is not null and ${project.appPort} is not null`,
 		})

@@ -112,6 +112,8 @@ export async function exportAccountData(db: Db, userId: string) {
 			workingBranch: chat.workingBranch,
 			pullRequestNumber: chat.pullRequestNumber,
 			pullRequestUrl: chat.pullRequestUrl,
+			seenAt: chat.seenAt,
+			doneAt: chat.doneAt,
 			createdAt: chat.createdAt,
 			updatedAt: chat.updatedAt,
 		})

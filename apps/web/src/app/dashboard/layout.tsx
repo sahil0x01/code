@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
+import { InboxProvider } from "@/components/dashboard/inbox";
 import {
 	DashboardNav,
 	DashboardNavFallback,
@@ -25,62 +26,64 @@ export default function DashboardLayout({
 	children,
 }: LayoutProps<"/dashboard">) {
 	return (
-		<div className="flex min-h-dvh flex-col md:flex-row">
-			<aside className="flex flex-col gap-3 border-b border-border bg-surface p-4 md:sticky md:top-0 md:h-dvh md:w-64 md:shrink-0 md:border-r md:border-b-0">
-				<div className="flex items-center justify-between gap-3 md:px-1">
-					<Logo href="/dashboard" />
-					<div className="flex items-center gap-2 md:hidden">
-						<SignOutButton />
-						<ThemeToggle />
-					</div>
-				</div>
-
-				<Link href="/dashboard/chats/new" className={`${buttonClass()} w-full`}>
-					New chat
-				</Link>
-
-				<div className="md:hidden">
-					<Suspense fallback={<DashboardNavFallback group="all" />}>
-						<DashboardNav group="all" />
-					</Suspense>
-				</div>
-
-				<div className="hidden md:block">
-					<Suspense fallback={<DashboardNavFallback group="main" />}>
-						<DashboardNav group="main" />
-					</Suspense>
-				</div>
-
-				<div className="hidden min-h-0 flex-1 md:flex">
-					<Suspense fallback={<SidebarChatsSkeleton />}>
-						<SidebarChats />
-					</Suspense>
-				</div>
-
-				<div className="hidden flex-col gap-3 md:flex">
-					<Suspense fallback={<DashboardNavFallback group="account" />}>
-						<DashboardNav group="account" />
-					</Suspense>
-					<div className="flex flex-col gap-3 border-t border-border pt-3">
-						<Suspense fallback={<div className="h-8" />}>
-							<UserCard />
-						</Suspense>
-						<div className="flex items-center gap-2">
+		<InboxProvider>
+			<div className="flex min-h-dvh flex-col md:flex-row">
+				<aside className="flex flex-col gap-3 border-b border-border bg-surface p-4 md:sticky md:top-0 md:h-dvh md:w-64 md:shrink-0 md:border-r md:border-b-0">
+					<div className="flex items-center justify-between gap-3 md:px-1">
+						<Logo href="/dashboard" />
+						<div className="flex items-center gap-2 md:hidden">
 							<SignOutButton />
 							<ThemeToggle />
 						</div>
 					</div>
-				</div>
-			</aside>
 
-			<main className="min-w-0 flex-1">
-				<div className="mx-auto w-full max-w-4xl p-5 md:p-10">
-					<Suspense fallback={<PageSkeleton />}>
-						<SessionGate>{children}</SessionGate>
-					</Suspense>
-				</div>
-			</main>
-		</div>
+					<Link href="/dashboard/chats/new" className={`${buttonClass()} w-full`}>
+						New chat
+					</Link>
+
+					<div className="md:hidden">
+						<Suspense fallback={<DashboardNavFallback group="all" />}>
+							<DashboardNav group="all" />
+						</Suspense>
+					</div>
+
+					<div className="hidden md:block">
+						<Suspense fallback={<DashboardNavFallback group="main" />}>
+							<DashboardNav group="main" />
+						</Suspense>
+					</div>
+
+					<div className="hidden min-h-0 flex-1 md:flex">
+						<Suspense fallback={<SidebarChatsSkeleton />}>
+							<SidebarChats />
+						</Suspense>
+					</div>
+
+					<div className="hidden flex-col gap-3 md:flex">
+						<Suspense fallback={<DashboardNavFallback group="account" />}>
+							<DashboardNav group="account" />
+						</Suspense>
+						<div className="flex flex-col gap-3 border-t border-border pt-3">
+							<Suspense fallback={<div className="h-8" />}>
+								<UserCard />
+							</Suspense>
+							<div className="flex items-center gap-2">
+								<SignOutButton />
+								<ThemeToggle />
+							</div>
+						</div>
+					</div>
+				</aside>
+
+				<main className="min-w-0 flex-1">
+					<div className="mx-auto w-full max-w-4xl p-5 md:p-10">
+						<Suspense fallback={<PageSkeleton />}>
+							<SessionGate>{children}</SessionGate>
+						</Suspense>
+					</div>
+				</main>
+			</div>
+		</InboxProvider>
 	);
 }
 

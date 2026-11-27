@@ -1,4 +1,4 @@
-import { listChats } from "@nullfuse/db";
+import { type ChatReviewState, listChats } from "@nullfuse/db";
 import { ChatList } from "@/components/dashboard/chat-list";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { PageHeader } from "@/components/dashboard/page-header";
@@ -7,9 +7,15 @@ import { requireSession } from "@/server/session";
 
 export const metadata = { title: "Chats" };
 
+const sections: { state: ChatReviewState; title: string }[] = [
+	{ state: "needs_review", title: "Needs review" },
+	{ state: "running", title: "Running" },
+	{ state: "done", title: "Done" },
+];
+
 export default async function ChatsPage() {
 	const session = await requireSession();
-	const chats = await listChats(db, session.user.id);
+	const chats = await listChats(db, session.user.id, { limit: 200 });
 
 	return (
 		<div className="flex flex-col gap-6">
@@ -25,7 +31,18 @@ export default async function ChatsPage() {
 					action={{ label: "Start a chat", href: "/dashboard/chats/new" }}
 				/>
 			) : (
-				<ChatList chats={chats} />
+				sections.map(({ state, title }) => {
+					const inSection = chats.filter((chat) => chat.state === state);
+					if (inSection.length === 0) return null;
+					return (
+						<section key={state} className="flex flex-col gap-2">
+							<h2 className="font-mono text-xs uppercase text-subtle">
+								{title} ({inSection.length})
+							</h2>
+							<ChatList chats={inSection} />
+						</section>
+					);
+				})
 			)}
 		</div>
 	);
