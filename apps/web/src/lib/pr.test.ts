@@ -36,6 +36,15 @@ function client(pull: Partial<Awaited<ReturnType<PullClient["pulls"]["get"]>>["d
 			get: vi.fn(async () => ({
 				data: { allow_squash_merge: true, allow_merge_commit: true },
 			})),
+			listDeployments: vi.fn(async () => ({
+				data: [
+					{ id: 1, environment: "Preview", production_environment: false },
+					{ id: 2, environment: "Production", production_environment: true },
+				],
+			})),
+			listDeploymentStatuses: vi.fn(async () => ({
+				data: [{ state: "success", environment_url: "https://preview.example.test" }],
+			})),
 			getCombinedStatusForRef: vi.fn(async () => ({
 				data: { statuses: [{ context: "deploy", state: "error", target_url: null }] },
 			})),
@@ -74,6 +83,26 @@ describe("loadPull", () => {
 		const github = client();
 		github.checks.listForRef.mockRejectedValue(httpError(403));
 		expect(await loadPull(github, "me/app", 4)).toMatchObject({ checksUnavailable: true });
+	});
+
+	it("links the preview deployments of the commit, not production", async () => {
+		expect((await loadPull(client(), "me/app", 4)).deployments).toEqual([
+			{ id: 1, name: "Preview", url: "https://preview.example.test" },
+		]);
+	});
+
+	it("shows no deployment link that is unfinished, unsafe or unreadable", async () => {
+		for (const status of [
+			{ state: "in_progress", environment_url: "https://preview.example.test" },
+			{ state: "success", environment_url: "javascript:alert(1)" },
+		]) {
+			const github = client();
+			github.repos.listDeploymentStatuses.mockResolvedValue({ data: [status] });
+			expect((await loadPull(github, "me/app", 4)).deployments).toEqual([]);
+		}
+		const refused = client();
+		refused.repos.listDeployments.mockRejectedValue(httpError(403));
+		expect(await loadPull(refused, "me/app", 4)).toMatchObject({ deployments: [], checksUnavailable: false });
 	});
 
 	it("explains why an open PR cannot merge", async () => {

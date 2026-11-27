@@ -35,6 +35,12 @@ export type PullClient = {
 		get(params: Repo): Promise<{
 			data: { allow_squash_merge?: boolean; allow_merge_commit?: boolean };
 		}>;
+		listDeployments(params: Repo & { sha: string; per_page: number }): Promise<{
+			data: { id: number; environment: string; production_environment?: boolean }[];
+		}>;
+		listDeploymentStatuses(params: Repo & { deployment_id: number; per_page: number }): Promise<{
+			data: { state: string; environment_url?: string }[];
+		}>;
 		getCombinedStatusForRef(params: Repo & { ref: string; per_page: number }): Promise<{
 			data: {
 				statuses: { context: string; state: string; target_url: string | null }[];
@@ -89,6 +95,30 @@ async function allowed<T>(request: Promise<T>) {
 	}
 }
 
+const MAX_DEPLOYMENTS = 5;
+
+/** Preview deployments of this commit that another service (Vercel, Netlify) already made. */
+async function deploymentsFor(client: PullClient, repo: Repo, sha: string) {
+	const listed = await allowed(client.repos.listDeployments({ ...repo, sha, per_page: 30 }));
+	const previews = (listed?.data ?? [])
+		.filter((deployment) => !deployment.production_environment)
+		.slice(0, MAX_DEPLOYMENTS);
+	const found = await Promise.all(
+		previews.map(async ({ id, environment }) => {
+			const statuses = await allowed(
+				client.repos.listDeploymentStatuses({ ...repo, deployment_id: id, per_page: 1 }),
+			);
+			// Newest first.
+			const latest = statuses?.data[0];
+			const url = latest?.environment_url;
+			return latest?.state === "success" && url?.startsWith("https://")
+				? { id, name: environment, url }
+				: null;
+		}),
+	);
+	return found.filter((deployment) => deployment !== null);
+}
+
 function blockerFor(pull: GitHubPull) {
 	if (pull.draft) return "This pull request is a draft.";
 	if (pull.mergeable_state === "dirty") return "The branch conflicts with the base branch.";
@@ -109,9 +139,11 @@ export async function loadPull(
 	const { data: pull } = await client.pulls.get({ ...repo, pull_number: number });
 	const ref = pull.head.sha;
 
-	const [runs, statuses] = await Promise.all([
+	const [runs, statuses, deployments] = await Promise.all([
 		allowed(client.checks.listForRef({ ...repo, ref, per_page: 100 })),
 		allowed(client.repos.getCombinedStatusForRef({ ...repo, ref, per_page: 100 })),
+		// Only extra links, so a failure here must not hide the pull request.
+		deploymentsFor(client, repo, ref).catch(() => []),
 	]);
 
 	const checks: Check[] = [
@@ -148,6 +180,7 @@ export async function loadPull(
 		blocker: status === "open" || status === "draft" ? blockerFor(pull) : null,
 		checks,
 		checksUnavailable: runs === null || statuses === null,
+		deployments,
 	};
 }
 

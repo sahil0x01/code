@@ -113,6 +113,18 @@ export function PullBar({ chatId, number, url, model, busy, refreshKey }: Props)
 					Pull request #{number} ↗
 				</a>
 				{pull && <span className="font-mono text-xs uppercase text-subtle">{labels[pull.status]}</span>}
+				{open &&
+					pull?.deployments.map((deployment) => (
+						<a
+							key={deployment.id}
+							href={deployment.url}
+							target="_blank"
+							rel="noreferrer"
+							className="font-mono text-sm underline hover:text-foreground"
+						>
+							{deployment.name} ↗
+						</a>
+					))}
 				<button
 					type="button"
 					onClick={() => setReload(reload + 1)}

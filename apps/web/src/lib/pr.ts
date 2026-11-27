@@ -20,6 +20,7 @@ export type PullStatus = {
 	checks: Check[];
 	/** GitHub refused to list some checks, usually a missing app permission. */
 	checksUnavailable: boolean;
+	deployments: { id: number; name: string; url: string }[];
 };
 
 export type PullResponse = PullStatus | { state: "none" } | { state: "disconnected" };
