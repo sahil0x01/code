@@ -58,7 +58,7 @@ describe.skipIf(!hasDocker)("runAgent", () => {
 		expect(JSON.stringify(result.steps[1]?.toolResults)).toContain("hi");
 	});
 
-	it("gives the model the instructions, the conversation and the six tools", async () => {
+	it("gives the model the instructions, the conversation and the tools", async () => {
 		const model = new MockLanguageModelV4({ doGenerate: [answer("ok")] });
 		await runAgent({
 			model,
@@ -81,6 +81,7 @@ describe.skipIf(!hasDocker)("runAgent", () => {
 			"grep",
 			"list",
 			"read",
+			"task",
 			"write",
 		]);
 	});

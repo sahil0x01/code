@@ -15,6 +15,7 @@ const verbs: Record<string, [done: string, doing: string]> = {
 	edit: ["Edited", "Editing"],
 	write: ["Wrote", "Writing"],
 	bash: ["Ran", "Preparing a command"],
+	task: ["Asked a helper to", "Asking a helper"],
 	check_app: ["Checked the app", "Preparing a browser check"],
 };
 

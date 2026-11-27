@@ -223,6 +223,53 @@ describe.skipIf(!hasDocker)("executeRun", () => {
 		expect(await containerGone(spy.ids[0] ?? "")).toBe(true);
 	});
 
+	it("runs the setup script, offers the repository's skills and counts a helper's tokens", async () => {
+		const first = await setup();
+		await executeRun(
+			deps(
+				new MockLanguageModelV4({
+					doGenerate: [
+						toolCalls(
+							{
+								name: "write",
+								input: { path: ".agents/setup", content: "echo from-script > /tmp/setup-ran\n" },
+							},
+							{
+								name: "write",
+								input: {
+									path: ".agents/skills/release/SKILL.md",
+									content: "---\nname: release\ndescription: How to release\n---\nSteps",
+								},
+							},
+						),
+						answer("Added."),
+					],
+				}),
+			),
+			first.runId,
+		);
+		const next = await followUp(first.userId, first.chatId, "Use them");
+		const model = new MockLanguageModelV4({
+			doGenerate: [
+				toolCalls({ name: "task", input: { kind: "search", prompt: "Find notes" } }),
+				answer("REPORT"),
+				toolCalls({ name: "bash", input: { command: "cat /tmp/setup-ran" } }),
+				answer("Done."),
+			],
+		});
+
+		expect(await executeRun(deps(model), next.runId)).toMatchObject({ status: "succeeded" });
+
+		const prompt = systemPrompt(model);
+		expect(prompt).toContain("Dependencies were set up with `.agents/setup`");
+		expect(prompt).toContain("release (.agents/skills/release/SKILL.md): How to release");
+		const steps = await listRunSteps(db, first.userId, next.runId);
+		expect(steps[1]?.toolResults[0]?.output).toContain("from-script");
+		const row = (await listRuns(db, first.userId, first.chatId)).at(-1);
+		// Three steps and the helper's one.
+		expect(row).toMatchObject({ inputTokens: 400, outputTokens: 80 });
+	});
+
 	describe("a user's own model", () => {
 		const apiKey = "sk-user-own-key-987654";
 		const ownKey = `own:${crypto.randomUUID()}`;
@@ -841,7 +888,7 @@ describe.skipIf(!hasDocker)("executeRun", () => {
 		const result = await executeRun(deps(model), runId);
 
 		expect(result).toMatchObject({ status: "succeeded" });
-		expect(model.doGenerateCalls[0]?.tools?.map((tool) => tool.name).sort()).toEqual(["grep", "list", "read"]);
+		expect(model.doGenerateCalls[0]?.tools?.map((tool) => tool.name).sort()).toEqual(["grep", "list", "read", "task"]);
 		expect((await remote.git(`rev-parse --verify ${branch}`)).exitCode).not.toBe(0);
 		expect((await listMessages(db, userId, chatId)).at(-1)?.content).toBe("Plan: edit README.md.");
 		expect((await getChatForUser(db, userId, chatId))?.workingBranch).toBeNull();

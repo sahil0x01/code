@@ -8,7 +8,9 @@ export {
 	type RunAgentOptions,
 	runAgent,
 } from "./agent";
+export { compactionThreshold } from "./compact";
 export { ToolError } from "./errors";
+export { readSkills, type Skill, skillInstructions } from "./skills";
 export { withFallback } from "./fallback";
 export { readProjectRules } from "./rules";
 export {

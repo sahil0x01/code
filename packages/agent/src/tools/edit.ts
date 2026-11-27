@@ -13,7 +13,8 @@ export function editTool(sandbox: Sandbox, lock: FileLock = createFileLock(sandb
 			"Replace text in an existing file. `oldString` must match the file exactly, " +
 			"including whitespace and indentation, and must appear only once unless " +
 			"`replaceAll` is true. Include a few surrounding lines in `oldString` to make " +
-			"it unique. Read the file first so you copy the text exactly.",
+			"it unique. Read the file first so you copy the text exactly. Call it several " +
+			"times in one reply when you have several changes, to one file or many.",
 		inputSchema: z.object({
 			path: z.string().min(1).describe("File path, relative to the workspace or absolute."),
 			oldString: z.string().min(1).describe("The exact text to replace."),

@@ -224,6 +224,26 @@ export function recordStep(db: Db, runId: string, step: StepRecord, attempt?: nu
 	});
 }
 
+/** Model use that is not one of the run's steps: a helper's work, or compaction. */
+export async function addRunUsage(
+	db: Db,
+	runId: string,
+	usage: Pick<StepRecord, "inputTokens" | "outputTokens" | "cachedInputTokens" | "reasoningTokens" | "cost">,
+	attempt: number,
+) {
+	await db
+		.update(run)
+		.set({
+			inputTokens: sql`${run.inputTokens} + ${usage.inputTokens}`,
+			outputTokens: sql`${run.outputTokens} + ${usage.outputTokens}`,
+			cachedInputTokens: sql`${run.cachedInputTokens} + ${usage.cachedInputTokens ?? 0}`,
+			reasoningTokens: sql`${run.reasoningTokens} + ${usage.reasoningTokens ?? 0}`,
+			modelCost: sql`${run.modelCost} + ${usage.cost ?? 0}`,
+			updatedAt: new Date(),
+		})
+		.where(and(eq(run.id, runId), eq(run.status, "running"), eq(run.attempts, attempt)));
+}
+
 export type RunOutcome = {
 	status: "succeeded" | "failed" | "cancelled";
 	stopReason: RunStopReason;
@@ -776,7 +796,7 @@ export async function listRunActivity(
 					jsonb_build_object(
 						'id', t.c->>'id',
 						'name', t.c->>'name',
-						'label', left(coalesce(t.c->'input'->>'path', t.c->'input'->>'command', t.c->'input'->>'pattern', ''), 160)
+						'label', left(coalesce(t.c->'input'->>'path', t.c->'input'->>'command', t.c->'input'->>'pattern', (t.c->'input'->>'kind') || ': ' || (t.c->'input'->>'prompt'), ''), 160)
 					) order by t.ord
 				)
 				from jsonb_array_elements(${runStep.toolCalls}) with ordinality as t(c, ord)

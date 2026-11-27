@@ -41,6 +41,7 @@ export function ownModels(db: Db, key: Buffer, allowPrivate: boolean): NonNullab
 						})
 					: 0,
 			maxTokens: row.maxRunTokens ?? undefined,
+			contextTokens: row.contextTokens ?? undefined,
 			explain: (error) => explainModelError(error, apiKey),
 		};
 	};

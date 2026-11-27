@@ -10,10 +10,12 @@ import {
 	prepareWorkspace,
 	priceModel,
 	readProjectRules,
+	readSkills,
 	reasoningOptions,
 	runAgent,
 	type RunAgentOptions,
 	saveProgress,
+	skillInstructions,
 	startBaseMerge,
 	SYSTEM_PROMPT,
 	toStepRecord,
@@ -22,6 +24,7 @@ import {
 } from "@nullfuse/agent";
 import {
 	type ClaimResult,
+	addRunUsage,
 	addSandboxCost,
 	claimRun,
 	clearRunWaiting,
@@ -104,6 +107,8 @@ export type OwnModel = {
 	/** Millionths of a dollar, or 0 when the price is not known. */
 	cost(step: AgentStep): number;
 	maxTokens?: number;
+	/** The model's context window, when known. */
+	contextTokens?: number;
 	explain(error: unknown): string;
 };
 
@@ -139,6 +144,9 @@ const VERIFY_OUTPUT_CHARS = 4000;
 const DEFAULT_HEARTBEAT_MS = 15_000;
 const DEFAULT_CHECKPOINT_STEPS = 5;
 const DEFAULT_MAX_DISK_MB = 2048;
+// Both of our own models take a million tokens.
+const OUR_CONTEXT_TOKENS = 1_000_000;
+const SETUP_SCRIPT = ".agents/setup";
 
 function describe(error: unknown) {
 	const text = error instanceof Error ? error.message : String(error);
@@ -149,19 +157,37 @@ function failed(error: string): RunOutcome {
 	return { status: "failed", stopReason: "error", error };
 }
 
+/** Runs the repository's own setup script, then the command saved on the project. */
+async function prepare(
+	sandbox: Sandbox,
+	installCommand: string | null,
+	env: Record<string, string>,
+	signal: AbortSignal,
+) {
+	const done: string[] = [];
+	const script = await sandbox.exec(`test -f ${SETUP_SCRIPT}`);
+	if (script.exitCode === 0) {
+		const run = `if [ -x ${SETUP_SCRIPT} ]; then ./${SETUP_SCRIPT}; else bash ${SETUP_SCRIPT}; fi`;
+		done.push(await runSetup(sandbox, run, env, signal, SETUP_SCRIPT));
+	}
+	if (installCommand) done.push(await runSetup(sandbox, installCommand, env, signal));
+	return done.length > 0 ? done.join("\n") : undefined;
+}
+
 async function runSetup(
 	sandbox: Sandbox,
 	command: string,
 	env: Record<string, string>,
 	signal: AbortSignal,
+	name = command,
 ) {
 	const result = await sandbox.exec(command, { env, timeoutMs: SETUP_TIMEOUT_MS, signal });
 	if (result.exitCode === 0 && !result.timedOut) {
-		return `Dependencies were set up with \`${command}\`.`;
+		return `Dependencies were set up with \`${name}\`.`;
 	}
 	const tail = `${result.stdout}${result.stderr}`.trim().slice(-1500);
 	const why = result.timedOut ? "timed out" : `failed (exit code ${result.exitCode})`;
-	return `The setup command \`${command}\` ${why}. Its output ended with:\n${tail}`;
+	return `The setup command \`${name}\` ${why}. Its output ended with:\n${tail}`;
 }
 
 function instructionsFor(
@@ -174,6 +200,7 @@ function instructionsFor(
 	canCheckApp: boolean,
 	browserProblem: string | undefined,
 	merge: BaseMerge | undefined,
+	skills: string | null,
 ) {
 	const lines = [
 		SYSTEM_PROMPT,
@@ -200,6 +227,12 @@ function instructionsFor(
 			...rules.map((rule) => `<${rule.file}>\n${rule.text}\n</${rule.file}>`),
 		);
 	}
+	if (!rules.some((rule) => rule.file === "AGENTS.md" || rule.file === "CLAUDE.md")) {
+		lines.push(
+			"The repository has no AGENTS.md. Do not add one unless asked. If you had to work out how to build or test the project, end your summary by offering to write an AGENTS.md that records it.",
+		);
+	}
+	if (skills) lines.push("", skills);
 	if (merge?.state === "conflicts") {
 		lines.push(
 			`A merge of ${context.chat.baseBranch} into this branch is in progress, and these files conflict: ${merge.conflicts.join(", ")}.`,
@@ -400,6 +433,7 @@ async function perform(
 			: { state: "current" };
 	// Read before the agent runs, so a run cannot rewrite the rules it was given.
 	const rules = await readProjectRules(sandbox);
+	const skills = skillInstructions(await readSkills(sandbox));
 
 	// A Stop is a flag in the database, so it works whatever runs the job.
 	const stop = new AbortController();
@@ -539,9 +573,7 @@ async function perform(
 	let agent: AgentRun | undefined;
 	let agentError: unknown;
 	try {
-		const setup = project.installCommand && !planOnly
-			? await runSetup(sandbox, project.installCommand, env, abort)
-			: undefined;
+		const setup = planOnly ? undefined : await prepare(sandbox, project.installCommand, env, abort);
 		try {
 			await checkDisk();
 			// A merge without conflicts needs no model.
@@ -566,7 +598,14 @@ async function perform(
 					app !== undefined,
 					browserProblem,
 					merge,
+					skills,
 				),
+				baseSha: workspace.headSha,
+				guidance: rules.map((rule) => `<${rule.file}>\n${rule.text}\n</${rule.file}>`).join("\n") || undefined,
+				contextTokens: own ? own.contextTokens : OUR_CONTEXT_TOKENS,
+				onSpend: async (step) => {
+					await addRunUsage(deps.db, runId, toStepRecord(step, stepCost(step)), attempt);
+				},
 				tools: app && { check_app: checkAppTool(sandbox, { ...app, env }) },
 				limits: {
 					...deps.limits,
