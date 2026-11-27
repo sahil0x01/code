@@ -3,7 +3,13 @@ import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { commonJsExports, type DaytonaBox, type DaytonaClient, DaytonaDriver } from "./daytona";
+import {
+	commonJsExports,
+	type DaytonaBox,
+	type DaytonaClient,
+	DaytonaDriver,
+	isBuildingMessage,
+} from "./daytona";
 import { MAX_OUTPUT_BYTES, type Sandbox, SandboxCapacityError, SandboxError } from "./types";
 
 // Stands in for the Daytona service: runs commands in a local shell. The real
@@ -196,5 +202,13 @@ describe("DaytonaDriver create errors", () => {
 		const other = await failing("Snapshot not found").catch((error) => error);
 		expect(other).toBeInstanceOf(SandboxError);
 		expect(other).not.toBeInstanceOf(SandboxCapacityError);
+	});
+});
+
+describe("isBuildingMessage", () => {
+	it("knows an image that is still being built from one that failed", () => {
+		expect(isBuildingMessage("Snapshot nullfuse-recording-454d1a45819e-2gb is building")).toBe(true);
+		expect(isBuildingMessage("Snapshot x is build_failed")).toBe(false);
+		expect(isBuildingMessage("Snapshot x was not found")).toBe(false);
 	});
 });

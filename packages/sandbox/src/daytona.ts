@@ -12,7 +12,7 @@ import {
 	SandboxCapacityError,
 	SandboxError,
 } from "./types";
-import { recordingImage } from "./docker";
+import { recordingImage, sandboxImage } from "./docker";
 import { findImageDir } from "./image-dir";
 
 const DEFAULT_WORKDIR = "/home/daytona/workspace";
@@ -59,6 +59,8 @@ function clip(text: string) {
 	if (bytes <= MAX_OUTPUT_BYTES) return { text, truncated: false };
 	return { text: Buffer.from(text).subarray(0, MAX_OUTPUT_BYTES).toString(), truncated: true };
 }
+
+export const isBuildingMessage = (reason: string) => /snapshot \S+ is (building|pending|pulling)\b/i.test(reason);
 
 class DaytonaSandbox implements Sandbox {
 	private destroyed = false;
@@ -205,7 +207,8 @@ export class DaytonaDriver implements SandboxDriver {
 			});
 		} catch (error) {
 			const reason = error instanceof Error ? error.message : String(error);
-			const Failure = isCapacityMessage(reason) ? SandboxCapacityError : SandboxError;
+			// A new image takes minutes to build. The run waits for it the way it waits for room.
+			const Failure = isCapacityMessage(reason) || isBuildingMessage(reason) ? SandboxCapacityError : SandboxError;
 			throw new Failure(`Could not create a Daytona sandbox: ${reason}`, { cause: error });
 		}
 		const sandbox = new DaytonaSandbox(randomBytes(6).toString("hex"), workdir, box);
@@ -247,7 +250,9 @@ async function ensureSnapshot(
 
 // Builds the snapshot from the same Dockerfile the Docker driver uses, unless it exists.
 export function ensureDaytonaSnapshot(apiKey: string, name = "nullfuse-sandbox") {
-	return ensureSnapshot(apiKey, name, path.join(imageDir(), "Dockerfile"));
+	// The hash makes an edited Dockerfile build a new snapshot instead of reusing the old one.
+	const hash = sandboxImage().split(":")[1];
+	return ensureSnapshot(apiKey, `${name}-${hash}`, path.join(imageDir(), "Dockerfile"));
 }
 
 // 2 GiB lets five browser runs fit in Daytona's first-tier pool of 10 GiB.
