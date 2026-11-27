@@ -21,3 +21,21 @@ export async function runWhenThereIsRoom(
 		await pause();
 	}
 }
+
+/**
+ * A retried task can find its run still marked running by the attempt that died.
+ * Waits until the run is free: its heartbeat has to go stale first.
+ */
+export async function waitForDeadAttempt(
+	recover: () => Promise<boolean>,
+	pause: () => Promise<unknown>,
+	staleSeconds: number,
+) {
+	// A few tries past the stale time, so a live attempt is left alone in the end.
+	const maxTries = Math.ceil(staleSeconds / RETRY_SECONDS) + 3;
+	for (let tries = 1; ; tries++) {
+		if (await recover()) return true;
+		if (tries >= maxTries) return false;
+		await pause();
+	}
+}

@@ -543,7 +543,7 @@ export type SweptRun = { id: string; chatId: string; action: "requeued" | "faile
 // next attempt resumes from the saved branch; give up after maxAttempts starts.
 export async function sweepStaleRuns(
 	db: Db,
-	options: { staleMs: number; maxAttempts: number },
+	options: { staleMs: number; maxAttempts: number; runId?: string },
 ) {
 	const cutoff = new Date(Date.now() - options.staleMs);
 	const candidates = await db
@@ -552,6 +552,7 @@ export async function sweepStaleRuns(
 		.where(
 			and(
 				eq(run.status, "running"),
+				options.runId === undefined ? undefined : eq(run.id, options.runId),
 				sql`coalesce(${run.heartbeatAt}, ${run.startedAt}, ${run.updatedAt}) < ${cutoff.toISOString()}::timestamptz`,
 			),
 		);
@@ -607,6 +608,20 @@ export async function sweepStaleRuns(
 		if (result) swept.push(result);
 	}
 	return swept;
+}
+
+/**
+ * Sweeps one run that an earlier attempt may have left running. False while its
+ * heartbeat is still fresh, so a live attempt is never taken over.
+ */
+export async function recoverRun(
+	db: Db,
+	runId: string,
+	options: { staleMs: number; maxAttempts: number },
+) {
+	await sweepStaleRuns(db, { ...options, runId });
+	const [current] = await db.select({ status: run.status }).from(run).where(eq(run.id, runId));
+	return current?.status !== "running";
 }
 
 // Queued runs nobody picked up (the trigger was lost): only the next run of each chat,

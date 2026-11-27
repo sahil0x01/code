@@ -25,6 +25,7 @@ import {
 	message,
 	projectEnvVar,
 	recordStep,
+	recoverRun,
 	requestStop,
 	run,
 	runStep,
@@ -709,6 +710,27 @@ describe("sweepStaleRuns", () => {
 		const first = await claimRun(db, runId);
 		expect(first.ok).toBe(true);
 		expect((await claimRun(db, next.runId)).ok).toBe(false);
+	});
+});
+
+describe("recoverRun", () => {
+	const options = { staleMs: 60_000, maxAttempts: 3 };
+
+	it("leaves a run with a fresh heartbeat alone", async () => {
+		const { runId } = await running();
+		expect(await recoverRun(db, runId, options)).toBe(false);
+		expect((await claimRun(db, runId)).ok).toBe(false);
+	});
+
+	it("frees only the named run once its heartbeat is stale", async () => {
+		const mine = await running();
+		const other = await running();
+		await age(mine.runId);
+		await age(other.runId);
+		expect(await recoverRun(db, mine.runId, options)).toBe(true);
+		expect((await claimRun(db, mine.runId)).ok).toBe(true);
+		const [row] = await db.select().from(run).where(eq(run.id, other.runId));
+		expect(row?.status).toBe("running");
 	});
 });
 

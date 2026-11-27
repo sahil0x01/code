@@ -1,6 +1,6 @@
 import type { ExecuteResult } from "@nullfuse/runner";
 import { describe, expect, it } from "vitest";
-import { runWhenThereIsRoom } from "./wait";
+import { runWhenThereIsRoom, waitForDeadAttempt } from "./wait";
 
 const done: ExecuteResult = { claimed: true, status: "succeeded", stopReason: "completed" };
 
@@ -37,5 +37,21 @@ describe("runWhenThereIsRoom", () => {
 		await runWhenThereIsRoom(execute, pause, 3);
 
 		expect(seen).toEqual({ tries: 3, pauses: 2 });
+	});
+});
+
+describe("waitForDeadAttempt", () => {
+	it("waits until the run is free", async () => {
+		let checks = 0;
+		let pauses = 0;
+		const free = await waitForDeadAttempt(async () => ++checks === 3, async () => void pauses++, 90);
+		expect({ free, checks, pauses }).toEqual({ free: true, checks: 3, pauses: 2 });
+	});
+
+	it("gives up on a run that stays alive, after the stale time has passed", async () => {
+		let pauses = 0;
+		const free = await waitForDeadAttempt(async () => false, async () => void pauses++, 90);
+		expect(free).toBe(false);
+		expect(pauses * 10).toBeGreaterThan(90);
 	});
 });
