@@ -96,17 +96,71 @@
 @utility pressable {
   --drop: var(--px);
   cursor: pointer;
+  transition:
+    transform 90ms ease-out,
+    box-shadow 90ms ease-out,
+    filter 120ms ease-out,
+    background-color 120ms ease-out;
 
-  &:hover {
+  /* Lifts off its shadow under the pointer, and sinks into it when pressed. */
+  &:hover:not(:disabled) {
+    --drop: calc(var(--px) * 2);
+    transform: translateY(-1px);
     filter: brightness(1.06);
   }
 
-  &:active {
+  &:active:not(:disabled) {
     --bevel-a: var(--bevel-light);
     --bevel-b: var(--bevel-dark);
     --drop: 0px;
     transform: translateY(var(--px));
     filter: none;
+    transition-duration: 40ms;
+  }
+}
+
+/* A card that rises towards the pointer. */
+@utility lift {
+  transition:
+    transform 120ms ease-out,
+    filter 120ms ease-out,
+    background-color 120ms ease-out;
+
+  &:hover {
+    transform: translate(-1px, -2px);
+    filter: drop-shadow(3px 4px 0 var(--shadow-color));
+  }
+
+  &:active {
+    transform: translate(0, 1px);
+    filter: none;
+    transition-duration: 40ms;
+  }
+}
+
+/* Gentle feedback for everything else that can be pressed. Utilities override these. */
+@layer base {
+  a,
+  button,
+  select,
+  input,
+  textarea {
+    transition:
+      color 120ms ease-out,
+      background-color 120ms ease-out,
+      border-color 120ms ease-out,
+      opacity 120ms ease-out,
+      transform 90ms ease-out;
+  }
+
+  button:not(:disabled):active,
+  nav a:active {
+    transform: scale(0.97);
+  }
+
+  input[type="checkbox"]:active,
+  input[type="radio"]:active {
+    transform: scale(0.8);
   }
 }
 
@@ -120,6 +174,49 @@ body {
 input[type="checkbox"],
 input[type="radio"] {
   accent-color: var(--accent);
+}
+
+/* Square, bevelled scrollbars. Setting the standard properties too would switch these off
+   in Chrome, so only Firefox gets those. */
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--surface);
+  box-shadow: inset 2px 2px 0 var(--bevel-dark);
+}
+
+/* The transparent border keeps a gap between the block and the track's edges. */
+::-webkit-scrollbar-thumb {
+  min-height: 32px;
+  min-width: 32px;
+  border: 2px solid transparent;
+  background-color: var(--subtle);
+  background-clip: padding-box;
+  box-shadow:
+    inset -4px -4px 0 oklch(0 0 0 / 0.25),
+    inset 4px 4px 0 oklch(1 0 0 / 0.3);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--muted);
+}
+
+::-webkit-scrollbar-thumb:active {
+  background-color: var(--accent);
+}
+
+::-webkit-scrollbar-corner {
+  background: var(--surface);
+}
+
+@supports (-moz-appearance: none) {
+  * {
+    scrollbar-color: var(--subtle) var(--surface);
+    scrollbar-width: thin;
+  }
 }
 
 ::selection {
@@ -152,6 +249,49 @@ input[type="radio"] {
   100% {
     opacity: 0;
   }
+}
+
+@keyframes appear {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+@utility appear {
+  animation: appear 180ms ease-out;
+}
+
+/* Opacity only: a transform here would move fixed layouts inside it while it plays. */
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@utility fade {
+  animation: fade 200ms ease-out;
+}
+
+@keyframes slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+}
+
+@utility slide-in {
+  animation: slide-in 220ms cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+
+@keyframes pop {
+  from {
+    transform: scale(0.4) rotate(-90deg);
+  }
+}
+
+@utility pop {
+  animation: pop 240ms steps(4, end);
 }
 
 @utility blink {

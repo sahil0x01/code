@@ -10,6 +10,7 @@ import {
 	updateFromBase,
 } from "@/actions/pull-request";
 import { PullComments } from "@/components/dashboard/pull-comments";
+import { Disclosure } from "@/components/ui/disclosure";
 import { buttonClass } from "@/components/ui/styles";
 import { type CheckState, type PullResponse, type PullStatus, summarizeChecks } from "@/lib/pr";
 
@@ -20,6 +21,8 @@ type Props = {
 	model: string;
 	/** An agent run is queued or running, so merging and fixing wait. */
 	busy: boolean;
+	/** The chat is already marked done. */
+	done: boolean;
 	refreshKey: string;
 };
 
@@ -48,7 +51,7 @@ function settling(pull: PullStatus) {
 	);
 }
 
-export function PullBar({ chatId, number, url, model, busy, refreshKey }: Props) {
+export function PullBar({ chatId, number, url, model, busy, done, refreshKey }: Props) {
 	const [pull, setPull] = useState<PullStatus | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [actionError, setActionError] = useState<string | null>(null);
@@ -88,6 +91,12 @@ export function PullBar({ chatId, number, url, model, busy, refreshKey }: Props)
 			clearTimeout(timer);
 		};
 	}, [chatId, refreshKey, reload]);
+
+	// Loading a merged pull request marks the chat done, so the page is read again.
+	const merged = pull?.status === "merged";
+	useEffect(() => {
+		if (merged && !done) router.refresh();
+	}, [merged, done, router]);
 
 	const act = (action: () => Promise<PullActionResult>) =>
 		startAction(async () => {
@@ -179,10 +188,10 @@ export function PullBar({ chatId, number, url, model, busy, refreshKey }: Props)
 			</div>
 
 			{summary && open && (
-				<details>
-					<summary className={`w-fit cursor-pointer font-mono text-xs ${tone[summary.tone]}`}>
-						{summary.text}
-					</summary>
+				<Disclosure
+					summaryClass="font-mono text-xs"
+					summary={<span className={tone[summary.tone]}>{summary.text}</span>}
+				>
 					<ul className="flex flex-col gap-1 pt-2">
 						{pull.checks.map((check) => {
 							const { checkRunId } = check;
@@ -212,7 +221,7 @@ export function PullBar({ chatId, number, url, model, busy, refreshKey }: Props)
 							);
 						})}
 					</ul>
-				</details>
+				</Disclosure>
 			)}
 
 			{open && (

@@ -10,7 +10,11 @@ import {
 	getChatForUser,
 	getInbox,
 	listChats,
+	markChatMerged,
 	markChatSeen,
+	markPullMerged,
+	project,
+	setPullRequest,
 	run,
 	setChatDone,
 } from "./index";
@@ -135,5 +139,38 @@ describe("chat review state", () => {
 			finished: [{ runId, chatId, title: "Fix the test", status: "succeeded" }],
 		});
 		expect(await listChats(db, userId)).toMatchObject([{ id: chatId, state: "needs_review", unread: true }]);
+	});
+});
+
+describe("merged pull requests", () => {
+	it("mark the chat done once, so a later run still asks for review", async () => {
+		const { userId, chatId, runId } = await start();
+		await finish(runId);
+		await markChatMerged(db, await fixtures.user(), chatId);
+		expect((await view(userId, chatId)).state).toBe("needs_review");
+
+		await markChatMerged(db, userId, chatId);
+		expect(await view(userId, chatId)).toEqual({ state: "done", unread: false });
+
+		const next = await addMessage(db, { userId, chatId, model: "deepseek-v4-pro", content: "More" });
+		if (!next.ok) throw new Error(next.reason);
+		await finish(next.runId);
+		await markChatMerged(db, userId, chatId);
+		expect((await view(userId, chatId)).state).toBe("needs_review");
+	});
+
+	it("are matched to the chat by installation, repository and number", async () => {
+		const { userId, chatId, runId } = await start();
+		await finish(runId);
+		await setPullRequest(db, chatId, { number: 5, url: "https://github.com/acme/app/pull/5" });
+		const [row] = await db.select().from(project).where(eq(project.userId, userId));
+		if (!row?.installationId) throw new Error("no project");
+
+		await markPullMerged(db, row.installationId, row.githubRepoId + 1, 5);
+		await markPullMerged(db, row.installationId, row.githubRepoId, 6);
+		expect((await view(userId, chatId)).state).toBe("needs_review");
+
+		await markPullMerged(db, row.installationId, row.githubRepoId, 5);
+		expect((await view(userId, chatId)).state).toBe("done");
 	});
 });

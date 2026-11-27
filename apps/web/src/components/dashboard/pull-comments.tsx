@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Disclosure } from "@/components/ui/disclosure";
 import { buttonClass } from "@/components/ui/styles";
 import type { CommentsResponse, PullComment } from "@/lib/comments";
 
@@ -31,8 +32,7 @@ export function PullComments({ chatId, disabled, onSend }: Props) {
 
 	return (
 		// Read again each time it is opened, so new comments show.
-		<details onToggle={(event) => event.currentTarget.open && load()}>
-			<summary className="w-fit cursor-pointer font-mono text-xs text-muted">Comments</summary>
+		<Disclosure onOpen={load} summaryClass="font-mono text-xs" summary="Comments">
 			<div className="flex flex-col gap-2 pt-2">
 				{error && (
 					<p role="alert" className="text-sm text-red">
@@ -80,6 +80,6 @@ export function PullComments({ chatId, disabled, onSend }: Props) {
 					</>
 				)}
 			</div>
-		</details>
+		</Disclosure>
 	);
 }

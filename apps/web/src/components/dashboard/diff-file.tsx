@@ -1,5 +1,6 @@
 "use client";
 
+import { PixelChevron } from "@/components/ui/pixel-chevron";
 import { type CSSProperties, Fragment, memo, useEffect, useMemo, useState } from "react";
 import { buttonClass, field } from "@/components/ui/styles";
 import { type DiffFile, type DiffLine, type Hunk, parsePatch } from "@/lib/diff";
@@ -137,8 +138,8 @@ export const DiffFileView = memo(function DiffFileView({ file, url, drafts, onSa
 				onClick={() => setOpen(!open)}
 				className="flex w-full items-center gap-2 bg-surface px-3 py-2 text-left font-mono text-xs"
 			>
-				<span aria-hidden="true" className="text-subtle">
-					{open ? "▾" : "▸"}
+				<span className="text-subtle">
+					<PixelChevron open={open} />
 				</span>
 				<span className="min-w-0 flex-1 break-all">
 					{file.previousPath ? `${file.previousPath} → ${file.path}` : file.path}

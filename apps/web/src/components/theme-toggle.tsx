@@ -29,7 +29,7 @@ export function ThemeToggle() {
 				viewBox="0 0 9 9"
 				shapeRendering="crispEdges"
 				fill="currentColor"
-				className="size-4 dark:hidden"
+				className="pop size-4 dark:hidden"
 			>
 				<path d={moon} />
 			</svg>
@@ -38,7 +38,7 @@ export function ThemeToggle() {
 				viewBox="0 0 9 9"
 				shapeRendering="crispEdges"
 				fill="currentColor"
-				className="hidden size-4 dark:block"
+				className="pop hidden size-4 dark:block"
 			>
 				<path d={sun} />
 			</svg>

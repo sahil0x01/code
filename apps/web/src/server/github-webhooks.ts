@@ -4,6 +4,7 @@ import {
 	deleteInstallation,
 	disconnectProjects,
 	findUserIdByGithubId,
+	markPullMerged,
 	refreshProject,
 	updateInstallation,
 	upsertInstallation,
@@ -134,4 +135,18 @@ export async function handleRepository(payload: unknown) {
 			isPrivate: repo.private,
 		});
 	}
+}
+
+const pullRequestEvent = z.object({
+	action: z.string(),
+	pull_request: z.object({ number: z.number(), merged: z.boolean().optional() }),
+	repository: z.object({ id: z.number() }),
+	installation: z.object({ id: z.number() }).optional(),
+});
+
+export async function handlePullRequest(payload: unknown) {
+	const event = pullRequestEvent.parse(payload);
+	if (event.action !== "closed" || !event.pull_request.merged || !event.installation) return;
+
+	await markPullMerged(db, event.installation.id, event.repository.id, event.pull_request.number);
 }

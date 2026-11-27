@@ -189,6 +189,7 @@ describe("handlePull", () => {
 	const deps = (found: Awaited<ReturnType<PullDeps["getChat"]>>) => ({
 		getChat: vi.fn<PullDeps["getChat"]>(async () => found),
 		loadPull: vi.fn<PullDeps["loadPull"]>(async () => ({ state: "none" })),
+		merged: vi.fn<PullDeps["merged"]>(async () => {}),
 	});
 
 	it("never calls GitHub without a session or for someone else's chat", async () => {
@@ -196,6 +197,20 @@ describe("handlePull", () => {
 		expect((await handlePull(fake, { ...input, userId: undefined })).status).toBe(401);
 		expect((await handlePull(fake, input)).status).toBe(404);
 		expect(fake.loadPull).not.toHaveBeenCalled();
+	});
+
+	it("reports a merged pull request, and only a merged one", async () => {
+		const found = { pullRequestNumber: 4, projectName: "me/app", installationId: 1 };
+		const open = deps(found);
+		open.loadPull.mockResolvedValue(await loadPull(client(), "me/app", 4));
+		await handlePull(open, input);
+		expect(open.merged).not.toHaveBeenCalled();
+
+		const closed = deps(found);
+		closed.loadPull.mockResolvedValue(await loadPull(client({ merged: true, state: "closed" }), "me/app", 4));
+		closed.merged.mockRejectedValue(new Error("database away"));
+		expect((await handlePull(closed, input)).status).toBe(200);
+		expect(closed.merged).toHaveBeenCalledWith(input.userId, input.chatId);
 	});
 
 	it("answers without GitHub when there is no PR", async () => {

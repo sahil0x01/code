@@ -2,8 +2,13 @@
 
 import { useActionState, useState } from "react";
 import { type ChatState, sendMessage, stopRun } from "@/actions/chats";
-import { buttonClass } from "@/components/ui/styles";
-import { MAX_MESSAGE_LENGTH, MODELS, REASONING_OPTIONS } from "@/lib/chat";
+import {
+	IconButton,
+	ModelPicker,
+	ReasoningPicker,
+	RunToggles,
+} from "@/components/dashboard/composer-controls";
+import { MAX_MESSAGE_LENGTH } from "@/lib/chat";
 
 type Props = {
 	chatId: string;
@@ -68,73 +73,30 @@ export function MessageForm({
 						className="field-sizing-content max-h-48 min-h-12 resize-none bg-transparent px-3 py-3 text-[15px] leading-relaxed outline-none placeholder:text-subtle"
 					/>
 
-					<div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 pb-3">
-						<select
-							name="model"
-							value={model}
-							onChange={(event) => setModel(event.target.value)}
-							aria-label="Model"
-							className="h-8 bg-transparent font-mono text-xs text-muted hover:text-foreground"
-						>
-							{MODELS.map((option) => (
-								<option key={option.id} value={option.id}>
-									{option.label}
-								</option>
-							))}
-						</select>
+					<div className="flex flex-wrap items-center gap-x-2 gap-y-2 px-2 pb-2.5">
+						<ModelPicker value={model} onChange={setModel} />
+						<ReasoningPicker value={reasoning} onChange={setReasoning} />
+						<RunToggles canRecord={canRecord} />
 
-						<select
-							name="reasoning"
-							value={reasoning}
-							onChange={(event) => setReasoning(event.target.value)}
-							aria-label="Reasoning level"
-							className="h-8 bg-transparent font-mono text-xs text-muted hover:text-foreground"
-						>
-							{REASONING_OPTIONS.map((option) => (
-								<option key={option.id} value={option.id}>
-									{option.label}
-								</option>
-							))}
-						</select>
-
-						<label className="flex items-center gap-1.5 font-mono text-xs text-muted">
-							<input type="checkbox" name="planOnly" className="size-3.5 accent-ink" />
-							Plan first
-						</label>
-
-						<label className="flex items-center gap-1.5 font-mono text-xs text-muted">
-							<input type="checkbox" name="verify" className="size-3.5 accent-ink" />
-							Run tests
-						</label>
-
-						{canRecord && (
-							<label className="flex items-center gap-1.5 font-mono text-xs text-muted">
-								<input type="checkbox" name="record" className="size-3.5 accent-ink" />
-								Record video
-							</label>
-						)}
-
-						<span className="ml-auto hidden font-mono text-xs text-subtle lg:inline">
-							Shift + Enter for a new line
-						</span>
-						<span className="ml-auto flex gap-3 lg:ml-0">
+						<span className="ml-auto flex gap-3">
 							{running && (
-								<button
+								<IconButton
 									type="submit"
 									form={STOP_FORM}
 									disabled={running.stopping}
-									className={buttonClass("secondary", "sm")}
-								>
-									{running.stopping ? "Stopping..." : "Stop"}
-								</button>
+									icon="stop"
+									tone="secondary"
+									label={running.stopping ? "Stopping" : "Stop"}
+									hint={running.stopping ? "Stopping..." : "Stop the run"}
+								/>
 							)}
-							<button
+							<IconButton
 								type="submit"
 								disabled={pending || content.trim() === ""}
-								className={buttonClass("primary", "sm")}
-							>
-								{pending ? "Sending..." : "Send"}
-							</button>
+								icon="send"
+								label={pending ? "Sending" : "Send"}
+								hint="Send: Enter. New line: Shift + Enter"
+							/>
 						</span>
 					</div>
 				</div>

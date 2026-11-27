@@ -31,8 +31,10 @@ export default function DashboardLayout({
 				<aside className="flex flex-col gap-3 border-b border-border bg-surface p-4 md:sticky md:top-0 md:h-dvh md:w-64 md:shrink-0 md:border-r md:border-b-0">
 					<div className="flex items-center justify-between gap-3 md:px-1">
 						<Logo href="/dashboard" />
-						<div className="flex items-center gap-2 md:hidden">
-							<SignOutButton />
+						<div className="flex items-center gap-2">
+							<span className="md:hidden">
+								<SignOutButton />
+							</span>
 							<ThemeToggle />
 						</div>
 					</div>
@@ -67,9 +69,8 @@ export default function DashboardLayout({
 							<Suspense fallback={<div className="h-8" />}>
 								<UserCard />
 							</Suspense>
-							<div className="flex items-center gap-2">
+							<div>
 								<SignOutButton />
-								<ThemeToggle />
 							</div>
 						</div>
 					</div>

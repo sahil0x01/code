@@ -2,13 +2,19 @@
 
 import { useActionState, useState } from "react";
 import { type ChatState, startChat } from "@/actions/chats";
-import { buttonClass, field } from "@/components/ui/styles";
+import {
+	IconButton,
+	ModelPicker,
+	Picker,
+	ReasoningPicker,
+	RunToggles,
+} from "@/components/dashboard/composer-controls";
+import { PixelIcon } from "@/components/ui/pixel-icon";
+import { Tooltip } from "@/components/ui/tooltip";
 import {
 	DEFAULT_MODEL_ID,
-	MAX_MESSAGE_LENGTH,
-	MODELS,
 	DEFAULT_REASONING,
-	REASONING_OPTIONS,
+	MAX_MESSAGE_LENGTH,
 } from "@/lib/chat";
 import { IssuePicker } from "./issue-picker";
 
@@ -37,6 +43,7 @@ export function Composer({ projects, initialProjectId }: Props) {
 	);
 	const [model, setModel] = useState<string>(DEFAULT_MODEL_ID);
 	const [content, setContent] = useState("");
+	const [reasoning, setReasoning] = useState<string>(DEFAULT_REASONING);
 	// The issue the message was filled from; the pull request will close it.
 	const [issue, setIssue] = useState<{ number: number; message: string } | null>(null);
 
@@ -80,8 +87,11 @@ export function Composer({ projects, initialProjectId }: Props) {
 					className="min-h-44 resize-y bg-transparent p-4 text-[15px] leading-relaxed outline-none placeholder:text-subtle"
 				/>
 
-				<div className="flex flex-wrap items-center gap-2 border-t border-border p-3">
-					<select
+				<div className="flex flex-wrap items-center gap-x-2 gap-y-2 border-t border-border px-2 py-2.5">
+					<Picker
+						icon="project"
+						hint="Project to work in"
+						align="start"
 						name="projectId"
 						value={projectId}
 						onChange={(event) => {
@@ -96,81 +106,45 @@ export function Composer({ projects, initialProjectId }: Props) {
 							if (next) setBranch(next.defaultBranch);
 						}}
 						aria-label="Project"
-						className={`${field} min-w-0 max-w-full`}
 					>
 						{projects.map((project) => (
 							<option key={project.id} value={project.id}>
 								{project.fullName}
 							</option>
 						))}
-					</select>
+					</Picker>
 
-					<input
-						name="baseBranch"
-						value={branch}
-						onChange={(event) => setBranch(event.target.value)}
-						required
-						maxLength={250}
-						aria-label="Base branch"
-						placeholder="main"
-						className={`${field} w-36 font-mono`}
-					/>
-
-					<select
-						name="model"
-						value={model}
-						onChange={(event) => setModel(event.target.value)}
-						aria-label="Model"
-						className={field}
-					>
-						{MODELS.map((option) => (
-							<option key={option.id} value={option.id}>
-								{option.label} ({option.hint})
-							</option>
-						))}
-					</select>
-
-					<select
-						name="reasoning"
-						defaultValue={DEFAULT_REASONING}
-						aria-label="Reasoning level"
-						className={field}
-					>
-						{REASONING_OPTIONS.map((option) => (
-							<option key={option.id} value={option.id}>
-								{option.label}
-							</option>
-						))}
-					</select>
-
-<label className="flex items-center gap-2 text-sm text-muted">
-						<input type="checkbox" name="planOnly" className="size-4 accent-ink" />
-						Plan first
-					</label>
-					<label className="flex items-center gap-2 text-sm text-muted">
-						<input type="checkbox" name="verify" className="size-4 accent-ink" />
-						Run tests after
-					</label>
-					{projects.find((project) => project.id === projectId)?.canRecord && (
-						<label className="flex items-center gap-2 text-sm text-muted">
-							<input type="checkbox" name="record" className="size-4 accent-ink" />
-							Record video
+					<Tooltip hint="Base branch to start from">
+						<label className="flex h-8 items-center gap-1.5 px-2 text-muted hover:bg-surface-2 hover:text-foreground">
+							<PixelIcon name="branch" />
+							<input
+								name="baseBranch"
+								value={branch}
+								onChange={(event) => setBranch(event.target.value)}
+								required
+								maxLength={250}
+								aria-label="Base branch"
+								placeholder="main"
+								className="w-24 bg-transparent font-mono text-xs outline-none"
+							/>
 						</label>
-					)}
+					</Tooltip>
 
-					<button
-						type="submit"
-						disabled={pending || content.trim() === ""}
-						className={`${buttonClass()} ml-auto`}
-					>
-						{pending ? "Starting..." : "Start chat"}
-					</button>
+					<ModelPicker value={model} onChange={setModel} />
+					<ReasoningPicker value={reasoning} onChange={setReasoning} />
+					<RunToggles canRecord={projects.find((project) => project.id === projectId)?.canRecord ?? false} />
+
+					<span className="ml-auto">
+						<IconButton
+							type="submit"
+							disabled={pending || content.trim() === ""}
+							icon="send"
+							label={pending ? "Starting" : "Start chat"}
+							hint="Start chat: Cmd or Ctrl + Enter"
+						/>
+					</span>
 				</div>
 			</div>
-
-			<p className="hidden font-mono text-xs text-subtle sm:block">
-				Cmd or Ctrl + Enter to start
-			</p>
 
 			{state.status === "error" && (
 				<p role="alert" className="text-sm text-red">

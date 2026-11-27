@@ -1,57 +1,13 @@
 import type { ActivityStep, listRuns } from "@nullfuse/db";
 import { stopRun } from "@/actions/chats";
+import { Disclosure } from "@/components/ui/disclosure";
 import { buttonClass } from "@/components/ui/styles";
 import { formatCost, formatTokens } from "@/lib/format";
 import { durationSince } from "@/lib/time";
-import { LiveOutput } from "./live-output";
+import { RunActivity } from "./run-activity";
 import { RunStatusBadge } from "./run-status";
 
 export type RunRow = Awaited<ReturnType<typeof listRuns>>[number];
-
-function Step({ step }: { step: ActivityStep }) {
-	const results = new Map(step.results.map((result) => [result.id, result]));
-
-	return (
-		<li className="flex flex-col gap-1">
-			{step.reasoning && (
-				<details>
-					<summary className="w-fit cursor-pointer font-mono text-xs text-subtle hover:text-foreground">
-						Thought
-						{step.reasoningTokens > 0 && ` · ${formatTokens(step.reasoningTokens)} tokens`}
-					</summary>
-					<p className="mt-1 max-h-64 overflow-y-auto whitespace-pre-wrap break-words text-sm text-muted">
-						{step.reasoning}
-					</p>
-				</details>
-			)}
-			{step.text && step.calls.length > 0 && (
-				<p className="whitespace-pre-wrap break-words text-sm">{step.text}</p>
-			)}
-			{step.calls.map((call) => {
-				const result = results.get(call.id);
-				return (
-					<div key={call.id} className="flex flex-col gap-0.5">
-						<p className="flex items-baseline gap-2 font-mono text-xs">
-							<span
-								aria-hidden="true"
-								className={result?.isError ? "text-red" : "text-subtle"}
-							>
-								{result?.isError ? "✗" : "›"}
-							</span>
-							<span className="font-medium">{call.name}</span>
-							<span className="min-w-0 truncate text-muted">{call.label}</span>
-						</p>
-						{result?.isError && (
-							<p className="ml-5 whitespace-pre-wrap break-words font-mono text-xs text-red">
-								{result.preview}
-							</p>
-						)}
-					</div>
-				);
-			})}
-		</li>
-	);
-}
 
 function Verification({ verification }: { verification: RunRow["verification"] }) {
 	if (!verification) {
@@ -64,19 +20,23 @@ function Verification({ verification }: { verification: RunRow["verification"] }
 	const passed = verification.exitCode === 0 && !verification.timedOut;
 	const seconds = Math.round(verification.durationMs / 1000);
 	return (
-		<details className="flex flex-col gap-2">
-			<summary className="w-fit cursor-pointer font-mono text-xs uppercase text-subtle hover:text-foreground">
-				<span className={passed ? "text-green" : "text-red"}>{passed ? "Tests passed" : "Tests failed"}</span>
-				{" · "}
-				{verification.timedOut ? "timed out" : `exit ${verification.exitCode}`}
-				{" · "}
-				{seconds}s
-			</summary>
-			<p className="font-mono text-xs text-muted">{verification.command}</p>
+		<Disclosure
+			summaryClass="font-mono text-xs uppercase"
+			summary={
+				<span>
+					<span className={passed ? "text-green" : "text-red"}>{passed ? "Tests passed" : "Tests failed"}</span>
+					{" · "}
+					{verification.timedOut ? "timed out" : `exit ${verification.exitCode}`}
+					{" · "}
+					{seconds}s
+				</span>
+			}
+		>
+			<p className="mt-2 font-mono text-xs text-muted">{verification.command}</p>
 			<pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words font-mono text-xs">
 				{verification.output || "(no output)"}
 			</pre>
-		</details>
+		</Disclosure>
 	);
 }
 
@@ -85,14 +45,13 @@ function Recording({ chatId, run, canPlay }: { chatId: string; run: RunRow; canP
 	if (!recording) return <p className="text-sm text-muted">No video was recorded.</p>;
 	if (recording.status === "skipped") {
 		return (
-			<details>
-				<summary className="w-fit cursor-pointer text-sm text-muted">{recording.message}</summary>
+			<Disclosure summaryClass="text-sm" summary={recording.message}>
 				{recording.detail && (
-					<pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words font-mono text-xs">
+					<pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-words font-mono text-xs">
 						{recording.detail}
 					</pre>
 				)}
-			</details>
+			</Disclosure>
 		);
 	}
 	if (!canPlay) {
@@ -151,24 +110,19 @@ export function RunPanel({
 
 	return (
 		<div className="flex flex-col gap-2">
-			<details open={active} className="group">
-				<summary className="flex w-fit cursor-pointer flex-wrap items-center gap-x-3 gap-y-1 hover:text-foreground">
-					<span aria-hidden="true" className="font-mono text-xs text-subtle group-open:rotate-90">
-						▸
-					</span>
-					<RunStatusBadge status={run.status} ahead={ahead} />
-					<span className="font-mono text-xs text-subtle">{facts.join(" · ")}</span>
-				</summary>
-				{steps.length > 0 && (
-					<ol className="mt-3 flex flex-col gap-2 border-l-2 border-border pl-4">
-						{steps.map((step) => (
-							<Step key={step.stepIndex} step={step} />
-						))}
-					</ol>
-				)}
-			</details>
-
-			{run.status === "running" && <LiveOutput chatId={chatId} runId={run.id} />}
+			<RunActivity
+				chatId={chatId}
+				runId={run.id}
+				active={active}
+				running={run.status === "running"}
+				steps={steps}
+				summary={
+					<>
+						<RunStatusBadge status={run.status} ahead={ahead} />
+						<span className="font-mono text-xs text-subtle">{facts.join(" · ")}</span>
+					</>
+				}
+			/>
 
 			{run.status === "queued" && (
 				<form action={stopRun}>
@@ -188,10 +142,6 @@ export function RunPanel({
 			{run.verify && !active && <Verification verification={run.verification} />}
 
 			{run.record && !active && <Recording chatId={chatId} run={run} canPlay={canPlay} />}
-
-			{run.status === "running" && steps.length === 0 && (
-				<p className="text-sm text-muted">Setting up the workspace...</p>
-			)}
 		</div>
 	);
 }

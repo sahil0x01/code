@@ -1,6 +1,7 @@
 import {
 	handleInstallation,
 	handleInstallationRepositories,
+	handlePullRequest,
 	handleRepository,
 	verifySignature,
 } from "@/server/github-webhooks";
@@ -25,6 +26,9 @@ export async function POST(request: Request) {
 				break;
 			case "repository":
 				await handleRepository(payload);
+				break;
+			case "pull_request":
+				await handlePullRequest(payload);
 				break;
 			default:
 				break;

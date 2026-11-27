@@ -134,7 +134,7 @@ function Toast({ run, dismiss }: { run: FinishedRun; dismiss(runId: string): voi
 	}, [run.runId, dismiss]);
 
 	return (
-		<li className="pixel-inset flex items-start gap-2 bg-surface p-3">
+		<li className="slide-in pixel-inset flex items-start gap-2 bg-surface p-3">
 			<Link
 				href={chatPath(run.chatId)}
 				onClick={() => dismiss(run.runId)}

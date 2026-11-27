@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { Db } from "./index";
 import { chat, run } from "./schema";
 
@@ -38,6 +38,31 @@ export async function setChatDone(db: Db, userId: string, chatId: string, done: 
 		.where(and(eq(chat.id, chatId), eq(chat.userId, userId)))
 		.returning({ id: chat.id });
 	return rows.length === 1;
+}
+
+/** Marks a chat done because its pull request was merged. Later runs ask for review again. */
+export async function markChatMerged(db: Db, userId: string, chatId: string) {
+	const now = new Date();
+	await db
+		.update(chat)
+		.set({ doneAt: now, seenAt: now })
+		.where(and(eq(chat.id, chatId), eq(chat.userId, userId), isNull(chat.doneAt)));
+}
+
+/** The same, for a merge GitHub reports. */
+export async function markPullMerged(db: Db, installationId: number, githubRepoId: number, number: number) {
+	const now = new Date();
+	await db
+		.update(chat)
+		.set({ doneAt: now, seenAt: now })
+		.where(
+			and(
+				eq(chat.pullRequestNumber, number),
+				isNull(chat.doneAt),
+				sql`exists (select 1 from project p where p.id = ${chat.projectId}
+					and p.installation_id = ${installationId} and p.github_repo_id = ${githubRepoId})`,
+			),
+		);
 }
 
 export type FinishedRun = {

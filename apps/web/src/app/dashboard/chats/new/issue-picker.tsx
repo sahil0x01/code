@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { PixelIcon } from "@/components/ui/pixel-icon";
 import { buttonClass, field } from "@/components/ui/styles";
+import { Tooltip } from "@/components/ui/tooltip";
 import type { IssueSummary } from "@/lib/issue";
 import type { IssueResponse } from "@/lib/issue-handler";
 
@@ -39,14 +41,17 @@ export function IssuePicker({ projectId, onPick }: Props) {
 	return (
 		<div className="flex flex-wrap items-center gap-3">
 			{issues === null ? (
-				<button
-					type="button"
-					disabled={busy}
-					onClick={() => run(async () => setIssues((await get<{ issues: IssueSummary[] }>(url)).issues))}
-					className={buttonClass("secondary", "sm")}
-				>
-					{busy ? "Loading issues..." : "Start from an issue"}
-				</button>
+				<Tooltip hint="Fill the message from an open GitHub issue" align="start">
+					<button
+						type="button"
+						disabled={busy}
+						onClick={() => run(async () => setIssues((await get<{ issues: IssueSummary[] }>(url)).issues))}
+						className={`${buttonClass("secondary", "sm")} gap-2`}
+					>
+						<PixelIcon name="issue" />
+						{busy ? "Loading..." : "From an issue"}
+					</button>
+				</Tooltip>
 			) : issues.length === 0 ? (
 				<p className="text-sm text-muted">This repository has no open issues.</p>
 			) : (

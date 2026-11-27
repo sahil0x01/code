@@ -1,5 +1,6 @@
 "use client";
 
+import { PixelChevron } from "@/components/ui/pixel-chevron";
 import type { ChatReviewState, RunStatus } from "@nullfuse/db";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -50,9 +51,7 @@ export function ChatSections({ chats }: { chats: Item[] }) {
 								onClick={() => setOpen(expanded ? null : state)}
 								className="flex w-full items-center gap-2 px-3 py-1.5 font-mono text-xs uppercase text-subtle enabled:hover:text-foreground"
 							>
-								<span aria-hidden="true" className="w-2">
-									{expanded ? "▾" : "▸"}
-								</span>
+								<PixelChevron open={expanded} />
 								<span>{title}</span>
 								<span className="ml-auto">{items.length}</span>
 							</button>

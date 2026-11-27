@@ -18,7 +18,7 @@ export function ChatList({
 				<li key={chat.id}>
 					<Link
 						href={`/dashboard/chats/${chat.id}`}
-						className="pixel-inset flex items-center justify-between gap-4 bg-surface px-4 py-3 hover:bg-surface-2"
+						className="lift pixel-inset flex items-center justify-between gap-4 bg-surface px-4 py-3 hover:bg-surface-2"
 					>
 						<span className="flex min-w-0 flex-col gap-0.5">
 							<span className={`truncate ${chat.unread ? "font-semibold" : "font-medium"}`}>

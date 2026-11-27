@@ -23,7 +23,7 @@ export function ChatWorkspace({ thread, composer, changes }: Props) {
 						type="button"
 						aria-pressed={active === tab.id}
 						onClick={() => setActive(tab.id)}
-						className="py-2 text-sm font-medium text-muted aria-pressed:border-b-2 aria-pressed:border-ink aria-pressed:text-foreground"
+						className="border-b-2 border-transparent py-2 text-sm font-medium text-muted hover:text-foreground aria-pressed:border-ink aria-pressed:text-foreground"
 					>
 						{tab.label}
 					</button>

@@ -13,11 +13,11 @@ import { AutoRefresh } from "@/components/dashboard/auto-refresh";
 import { ChangesPanel } from "@/components/dashboard/changes-panel";
 import { ChatThread } from "@/components/dashboard/chat-thread";
 import { ChatWorkspace } from "@/components/dashboard/chat-workspace";
-import { DoneButton } from "@/components/dashboard/done-button";
 import { MarkSeen } from "@/components/dashboard/mark-seen";
 import { Markdown } from "@/components/dashboard/markdown";
 import { PullBar } from "@/components/dashboard/pull-bar";
 import { RunPanel } from "@/components/dashboard/run-panel";
+import { Disclosure } from "@/components/ui/disclosure";
 import { buttonClass } from "@/components/ui/styles";
 import { DEFAULT_MODEL_ID, DEFAULT_REASONING, isModelId } from "@/lib/chat";
 import { formatCost } from "@/lib/format";
@@ -59,10 +59,11 @@ function Overlaps({ overlaps }: { overlaps: Awaited<ReturnType<typeof listOverla
 	if (overlaps.length === 0) return null;
 	const count = overlaps.length === 1 ? "1 other open chat" : `${overlaps.length} other open chats`;
 	return (
-		<details className="shrink-0 border-b border-border bg-surface px-3 py-2 md:px-5">
-			<summary className="w-fit cursor-pointer font-mono text-xs text-muted">
-				{count} changed the same files. Merging one may cause conflicts in the others.
-			</summary>
+		<Disclosure
+			className="shrink-0 border-b border-border bg-surface px-3 py-2 md:px-5"
+			summaryClass="font-mono text-xs"
+			summary={`${count} changed the same files. Merging one may cause conflicts in the others.`}
+		>
 			<ul className="flex max-h-40 flex-col gap-1 overflow-y-auto pt-2 font-mono text-xs">
 				{overlaps.map((other) => (
 					<li key={other.chatId} className="flex flex-wrap gap-x-2">
@@ -73,7 +74,7 @@ function Overlaps({ overlaps }: { overlaps: Awaited<ReturnType<typeof listOverla
 					</li>
 				))}
 			</ul>
-		</details>
+		</Disclosure>
 	);
 }
 
@@ -117,7 +118,6 @@ export default async function ChatPage({
 			run.finishedAt && (!latest || run.finishedAt > latest) ? run.finishedAt : latest,
 		null,
 	);
-	const reviewable = runs.some((run) => run.startedAt && run.finishedAt);
 	const lastModel = runs.at(-1)?.model;
 	const defaultModel =
 		lastModel && isModelId(lastModel) ? lastModel : DEFAULT_MODEL_ID;
@@ -190,9 +190,6 @@ export default async function ChatPage({
 						Preview
 					</Link>
 				)}
-				{chat.state !== "running" && reviewable && (
-					<DoneButton chatId={chat.id} done={chat.state === "done"} />
-				)}
 				<DeleteChatButton chatId={chat.id} />
 			</header>
 
@@ -205,7 +202,7 @@ export default async function ChatPage({
 							{shown.map((message) => {
 								const run = runByMessage.get(message.id);
 								return (
-									<li key={message.id} className="flex flex-col gap-4">
+									<li key={message.id} className="appear flex flex-col gap-4">
 										<MessageView message={message} />
 										{run && (
 											<RunPanel
@@ -230,7 +227,7 @@ export default async function ChatPage({
 								<button type="submit" className={buttonClass()}>
 									Approve and build
 								</button>
-								<span className="text-sm text-muted">Or reply to change the plan, with Plan first ticked.</span>
+								<span className="text-sm text-muted">Or reply to change the plan, with the plan option on.</span>
 							</form>
 						)}
 					</ChatThread>
@@ -258,6 +255,7 @@ export default async function ChatPage({
 					<>
 						{hasPull && chat.pullRequestNumber !== null && chat.pullRequestUrl && (
 							<PullBar
+								done={chat.state === "done"}
 								key={chat.id}
 								chatId={chat.id}
 								number={chat.pullRequestNumber}
