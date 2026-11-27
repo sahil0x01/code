@@ -16,6 +16,7 @@ import { MarkSeen } from "@/components/dashboard/mark-seen";
 import { Markdown } from "@/components/dashboard/markdown";
 import { PullBar } from "@/components/dashboard/pull-bar";
 import { RunPanel } from "@/components/dashboard/run-panel";
+import { buttonClass } from "@/components/ui/styles";
 import { DEFAULT_MODEL_ID, DEFAULT_REASONING, isModelId } from "@/lib/chat";
 import { db } from "@/server/db";
 import { recordingStore } from "@/server/recordings";
@@ -138,6 +139,11 @@ export default async function ChatPage({
 					<span className={`font-mono text-xs ${testsPassed ? "text-green" : "text-red"}`}>
 						{testsPassed ? "Tests passed" : "Tests failed"}
 					</span>
+				)}
+				{chat.connected && chat.canRecord && chat.workingBranch && (
+					<Link href={`/dashboard/chats/${chat.id}/preview`} className={buttonClass("secondary", "sm")}>
+						Preview
+					</Link>
 				)}
 				{chat.state !== "running" && reviewable && (
 					<DoneButton chatId={chat.id} done={chat.state === "done"} />

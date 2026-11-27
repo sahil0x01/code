@@ -36,6 +36,8 @@ export interface Sandbox {
 	/** Throws if the file is larger than MAX_OUTPUT_BYTES. */
 	readFile(path: string): Promise<Uint8Array>;
 	writeFile(path: string, content: string | Uint8Array): Promise<void>;
+	/** A web address for a port inside the sandbox. Drivers without one leave it out. */
+	previewUrl?(port: number, expiresInSeconds: number): Promise<string>;
 	/** Safe to call twice. */
 	destroy(): Promise<void>;
 }

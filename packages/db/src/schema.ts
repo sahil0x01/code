@@ -357,6 +357,27 @@ export const run = pgTable(
 	],
 );
 
+// The chat's running preview. One row per chat; `generation` changes each time it is started.
+export const preview = pgTable(
+	"preview",
+	{
+		chatId: uuid("chat_id")
+			.primaryKey()
+			.references(() => chat.id, { onDelete: "cascade" }),
+		generation: uuid("generation").notNull(),
+		status: text("status").$type<"starting" | "ready" | "failed" | "stopped">().notNull(),
+		// Anyone with this address can open the app until it expires.
+		url: text("url"),
+		error: text("error"),
+		// When the owner last had the preview page open.
+		lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull(),
+		expiresAt: timestamp("expires_at", { withTimezone: true }),
+		// Kept fresh by the worker serving it.
+		updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+		createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+	},
+);
+
 export type StepToolCall = { id: string; name: string; input: unknown };
 
 export type StepToolResult = {

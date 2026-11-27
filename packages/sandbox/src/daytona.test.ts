@@ -43,6 +43,10 @@ class FakeBox implements DaytonaBox {
 		downloadFile: async (remotePath: string) => readFileSync(remotePath),
 	};
 
+	async getSignedPreviewUrl(port: number) {
+		return { url: `https://${port}-token.example.test` };
+	}
+
 	async delete() {
 		this.deleted++;
 	}
