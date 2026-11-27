@@ -50,19 +50,32 @@ export async function markChatMerged(db: Db, userId: string, chatId: string) {
 }
 
 /** The same, for a merge GitHub reports. */
-export async function markPullMerged(db: Db, installationId: number, githubRepoId: number, number: number) {
+export async function markPullMerged(
+	db: Db,
+	installationId: number,
+	githubRepoId: number,
+	number: number,
+	size: { additions?: number; deletions?: number } = {},
+) {
 	const now = new Date();
+	const isThisPull = and(
+		eq(chat.pullRequestNumber, number),
+		sql`exists (select 1 from project p where p.id = ${chat.projectId}
+			and p.installation_id = ${installationId} and p.github_repo_id = ${githubRepoId})`,
+	);
+	// Kept apart from the review state below: a chat marked done by hand still counts as merged.
+	await db
+		.update(chat)
+		.set({
+			pullRequestMergedAt: now,
+			pullRequestAdditions: size.additions ?? null,
+			pullRequestDeletions: size.deletions ?? null,
+		})
+		.where(and(isThisPull, isNull(chat.pullRequestMergedAt)));
 	await db
 		.update(chat)
 		.set({ doneAt: now, seenAt: now })
-		.where(
-			and(
-				eq(chat.pullRequestNumber, number),
-				isNull(chat.doneAt),
-				sql`exists (select 1 from project p where p.id = ${chat.projectId}
-					and p.installation_id = ${installationId} and p.github_repo_id = ${githubRepoId})`,
-			),
-		);
+		.where(and(isThisPull, isNull(chat.doneAt)));
 }
 
 export type FinishedRun = {

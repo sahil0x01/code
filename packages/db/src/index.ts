@@ -18,4 +18,5 @@ export * from "./projects";
 export * from "./recordings";
 export * from "./runs";
 export * from "./schema";
+export * from "./stats";
 export * from "./user-models";

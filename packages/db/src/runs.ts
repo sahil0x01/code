@@ -426,7 +426,13 @@ export async function loadRunContext(db: Db, runId: string): Promise<RunContext 
 export async function setPullRequest(db: Db, chatId: string, pr: { number: number; url: string }) {
 	await db
 		.update(chat)
-		.set({ pullRequestNumber: pr.number, pullRequestUrl: pr.url, pullRequestError: null })
+		.set({
+			pullRequestNumber: pr.number,
+			pullRequestUrl: pr.url,
+			pullRequestError: null,
+			// The first PR's time stays when a later run updates or replaces it.
+			pullRequestOpenedAt: sql`coalesce(${chat.pullRequestOpenedAt}, now())`,
+		})
 		.where(eq(chat.id, chatId));
 }
 

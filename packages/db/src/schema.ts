@@ -8,6 +8,7 @@ import {
 	integer,
 	jsonb,
 	pgTable,
+	date,
 	text,
 	timestamp,
 	unique,
@@ -240,6 +241,12 @@ export const chat = pgTable(
 		pullRequestUrl: text("pull_request_url"),
 		// Why the last attempt to open the PR failed, shown to the user.
 		pullRequestError: text("pull_request_error"),
+		// When the first PR for the chat was opened, and when GitHub reported it merged.
+		pullRequestOpenedAt: timestamp("pull_request_opened_at", { withTimezone: true }),
+		pullRequestMergedAt: timestamp("pull_request_merged_at", { withTimezone: true }),
+		// The merged PR's size as GitHub reported it, so it may include commits people added.
+		pullRequestAdditions: integer("pull_request_additions"),
+		pullRequestDeletions: integer("pull_request_deletions"),
 		// Runs that finished after this are unread.
 		seenAt: timestamp("seen_at", { withTimezone: true }),
 		// The chat needs review again once a run finishes after this.
@@ -451,4 +458,43 @@ export const recordingDeletion = pgTable("recording_deletion", {
 	key: text("key").primaryKey(),
 	attempts: integer("attempts").notNull().default(0),
 	createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+const count = (name: string) => integer(name).notNull().default(0);
+const total = (name: string) => bigint(name, { mode: "number" }).notNull().default(0);
+
+/**
+ * What happened on each day (UTC), for public numbers. Rows hold only totals, and days older
+ * than a few are never recomputed, so deleting an account does not lower past numbers.
+ */
+export const dailyStats = pgTable("daily_stats", {
+	day: date("day", { mode: "string" }).primaryKey(),
+	usersJoined: count("users_joined"),
+	activeUsers: count("active_users"),
+	projectsConnected: count("projects_connected"),
+	chatsStarted: count("chats_started"),
+	runsStarted: count("runs_started"),
+	runsSucceeded: count("runs_succeeded"),
+	runsFailed: count("runs_failed"),
+	runsCancelled: count("runs_cancelled"),
+	// Time the agent spent on finished runs.
+	agentSeconds: total("agent_seconds"),
+	steps: count("steps"),
+	toolCalls: count("tool_calls"),
+	// Files a succeeded run changed. A file changed by two runs counts twice.
+	fileEdits: count("file_edits"),
+	inputTokens: total("input_tokens"),
+	outputTokens: total("output_tokens"),
+	cachedInputTokens: total("cached_input_tokens"),
+	// Estimates from list prices, in millionths of a dollar.
+	modelCost: total("model_cost"),
+	sandboxCost: total("sandbox_cost"),
+	// Finished runs whose test command ran, and those where it passed.
+	runsVerified: count("runs_verified"),
+	runsVerifiedPassed: count("runs_verified_passed"),
+	pullRequestsOpened: count("pull_requests_opened"),
+	pullRequestsMerged: count("pull_requests_merged"),
+	linesAdded: total("lines_added"),
+	linesRemoved: total("lines_removed"),
+	updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
