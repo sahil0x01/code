@@ -1,11 +1,11 @@
 export const MODELS = [
-	{ id: "deepseek-v4-pro", label: "DeepSeek V4 Pro", hint: "Default" },
-	{ id: "deepseek-flash", label: "DeepSeek Flash", hint: "Cheaper" },
+	{ id: "deepseek-flash", label: "DeepSeek Flash", hint: "Default" },
+	{ id: "deepseek-v4-pro", label: "DeepSeek V4 Pro", hint: "Costs more" },
 ] as const;
 
 export type ModelId = (typeof MODELS)[number]["id"];
 
-export const DEFAULT_MODEL_ID: ModelId = "deepseek-v4-pro";
+export const DEFAULT_MODEL_ID: ModelId = "deepseek-flash";
 
 export function isModelId(value: string): value is ModelId {
 	return MODELS.some((model) => model.id === value);
