@@ -315,6 +315,9 @@ export type RunRecording =
 			status: "recorded";
 			/** Where the video is in object storage. */
 			key: string;
+			/** The web app in use, or a page of what was run, changed and read. */
+			kind?: "web" | "page";
+			screenshots?: { key: string; label: string }[];
 			passed: boolean;
 			error: string | null;
 			durationMs: number;
@@ -361,7 +364,6 @@ export const run = pgTable(
 		reasoningTokens: integer("reasoning_tokens").notNull().default(0),
 		verify: boolean("verify").notNull().default(false),
 		verification: jsonb("verification").$type<RunVerification>(),
-		record: boolean("record").notNull().default(false),
 		// Merge the latest base branch into the chat's branch before answering.
 		updateBase: boolean("update_base").notNull().default(false),
 		// The agent only reads and proposes; nothing is changed or pushed.
@@ -399,27 +401,6 @@ export const run = pgTable(
 			sql`${t.stopReason} is null or ${t.stopReason} in (${sql.raw(runStopReasons.map((reason) => `'${reason}'`).join(", "))})`,
 		),
 	],
-);
-
-// The chat's running preview. One row per chat; `generation` changes each time it is started.
-export const preview = pgTable(
-	"preview",
-	{
-		chatId: uuid("chat_id")
-			.primaryKey()
-			.references(() => chat.id, { onDelete: "cascade" }),
-		generation: uuid("generation").notNull(),
-		status: text("status").$type<"starting" | "ready" | "failed" | "stopped">().notNull(),
-		// Anyone with this address can open the app until it expires.
-		url: text("url"),
-		error: text("error"),
-		// When the owner last had the preview page open.
-		lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull(),
-		expiresAt: timestamp("expires_at", { withTimezone: true }),
-		// Kept fresh by the worker serving it.
-		updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
-		createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
-	},
 );
 
 export type StepToolCall = { id: string; name: string; input: unknown };

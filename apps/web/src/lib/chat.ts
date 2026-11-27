@@ -30,3 +30,4 @@ export function isReasoningId(value: unknown): value is ReasoningId {
 }
 
 export const MAX_MESSAGE_LENGTH = 20_000;
+export const MAX_TITLE_LENGTH = 80;

@@ -10,6 +10,7 @@ import {
 	ReasoningPicker,
 	RunToggles,
 } from "@/components/dashboard/composer-controls";
+import { MessageBox } from "@/components/dashboard/message-box";
 import { PixelIcon } from "@/components/ui/pixel-icon";
 import { Tooltip } from "@/components/ui/tooltip";
 import {
@@ -23,7 +24,6 @@ type ProjectOption = {
 	id: string;
 	fullName: string;
 	defaultBranch: string;
-	canRecord: boolean;
 };
 
 type Props = {
@@ -71,10 +71,13 @@ export function Composer({ projects, initialProjectId, ownModels }: Props) {
 				</p>
 			)}
 			<div className="pixel-inset flex flex-col bg-surface focus-within:bg-background focus-within:outline-2 focus-within:outline-offset-3 focus-within:outline-ink focus-within:outline-dashed">
-				<textarea
+				<MessageBox
+					projectId={projectId}
+					branch={branch}
+					listPlacement="below"
 					name="content"
 					value={content}
-					onChange={(event) => setContent(event.target.value)}
+					onChange={setContent}
 					onKeyDown={(event) => {
 						if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
 							event.preventDefault();
@@ -85,7 +88,7 @@ export function Composer({ projects, initialProjectId, ownModels }: Props) {
 					maxLength={MAX_MESSAGE_LENGTH}
 					rows={7}
 					aria-label="Message"
-					placeholder="Describe what you want done. For example: the date parsing test in utils fails on Feb 29, find out why and fix it."
+					placeholder="Describe what you want done. Type @ to point at a file, or / for commands."
 					className="min-h-44 resize-y bg-transparent p-4 text-[15px] leading-relaxed outline-none placeholder:text-subtle"
 				/>
 
@@ -134,7 +137,7 @@ export function Composer({ projects, initialProjectId, ownModels }: Props) {
 
 					<ModelPicker value={model} onChange={setModel} own={ownModels} />
 					<ReasoningPicker value={reasoning} onChange={setReasoning} />
-					<RunToggles canRecord={projects.find((project) => project.id === projectId)?.canRecord ?? false} />
+					<RunToggles />
 
 					<span className="ml-auto">
 						<IconButton

@@ -24,6 +24,7 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
 FROM deps AS build
 COPY apps/web apps/web
 COPY packages/db packages/db
+COPY packages/agent packages/agent
 COPY packages/models packages/models
 COPY packages/secrets packages/secrets
 COPY packages/storage packages/storage

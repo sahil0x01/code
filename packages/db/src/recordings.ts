@@ -16,7 +16,7 @@ export async function expireRecordings(db: Db, days = RECORDING_RETENTION_DAYS) 
 		.set({
 			recording: {
 				status: "skipped",
-				message: `This video was deleted after ${days} days.`,
+				message: `The video and screenshots were deleted after ${days} days.`,
 				detail: "",
 			},
 		})

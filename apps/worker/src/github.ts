@@ -108,7 +108,7 @@ const SECTION = /\n*<!-- nullfuse-recording -->[\s\S]*?<!-- \/nullfuse-recording
 
 /** Replaces only the recording section of a PR description, leaving the rest as written. */
 export function withRecordingSection(body: string, link: string, passed: boolean) {
-	const section = `<!-- nullfuse-recording -->\n### Recording\n[Watch the latest recording](${link}) (${
+	const section = `<!-- nullfuse-recording -->\n### Proof\n[See the latest video and screenshots](${link}) (${
 		passed ? "the script's checks passed" : "the script's checks failed"
 	}; sign-in required, kept for 30 days).\n<!-- /nullfuse-recording -->`;
 	return `${body.replace(SECTION, "").trimEnd()}\n\n${section}`.trim();

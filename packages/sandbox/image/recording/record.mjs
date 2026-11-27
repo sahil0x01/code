@@ -1,5 +1,6 @@
 // Runs inside the sandbox: starts the app and drives it with the agent's script, either to
-// record a video or (mode "check") to report what the page shows and any errors.
+// record a video and screenshots or (mode "check") to report what the page shows and any
+// errors. Mode "page" records a prepared HTML page, with no app.
 import { spawn } from "node:child_process";
 import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
@@ -9,7 +10,11 @@ const baseURL = `http://localhost:${spec.port}`;
 const video = `${spec.outDir}/video.webm`;
 const SIZE = { width: 1280, height: 720 };
 const checking = spec.mode === "check";
+const showing = spec.mode === "page";
 const MAX_PROBLEMS = 20;
+const MAX_SHOTS = 3;
+const MAX_SHOT_BYTES = 5 * 1024 * 1024;
+const MAX_PAGE_HEIGHT = 6000;
 
 let app;
 let appLog = "";
@@ -65,33 +70,66 @@ if (spec.script) {
 	}
 }
 
-// Something already listening would be recorded in place of this change.
-if (await answers()) await skip("port_in_use");
+async function startApp() {
+	// Something already listening would be recorded in place of this change.
+	if (await answers()) await skip("port_in_use");
 
-let exited = false;
-app = spawn("sh", ["-c", spec.startCommand], {
-	cwd: spec.workdir,
-	detached: true,
-	stdio: ["ignore", "pipe", "pipe"],
-});
-for (const stream of [app.stdout, app.stderr]) {
-	stream.on("data", (chunk) => {
-		appLog = (appLog + chunk).slice(-4000);
+	let exited = false;
+	app = spawn("sh", ["-c", spec.startCommand], {
+		cwd: spec.workdir,
+		detached: true,
+		stdio: ["ignore", "pipe", "pipe"],
 	});
-}
-app.on("exit", () => {
-	exited = true;
-});
+	for (const stream of [app.stdout, app.stderr]) {
+		stream.on("data", (chunk) => {
+			appLog = (appLog + chunk).slice(-4000);
+		});
+	}
+	app.on("exit", () => {
+		exited = true;
+	});
 
-const deadline = Date.now() + spec.startTimeoutMs;
-while (!(await answers())) {
-	if (exited) await skip("app_exited", appLog);
-	if (Date.now() > deadline) await skip("app_not_ready", appLog);
-	await new Promise((resolve) => setTimeout(resolve, 500));
+	const deadline = Date.now() + spec.startTimeoutMs;
+	while (!(await answers())) {
+		if (exited) await skip("app_exited", appLog);
+		if (Date.now() > deadline) await skip("app_not_ready", appLog);
+		await new Promise((resolve) => setTimeout(resolve, 500));
+	}
+}
+
+if (!showing) await startApp();
+
+const shots = [];
+async function screenshot(page, label, options) {
+	const file = `shot-${shots.length + 1}.png`;
+	await page.screenshot({ path: `${spec.outDir}/${file}`, ...options });
+	if ((await stat(`${spec.outDir}/${file}`)).size <= MAX_SHOT_BYTES) {
+		shots.push({ file, label: String(label ?? "").slice(0, 200) });
+	}
+}
+
+// Reads the prepared page from top to bottom, slowly enough to follow.
+async function show(page) {
+	await page.setContent(await readFile(spec.page, "utf8"));
+	const height = await page.evaluate(() => document.documentElement.scrollHeight);
+	await screenshot(page, "The whole record", {
+		fullPage: true,
+		clip: { x: 0, y: 0, width: SIZE.width, height: Math.min(height, MAX_PAGE_HEIGHT) },
+	});
+	await page.waitForTimeout(1500);
+	const steps = Math.min(30, Math.ceil(Math.max(0, height - SIZE.height) / 300));
+	for (let step = 0; step < steps; step++) {
+		await page.mouse.wheel(0, 300);
+		await page.waitForTimeout(400);
+	}
 }
 
 try {
-	const browser = await chromium.launch({ args: ["--disable-dev-shm-usage"] });
+	const browser = await chromium.launch({
+		args: ["--disable-dev-shm-usage"],
+		// A script runs faster than a person can watch.
+		...(!checking && !showing && { slowMo: 350 }),
+	});
 	const context = await browser.newContext({
 		baseURL,
 		viewport: SIZE,
@@ -119,12 +157,18 @@ try {
 	const started = Date.now();
 	let failure = null;
 	try {
-		await within(
-			spec.scriptTimeoutMs,
-			script ? script({ page, expect, baseURL }) : page.goto(spec.path ?? "/"),
-		);
+		// The last screenshot is always of the end state, so one is kept free for it.
+		const shot = async (label) => {
+			if (!checking && shots.length < MAX_SHOTS) await screenshot(page, label);
+		};
+		const work = showing
+			? show(page)
+			: script
+				? script({ page, expect, baseURL, shot })
+				: page.goto(spec.path ?? "/");
+		await within(spec.scriptTimeoutMs, work);
 		// Leaves the final state on screen long enough to see it.
-		await page.waitForTimeout(1000);
+		await page.waitForTimeout(1500);
 	} catch (error) {
 		failure = message(error);
 	}
@@ -148,6 +192,8 @@ try {
 		});
 	}
 
+	if (!showing) await screenshot(page, failure === null ? "At the end" : "Where the script failed").catch(() => {});
+
 	const recording = page.video();
 	await context.close();
 	await rename(await recording.path(), video);
@@ -158,7 +204,7 @@ try {
 		await rm(video);
 		await skip("video_too_large");
 	}
-	await finish({ status: "recorded", passed: failure === null, error: failure, durationMs, bytes: size });
+	await finish({ status: "recorded", passed: failure === null, error: failure, durationMs, bytes: size, shots });
 } catch (error) {
 	await skip("browser_failed", message(error));
 }

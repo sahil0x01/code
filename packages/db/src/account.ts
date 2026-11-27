@@ -146,7 +146,6 @@ export async function exportAccountData(db: Db, userId: string) {
 			error: run.error,
 			changedFiles: run.changedFiles,
 			verify: run.verify,
-			record: run.record,
 			recording: run.recording,
 			verification: run.verification,
 			reasoning: run.reasoning,

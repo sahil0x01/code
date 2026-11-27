@@ -241,6 +241,20 @@ export async function startBaseMerge(sandbox: Sandbox, spec: WorkspaceSpec): Pro
 	return { state: conflicts.length > 0 ? "conflicts" : "merged", baseSha, conflicts };
 }
 
+/** The commit where the working branch left the base branch, for reviewing all it changes. */
+export async function mergeBaseWith(sandbox: Sandbox, spec: WorkspaceSpec) {
+	const q = shellQuote;
+	const shallow = await mustGit(sandbox, "rev-parse --is-shallow-repository");
+	const depth = shallow.stdout.trim() === "true" ? "--unshallow " : "";
+	// Fetched together, so both histories are whole enough to share a commit.
+	await mustGit(
+		sandbox,
+		`fetch ${depth}-- ${q(spec.repoUrl)} ${q(`refs/heads/${spec.baseBranch}`)}`,
+		{ spec },
+	);
+	return (await mustGit(sandbox, "merge-base FETCH_HEAD HEAD")).stdout.trim();
+}
+
 /** Why a started merge must not be saved, or null when it can. */
 export async function mergeProblem(sandbox: Sandbox, merge: BaseMerge) {
 	if (merge.state === "current") return null;

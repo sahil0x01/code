@@ -50,7 +50,6 @@ export default async function NewChatPage({
 					id: project.id,
 					fullName: project.fullName,
 					defaultBranch: project.defaultBranch,
-					canRecord: project.canRecord,
 				}))}
 				initialProjectId={(initial ?? projects[0])?.id ?? ""}
 			/>

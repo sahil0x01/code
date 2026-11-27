@@ -4,7 +4,9 @@ import { PixelChevron } from "@/components/ui/pixel-chevron";
 import type { ChatReviewState, RunStatus } from "@nullfuse/db";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useCallback, useState } from "react";
+import { ContextMenu, type MenuPosition } from "./context-menu";
+import { RenameChatField } from "./rename-chat-field";
 import { RunStatusDot, UnreadMark } from "./run-status";
 
 type Item = {
@@ -69,15 +71,36 @@ export function ChatSections({ chats }: { chats: Item[] }) {
 }
 
 function ChatLinks({ chats, pathname }: { chats: Item[]; pathname: string }) {
+	const [menu, setMenu] = useState<{ id: string; at: MenuPosition } | null>(null);
+	const [renaming, setRenaming] = useState<string | null>(null);
+	const closeMenu = useCallback(() => setMenu(null), []);
+
 	return (
 		<ul className="flex flex-col gap-0.5">
 			{chats.map((chat) => {
 				const href = chatPath(chat.id);
 				const active = pathname === href;
+				if (renaming === chat.id) {
+					return (
+						<li key={chat.id}>
+							<RenameChatField chatId={chat.id} title={chat.title} onDone={() => setRenaming(null)} />
+						</li>
+					);
+				}
 				return (
 					<li key={chat.id}>
 						<Link
 							href={href}
+							onContextMenu={(event) => {
+								event.preventDefault();
+								// The menu key gives no pointer position, so the row's own is used.
+								const row = event.currentTarget.getBoundingClientRect();
+								const at =
+									event.clientX || event.clientY
+										? { x: event.clientX, y: event.clientY }
+										: { x: row.left + 24, y: row.bottom };
+								setMenu({ id: chat.id, at });
+							}}
 							aria-current={active ? "page" : undefined}
 							title={chat.title}
 							className={`flex items-center gap-2.5 border-l-2 px-3 py-1.5 text-sm ${
@@ -97,6 +120,13 @@ function ChatLinks({ chats, pathname }: { chats: Item[]; pathname: string }) {
 					</li>
 				);
 			})}
+			{menu && (
+				<ContextMenu
+					at={menu.at}
+					onClose={closeMenu}
+					items={[{ label: "Rename", icon: "rename", onSelect: () => setRenaming(menu.id) }]}
+				/>
+			)}
 		</ul>
 	);
 }

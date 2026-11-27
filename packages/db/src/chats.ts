@@ -57,7 +57,6 @@ async function enqueue(
 		model: string;
 		content: string;
 		verify?: boolean;
-		record?: boolean;
 		updateBase?: boolean;
 		planOnly?: boolean;
 		reasoning?: ReasoningLevel;
@@ -80,7 +79,6 @@ async function enqueue(
 				model: input.model,
 				modelLabel: input.modelLabel,
 				verify: input.verify ?? false,
-				record: input.record ?? false,
 				updateBase: input.updateBase ?? false,
 				planOnly: input.planOnly ?? false,
 				reasoning: input.reasoning,
@@ -99,7 +97,6 @@ export function createChat(
 		model: string;
 		content: string;
 		verify?: boolean;
-		record?: boolean;
 		planOnly?: boolean;
 		reasoning?: ReasoningLevel;
 		issueNumber?: number;
@@ -150,7 +147,6 @@ export function addMessage(
 		model: string;
 		content: string;
 		verify?: boolean;
-		record?: boolean;
 		updateBase?: boolean;
 		planOnly?: boolean;
 		reasoning?: ReasoningLevel;
@@ -242,7 +238,6 @@ export async function getChatForUser(db: Db, userId: string, chatId: string) {
 			state: chatState,
 			unread: chatUnread,
 			connected: sql<boolean>`${project.installationId} is not null`,
-			canRecord: sql<boolean>`${project.startCommand} is not null and ${project.appPort} is not null`,
 		})
 		.from(chat)
 		.innerJoin(project, eq(chat.projectId, project.id))
@@ -280,7 +275,6 @@ export function listRuns(db: Db, userId: string, chatId: string) {
 			error: run.error,
 			changedFiles: run.changedFiles,
 			verify: run.verify,
-			record: run.record,
 			planOnly: run.planOnly,
 			recording: run.recording,
 			verification: run.verification,
@@ -296,6 +290,18 @@ export function listRuns(db: Db, userId: string, chatId: string) {
 		.from(run)
 		.where(and(eq(run.chatId, chatId), eq(run.userId, userId)))
 		.orderBy(asc(run.createdAt));
+}
+
+/** False when the chat is not the user's. Renaming does not count as activity. */
+export async function renameChat(db: Db, userId: string, chatId: string, title: string) {
+	const clean = title.replace(/\s+/g, " ").trim().slice(0, 80);
+	if (!clean) return false;
+	const rows = await db
+		.update(chat)
+		.set({ title: clean, updatedAt: sql`${chat.updatedAt}` })
+		.where(and(eq(chat.id, chatId), eq(chat.userId, userId)))
+		.returning({ id: chat.id });
+	return rows.length > 0;
 }
 
 export type DeleteChatResult =

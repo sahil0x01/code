@@ -40,9 +40,10 @@ function Verification({ verification }: { verification: RunRow["verification"] }
 	);
 }
 
-function Recording({ chatId, run, canPlay }: { chatId: string; run: RunRow; canPlay: boolean }) {
+function Proof({ chatId, run, canPlay }: { chatId: string; run: RunRow; canPlay: boolean }) {
 	const { recording } = run;
-	if (!recording) return <p className="text-sm text-muted">No video was recorded.</p>;
+	// Runs from before proof was kept, and runs cancelled before they started, have none.
+	if (!recording) return null;
 	if (recording.status === "skipped") {
 		return (
 			<Disclosure summaryClass="text-sm" summary={recording.message}>
@@ -57,23 +58,46 @@ function Recording({ chatId, run, canPlay }: { chatId: string; run: RunRow; canP
 	if (!canPlay) {
 		return (
 			<p role="alert" className="text-sm text-red">
-				A video was recorded, but the web app has no video storage settings. Add the four R2
+				Proof was recorded, but the web app has no video storage settings. Add the four R2
 				values to its environment and restart it.
 			</p>
 		);
 	}
-	const source = `/api/chats/${chatId}/runs/${run.id}/video`;
+	const base = `/api/chats/${chatId}/runs/${run.id}`;
+	const web = recording.kind !== "page";
+	const verdict = web
+		? recording.passed ? "checks passed" : "checks failed"
+		: recording.passed ? "recorded" : "a command failed";
 	return (
 		<figure className="flex flex-col gap-1.5">
 			<figcaption className="flex flex-wrap items-center gap-3 font-mono text-xs uppercase">
 				<span className={recording.passed ? "text-green" : "text-red"}>
-					Recording · {recording.passed ? "checks passed" : "checks failed"}
+					Proof · {web ? "app" : "work record"} · {verdict}
 				</span>
-				<a href={source} target="_blank" rel="noreferrer" className="text-muted underline">
-					Open ↗
+				<a href={`${base}/video`} target="_blank" rel="noreferrer" className="text-muted underline">
+					Open video ↗
 				</a>
 			</figcaption>
-			<video src={source} controls muted preload="metadata" className="w-full border border-border" />
+			<video src={`${base}/video`} controls muted preload="metadata" className="w-full border border-border" />
+			{recording.screenshots && recording.screenshots.length > 0 && (
+				<ul className="flex flex-wrap gap-2">
+					{recording.screenshots.map((shot, number) => (
+						<li key={shot.key} className="w-40">
+							<a href={`${base}/screenshot/${number}`} target="_blank" rel="noreferrer" className="flex flex-col gap-1">
+								{/* A short-lived private link, which the image optimiser cannot fetch. */}
+								{/* eslint-disable-next-line @next/next/no-img-element */}
+								<img
+									src={`${base}/screenshot/${number}`}
+									alt={shot.label || `Screenshot ${number + 1}`}
+									loading="lazy"
+									className="h-24 w-full border border-border object-cover object-top"
+								/>
+								<span className="truncate text-xs text-muted">{shot.label || `Screenshot ${number + 1}`}</span>
+							</a>
+						</li>
+					))}
+				</ul>
+			)}
 			{recording.error && (
 				<p className="whitespace-pre-wrap break-words font-mono text-xs text-red">{recording.error}</p>
 			)}
@@ -141,7 +165,7 @@ export function RunPanel({
 
 			{run.verify && !active && <Verification verification={run.verification} />}
 
-			{run.record && !active && <Recording chatId={chatId} run={run} canPlay={canPlay} />}
+			{!active && <Proof chatId={chatId} run={run} canPlay={canPlay} />}
 		</div>
 	);
 }

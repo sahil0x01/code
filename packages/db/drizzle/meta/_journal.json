@@ -183,6 +183,20 @@
       "when": 1795795716866,
       "tag": "0025_outgoing_alice",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1795807416904,
+      "tag": "0026_drop_preview_and_record",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1795807417968,
+      "tag": "0027_proof_file_deletion",
+      "breakpoints": true
     }
   ]
 }

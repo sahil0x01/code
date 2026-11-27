@@ -110,11 +110,12 @@ export default function PrivacyPage() {
 				repository, and you can delete your account and your data.
 			</p>
 			<p>
-				If you ask for a screen recording of a change, we record your app running
-				in a temporary sandbox. The video can show anything your app displays. It
-				is stored privately with Cloudflare R2, only you can open it through your
-				account, and it is deleted after 30 days, or sooner when you delete the
-				chat or your account.
+				To show proof of work that needs seeing, a run records a video and
+				screenshots in its temporary sandbox: your app in use, or a page of
+				command output and code changes. They can show anything
+				your code or app displays. They are stored privately with Cloudflare
+				R2, only you can open them through your account, and they are deleted
+				after 30 days, or sooner when you delete the chat or your account.
 			</p>
 
 			<p>

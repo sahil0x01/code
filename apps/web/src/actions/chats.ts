@@ -9,9 +9,11 @@ import {
 	getProjectForUser,
 	listRuns,
 	markChatSeen,
+	renameChat,
 	requestStop,
 	type SendResult,
 } from "@nullfuse/db";
+import { commandOptions } from "@nullfuse/agent/commands";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -20,6 +22,7 @@ import {
 	isModelId,
 	isReasoningId,
 	MAX_MESSAGE_LENGTH,
+	MAX_TITLE_LENGTH,
 	type ReasoningId,
 } from "@/lib/chat";
 import { db } from "@/server/db";
@@ -36,7 +39,6 @@ const content = z.string().trim().min(1).max(MAX_MESSAGE_LENGTH);
 const model = z.string().refine(isModelId);
 
 const verify = z.boolean();
-const record = z.boolean();
 const planOnly = z.boolean();
 const reasoning = z.custom<ReasoningId>(isReasoningId).catch(DEFAULT_REASONING);
 
@@ -46,7 +48,6 @@ const startSchema = z.object({
 	model,
 	content,
 	verify,
-	record,
 	planOnly,
 	reasoning,
 	issueNumber: z.coerce.number().int().positive().max(2_000_000_000).optional(),
@@ -57,7 +58,6 @@ const sendSchema = z.object({
 	model,
 	content,
 	verify,
-	record,
 	planOnly,
 	reasoning,
 });
@@ -66,6 +66,19 @@ const inputError: ChatState = {
 	status: "error",
 	message: `Write a message (up to ${MAX_MESSAGE_LENGTH.toLocaleString("en")} characters) and pick a model.`,
 };
+
+const missingTask: ChatState = { status: "error", message: "Say what to do after the command." };
+
+// A typed command turns on the same option as its button.
+function withCommands<T extends { content: string; planOnly: boolean; verify: boolean }>(input: T) {
+	const typed = commandOptions(input.content);
+	if (typed.missingTask) return null;
+	return {
+		...input,
+		planOnly: input.planOnly || typed.planOnly,
+		verify: input.verify || typed.verify,
+	};
+}
 
 const failures = {
 	not_found: "That project or chat was not found.",
@@ -94,12 +107,13 @@ export async function startChat(
 		model: formData.get("model"),
 		content: formData.get("content"),
 		verify: formData.get("verify") === "on",
-		record: formData.get("record") === "on",
 		planOnly: formData.get("planOnly") === "on",
 		reasoning: formData.get("reasoning"),
 		issueNumber: formData.get("issueNumber") ?? undefined,
 	});
 	if (!input.success) return inputError;
+	const options = withCommands(input.data);
+	if (!options) return missingTask;
 
 	let chatId: string;
 	try {
@@ -125,7 +139,7 @@ export async function startChat(
 			};
 		}
 
-		const result = await createChat(db, { userId: user.id, ...input.data });
+		const result = await createChat(db, { userId: user.id, ...options });
 		if (!result.ok) return failure(result.reason);
 		chatId = result.chatId;
 		await enqueueRun({ runId: result.runId, chatId });
@@ -149,11 +163,12 @@ export async function sendMessage(
 		model: formData.get("model"),
 		content: formData.get("content"),
 		verify: formData.get("verify") === "on",
-		record: formData.get("record") === "on",
 		planOnly: formData.get("planOnly") === "on",
 		reasoning: formData.get("reasoning"),
 	});
 	if (!input.success) return inputError;
+	const options = withCommands(input.data);
+	if (!options) return missingTask;
 
 	try {
 		const chat = await getChatForUser(db, user.id, input.data.chatId);
@@ -168,7 +183,7 @@ export async function sendMessage(
 			};
 		}
 
-		const result = await addMessage(db, { userId: user.id, ...input.data });
+		const result = await addMessage(db, { userId: user.id, ...options });
 		if (!result.ok) return failure(result.reason);
 		await enqueueRun({ runId: result.runId, chatId: result.chatId });
 	} catch (error) {
@@ -238,6 +253,28 @@ export async function removeChat(
 	redirect("/dashboard/chats");
 }
 
+export async function retitleChat(_previous: ChatState, formData: FormData): Promise<ChatState> {
+	const { user } = await requireSession();
+	const input = z
+		.object({ chatId: z.uuid(), title: z.string().trim().min(1).max(MAX_TITLE_LENGTH) })
+		.safeParse({ chatId: formData.get("chatId"), title: formData.get("title") });
+	if (!input.success) {
+		return { status: "error", message: `Enter a name of 1 to ${MAX_TITLE_LENGTH} characters.` };
+	}
+
+	try {
+		if (!(await renameChat(db, user.id, input.data.chatId, input.data.title))) {
+			return { status: "error", message: "That chat was not found." };
+		}
+	} catch (error) {
+		console.error("rename chat failed", error);
+		return { status: "error", message: "Something went wrong. Try again." };
+	}
+
+	revalidatePath("/dashboard", "layout");
+	return { status: "success" };
+}
+
 /** Answers a plan with the go-ahead, using the same model and thinking level. */
 export async function approvePlan(formData: FormData) {
 	const { user } = await requireSession();
@@ -252,7 +289,6 @@ export async function approvePlan(formData: FormData) {
 		model: latest.model,
 		reasoning: latest.reasoning,
 		verify: latest.verify,
-		record: latest.record,
 		content: "The plan is approved. Carry it out.",
 	});
 	if (sent.ok) await enqueueRun({ runId: sent.runId, chatId: sent.chatId });

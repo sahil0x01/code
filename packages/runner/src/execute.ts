@@ -6,6 +6,7 @@ import {
 	changedSince,
 	DEFAULT_LIMITS,
 	modelCost,
+	mergeBaseWith,
 	mergeProblem,
 	prepareWorkspace,
 	priceModel,
@@ -22,6 +23,7 @@ import {
 	workingBranchFor,
 	type WorkspaceSpec,
 } from "@nullfuse/agent";
+import { parseMessage } from "@nullfuse/agent/commands";
 import {
 	type ClaimResult,
 	addRunUsage,
@@ -52,13 +54,15 @@ import {
 	touchRun,
 } from "@nullfuse/db";
 import { isOwnModelKey } from "@nullfuse/models/providers";
-import { readText, type Sandbox, SandboxCapacityError, type SandboxDriver } from "@nullfuse/sandbox";
-import { recordingKey } from "@nullfuse/storage";
+import { type Sandbox, SandboxCapacityError, type SandboxDriver } from "@nullfuse/sandbox";
+import { recordingKey, screenshotKey } from "@nullfuse/storage";
 import type { LanguageModel } from "ai";
 import { checkAppTool } from "./check-app";
 import { liveWriter } from "./live";
 import { withEarlierWork, workSummary } from "./memory";
-import { recordChange, recordingInstructions, SCRIPT_PATH, uploadRecording } from "./recording";
+import { expandMessage } from "./message";
+import { captureProof, changesCode, proofInstructions } from "./proof";
+import { uploadFile } from "./recording";
 import { redactor } from "./redact";
 
 export type RunnerDeps = {
@@ -195,12 +199,13 @@ function instructionsFor(
 	branch: string,
 	setup: string | undefined,
 	resumed: boolean,
-	recordPort: number | undefined,
+	proof: string | undefined,
 	rules: { file: string; text: string }[],
 	canCheckApp: boolean,
 	browserProblem: string | undefined,
 	merge: BaseMerge | undefined,
 	skills: string | null,
+	answering: boolean,
 ) {
 	const lines = [
 		SYSTEM_PROMPT,
@@ -219,7 +224,7 @@ function instructionsFor(
 			"When your change affects what the web app shows or does, verify it with the check_app tool and fix any errors it reports before you finish. Say in your summary what you checked.",
 		);
 	}
-	if (recordPort !== undefined) lines.push(recordingInstructions(recordPort));
+	if (proof) lines.push(proof);
 	if (rules.length > 0) {
 		lines.push(
 			"",
@@ -238,6 +243,9 @@ function instructionsFor(
 			`A merge of ${context.chat.baseBranch} into this branch is in progress, and these files conflict: ${merge.conflicts.join(", ")}.`,
 			"Resolve every conflict so that the intent of both sides is kept, and remove all conflict markers. A file deleted on one side has no markers: decide whether it should stay. Do not run git commit, merge --abort, reset or checkout; the merge is committed for you when you finish. Then check that the project still works.",
 		);
+	}
+	if (answering) {
+		lines.push("You can only read in this turn. Do not claim to have changed or run anything.");
 	}
 	if (context.run.planOnly) {
 		lines.push(
@@ -345,8 +353,12 @@ async function perform(
 
 	const branch = workingBranchFor(chat.id);
 	const planOnly = context.run.planOnly;
+	const asked = context.messages.filter((m) => m.role === "user").at(-1)?.content ?? "";
+	const { commands } = parseMessage(asked);
+	// Planning, asking and reviewing change nothing, so nothing is set up or saved.
+	const readOnly = planOnly || commands.some((command) => command.readOnly);
 	// A plan saves nothing, so the chat has no branch yet.
-	if (!planOnly) await setWorkingBranchIfUnset(deps.db, chat.id, branch);
+	if (!readOnly) await setWorkingBranchIfUnset(deps.db, chat.id, branch);
 
 	// A user's own model never falls back to ours: any failure here ends the run.
 	let own: OwnModel | undefined;
@@ -393,36 +405,25 @@ async function perform(
 
 	if (before.cost >= limits.maxCost) return clean(overBudget(limits.maxCost));
 
-	// The browser image is used when the project says how to start its app.
+	// A run that can change things may need proof, which is recorded in a browser.
 	let image = deps.image;
 	let app: { startCommand: string; port: number } | undefined;
+	let browser = false;
 	let browserProblem: string | undefined;
-	if (!planOnly && project.startCommand && project.appPort !== null && deps.browserImage) {
+	const startable = !readOnly && project.startCommand !== null && project.appPort !== null;
+	if (deps.browserImage && !readOnly && (deps.recorder || startable)) {
 		try {
 			image = await deps.browserImage();
-			app = { startCommand: project.startCommand, port: project.appPort };
+			browser = true;
+			if (startable) app = { startCommand: project.startCommand ?? "", port: project.appPort ?? 0 };
 		} catch (error) {
 			browserProblem = `The browser sandbox could not be prepared: ${redact.text(describe(error))}`;
 		}
 	}
-
-	// Why a requested recording cannot happen, or what is needed to make it.
-	let recordingBlocked: string | undefined;
-	let recordingPlan: { startCommand: string; port: number; recorder: Recorder } | undefined;
-	if (context.run.record && !planOnly) {
-		if (!project.startCommand || project.appPort === null) {
-			recordingBlocked = "Set a start command and port on the project to record videos.";
-		} else if (!deps.recorder || !deps.browserImage) {
-			recordingBlocked = "Video recording isn't set up on this server.";
-		} else if (!app) {
-			recordingBlocked = browserProblem;
-		} else {
-			recordingPlan = { ...app, recorder: deps.recorder };
-		}
-	}
+	const recorder = browser ? deps.recorder : undefined;
 
 	const sandbox = await deps.driver.create({ image });
-	track(sandbox, deps.sandboxHourlyCost?.[app ? "browser" : "plain"] ?? 0);
+	track(sandbox, deps.sandboxHourlyCost?.[browser ? "browser" : "plain"] ?? 0);
 	await clearRunWaiting(deps.db, runId, attempt);
 	const workspace = await prepareWorkspace(sandbox, spec);
 	// A branch that was never saved starts from the base, so there is nothing to merge.
@@ -433,7 +434,11 @@ async function perform(
 			: { state: "current" };
 	// Read before the agent runs, so a run cannot rewrite the rules it was given.
 	const rules = await readProjectRules(sandbox);
-	const skills = skillInstructions(await readSkills(sandbox));
+	const skills = await readSkills(sandbox);
+	// A review looks at everything the branch changes, not only what this run does.
+	const reviewBase = commands.some((command) => command.name === "review")
+		? await mergeBaseWith(sandbox, spec)
+		: undefined;
 
 	// A Stop is a flag in the database, so it works whatever runs the job.
 	const stop = new AbortController();
@@ -526,7 +531,7 @@ async function perform(
 	let sinceCheckpoint = 0;
 	const checkpoint = async () => {
 		// A half-resolved merge must not reach the branch, and a plan changes nothing.
-		if (merge || planOnly) return;
+		if (merge || readOnly) return;
 		if (++sinceCheckpoint < (deps.checkpointEverySteps ?? DEFAULT_CHECKPOINT_STEPS)) return;
 		sinceCheckpoint = 0;
 		try {
@@ -570,10 +575,100 @@ async function perform(
 		return cost;
 	};
 
+	// The message being answered gets its commands spelled out and its files attached.
+	const expanded = async () => {
+		const last = context.messages.map((m) => m.role).lastIndexOf("user");
+		const content = await expandMessage(sandbox, asked, skills);
+		return context.messages.map((m, index) => (index === last ? { ...m, content } : m));
+	};
+
+	/** Saves a video and screenshots on the run, when the work needs seeing. */
+	const prove = async (pullNumber: number | null) => {
+		const note = (message: string, detail = ""): RunRecording => ({
+			status: "skipped",
+			message,
+			detail: redact.text(detail),
+		});
+		const record = async (): Promise<RunRecording | null> => {
+			const changed = lastFiles.map((file) => file.path);
+			// Nothing is said about missing proof unless there was code to prove.
+			const missing = (message: string) => (changesCode(changed) ? note(message) : null);
+			if (!recorder) return missing(browserProblem ?? "Proof recording isn't set up on this server.");
+			if (agent?.stoppedBy !== "completed" || diskExceeded || abort.aborted) {
+				return missing("Not recorded: the run didn't finish.");
+			}
+			const proof = await captureProof(sandbox, {
+				changed,
+				steps: agent.steps,
+				baseSha: reviewBase ?? workspace.headSha,
+				app,
+				env,
+				redact: redact.text,
+				signal: abort,
+			});
+			if (!proof) return null;
+			if (proof.status === "skipped") return note(proof.message, proof.detail);
+
+			const key = recordingKey({ userId: context.run.userId, chatId: chat.id, runId, attempt });
+			const failure = await uploadFile(sandbox, proof.path, await recorder.uploadUrl(key), "video/webm", abort);
+			if (failure) return note("The video could not be uploaded.", failure);
+			const screenshots: { key: string; label: string }[] = [];
+			for (const shot of proof.shots) {
+				const shotKey = screenshotKey(key, screenshots.length + 1);
+				// A missing screenshot is not worth losing the video over.
+				const problem = await uploadFile(sandbox, shot.path, await recorder.uploadUrl(shotKey), "image/png", abort);
+				if (!problem) screenshots.push({ key: shotKey, label: redact.text(shot.label) });
+			}
+			const { passed, error, durationMs, bytes, kind } = proof;
+			return {
+				status: "recorded",
+				key,
+				kind,
+				screenshots,
+				passed,
+				error: error === null ? null : redact.text(error),
+				durationMs,
+				bytes,
+			};
+		};
+
+		const unwatchProof = watch();
+		try {
+			let recording: RunRecording | null;
+			try {
+				recording = await record();
+			} catch (error) {
+				recording = note("Recording failed.", describe(error));
+			}
+			if (!recording) return;
+			const saved = await setRecording(deps.db, runId, recording, attempt);
+			if (recording.status !== "recorded") return;
+			// The chat was deleted or a newer attempt took over: nothing will point at these files.
+			if (!saved) {
+				for (const file of [recording, ...(recording.screenshots ?? [])]) {
+					await queueRecordingDeletion(deps.db, file.key);
+				}
+			} else if (pullNumber !== null) {
+				await recorder
+					?.linkPullRequest?.({
+						installationId: project.installationId as number,
+						repository: project.fullName,
+						number: pullNumber,
+						chatId: chat.id,
+						runId,
+						passed: recording.passed,
+					})
+					.catch((error) => console.warn("could not link the recording", describe(error)));
+			}
+		} finally {
+			unwatchProof();
+		}
+	};
+
 	let agent: AgentRun | undefined;
 	let agentError: unknown;
 	try {
-		const setup = planOnly ? undefined : await prepare(sandbox, project.installCommand, env, abort);
+		const setup = readOnly ? undefined : await prepare(sandbox, project.installCommand, env, abort);
 		try {
 			await checkDisk();
 			// A merge without conflicts needs no model.
@@ -585,22 +680,23 @@ async function perform(
 							providerOptions: reasoningOptions(context.run.reasoning),
 						}),
 				sandbox,
-				messages: withEarlierWork(context.messages, memory),
-				readOnly: planOnly,
+				messages: withEarlierWork(await expanded(), memory),
+				readOnly,
 				env,
 				instructions: instructionsFor(
 					context,
 					branch,
 					setup,
 					before.steps > 0,
-					recordingPlan?.port,
+					recorder ? proofInstructions(app) : undefined,
 					rules,
 					app !== undefined,
 					browserProblem,
 					merge,
-					skills,
+					skillInstructions(skills),
+					readOnly && !planOnly,
 				),
-				baseSha: workspace.headSha,
+				baseSha: reviewBase ?? workspace.headSha,
 				guidance: rules.map((rule) => `<${rule.file}>\n${rule.text}\n</${rule.file}>`).join("\n") || undefined,
 				contextTokens: own ? own.contextTokens : OUR_CONTEXT_TOKENS,
 				onSpend: async (step) => {
@@ -630,7 +726,7 @@ async function perform(
 					await checkpoint();
 				},
 			});
-			if (context.run.verify && !planOnly && project.testCommand && !diskExceeded && !fence.superseded) {
+			if (context.run.verify && !readOnly && project.testCommand && !diskExceeded && !fence.superseded) {
 				await verify(project.testCommand, abort);
 			}
 		} catch (error) {
@@ -648,7 +744,7 @@ async function perform(
 	// Our own stops keep their wording; only what the model call threw is the provider's.
 	const explain = (error: unknown) => (own && !diskExceeded ? own.explain(error) : describe(error));
 
-	if (planOnly) {
+	if (readOnly) {
 		if (agentError !== undefined || !agent) return clean(failed(explain(agentError)));
 		return clean(outcomeFor(agent, limits.maxCost));
 	}
@@ -694,85 +790,8 @@ async function perform(
 		}
 	}
 
-	// Recorded last, so nothing the running app writes is committed.
-	if (context.run.record) {
-		const note = (message: string, detail = ""): RunRecording => ({
-			status: "skipped",
-			message,
-			detail: redact.text(detail),
-		});
-		const makeRecording = async (): Promise<RunRecording> => {
-			if (!recordingPlan) return note(recordingBlocked ?? "Recording was not possible.");
-			if (agent?.stoppedBy !== "completed" || diskExceeded || abort.aborted) {
-				return note("Not recorded: the run didn't finish.");
-			}
-			let script: string;
-			try {
-				script = await readText(sandbox, SCRIPT_PATH);
-			} catch {
-				return note("Not recorded: the agent found nothing to show in a web page.");
-			}
-			const result = await recordChange(sandbox, {
-				startCommand: recordingPlan.startCommand,
-				port: recordingPlan.port,
-				script,
-				env,
-				signal: abort,
-			});
-			if (result.status === "skipped") return note(result.message, result.detail);
-			const key = recordingKey({
-				userId: context.run.userId,
-				chatId: chat.id,
-				runId,
-				attempt,
-			});
-			const problem = await uploadRecording(
-				sandbox,
-				result.path,
-				await recordingPlan.recorder.uploadUrl(key),
-				abort,
-			);
-			if (problem) return note("The video could not be uploaded.", problem);
-			const { passed, error, durationMs, bytes } = result;
-			return {
-				status: "recorded",
-				key,
-				passed,
-				error: error === null ? null : redact.text(error),
-				durationMs,
-				bytes,
-			};
-		};
-
-		unwatch = watch();
-		try {
-			let recording: RunRecording;
-			try {
-				recording = await makeRecording();
-			} catch (error) {
-				recording = note("Recording failed.", describe(error));
-			}
-			const saved = await setRecording(deps.db, runId, recording, attempt);
-			// The chat was deleted or a newer attempt took over: nothing will point at this video.
-			if (!saved && recording.status === "recorded") {
-				await queueRecordingDeletion(deps.db, recording.key);
-			}
-			if (saved && recording.status === "recorded" && pullNumber !== null) {
-				await recordingPlan?.recorder
-					.linkPullRequest?.({
-						installationId: project.installationId,
-						repository: project.fullName,
-						number: pullNumber,
-						chatId: chat.id,
-						runId,
-						passed: recording.passed,
-					})
-					.catch((error) => console.warn("could not link the recording", describe(error)));
-			}
-		} finally {
-			unwatch();
-		}
-	}
+	// Recorded last, so nothing the running app or the proof commands write is committed.
+	await prove(saveError === undefined ? pullNumber : null);
 
 	if (agentError !== undefined || !agent) {
 		return clean(failed([explain(agentError), saveError].filter(Boolean).join(" ")));

@@ -13,7 +13,7 @@ const skipReasons = {
 	app_exited: "The start command exited before the app was ready.",
 	app_not_ready: "The app did not answer on its port in time.",
 	video_too_large: "The video was too large to keep.",
-	browser_failed: "The browser could not record the app.",
+	browser_failed: "The browser could not record the work.",
 	timed_out: "Recording took too long.",
 	no_result: "Recording stopped without a result.",
 } as const;
@@ -28,6 +28,8 @@ export type Recording =
 			error: string | null;
 			durationMs: number;
 			bytes: number;
+			/** Screenshots, also inside the sandbox. */
+			shots: { path: string; label: string }[];
 	  }
 	| { status: "skipped"; reason: keyof typeof skipReasons; message: string; detail: string };
 
@@ -55,7 +57,8 @@ export function parseResult(text: string, videoPath: string): Recording {
 	} catch {
 		return skipped("no_result");
 	}
-	const { status, reason, detail, passed, error, durationMs, bytes } = value;
+	const { status, reason, detail, passed, error, durationMs, bytes, shots } = value;
+	const folder = videoPath.slice(0, videoPath.lastIndexOf("/"));
 	if (status === "recorded" && typeof passed === "boolean") {
 		return {
 			status,
@@ -64,6 +67,13 @@ export function parseResult(text: string, videoPath: string): Recording {
 			error: typeof error === "string" ? error.slice(0, 2000) : null,
 			durationMs: Number(durationMs) || 0,
 			bytes: Number(bytes) || 0,
+			// Only names the harness itself would choose, so nothing else can be uploaded.
+			shots: (Array.isArray(shots) ? shots : []).slice(0, 4).flatMap((shot) => {
+				const { file, label } = Object(shot);
+				return typeof file === "string" && /^shot-[1-4]\.png$/.test(file)
+					? [{ path: `${folder}/${file}`, label: typeof label === "string" ? label.slice(0, 200) : "" }]
+					: [];
+			}),
 		};
 	}
 	if (status === "skipped" && typeof reason === "string" && Object.hasOwn(skipReasons, reason)) {
@@ -75,10 +85,14 @@ export function parseResult(text: string, videoPath: string): Recording {
 	return skipped("no_result");
 }
 
-type HarnessRequest = Omit<RecordingRequest, "script"> & {
+type HarnessRequest = Omit<RecordingRequest, "script" | "startCommand" | "port"> & {
+	startCommand?: string;
+	port?: number;
 	script?: string;
-	mode?: "check";
+	mode?: "check" | "page";
 	path?: string;
+	/** HTML to record in "page" mode. */
+	html?: string;
 };
 
 /** Runs the harness once and returns the text of its result file, or why there is none. */
@@ -93,11 +107,14 @@ export async function runHarness(sandbox: Sandbox, request: HarnessRequest) {
 	const harness = `${base}/record.mjs`;
 	await sandbox.writeFile(harness, recordingHarness());
 	if (script) await sandbox.writeFile(script, request.script ?? "");
+	const page = request.html === undefined ? undefined : `${base}/page.html`;
+	if (page) await sandbox.writeFile(page, request.html ?? "");
 	await sandbox.writeFile(
 		`${base}/spec.json`,
 		JSON.stringify({
 			mode: request.mode,
 			path: request.path,
+			page,
 			startCommand: request.startCommand,
 			port: request.port,
 			workdir: sandbox.workdir,
@@ -130,25 +147,25 @@ export async function recordChange(sandbox: Sandbox, request: RecordingRequest):
 	return run.ok ? parseResult(run.text, `${run.outDir}/video.webm`) : run.skipped;
 }
 
+/** Records a prepared HTML page: a video of reading it and a screenshot of all of it. */
+export async function recordPage(sandbox: Sandbox, html: string, signal?: AbortSignal) {
+	const run = await runHarness(sandbox, { mode: "page", html, signal });
+	return run.ok ? parseResult(run.text, `${run.outDir}/video.webm`) : run.skipped;
+}
+
 /** Where the agent is asked to leave its script: outside the workspace, so it is never committed. */
 export const SCRIPT_PATH = "/tmp/nullfuse-record/script.mjs";
 
-export function recordingInstructions(port: number) {
-	return `The user asked for a screen recording of this change. After the code works, write a Playwright script to ${SCRIPT_PATH} that shows it in the web app. It must be an ES module like:
-export default async ({ page, expect }) => { await page.goto("/"); /* use the changed feature, then assert the result with expect */ };
-Do not import anything, do not start the app (it is started for you on port ${port}), and keep it under 30 seconds. Prefer role, label and text locators. If the change has nothing visible in a web page, do not write the script.
-Do not run the script yourself or build your own browser harness. To try the same steps first, pass the script to the check_app tool.`;
-}
-
-/** Sends the video straight from the sandbox, which only ever sees a link for this one object. */
-export async function uploadRecording(
+/** Sends a file straight from the sandbox, which only ever sees a link for this one object. */
+export async function uploadFile(
 	sandbox: Sandbox,
 	path: string,
 	url: string,
+	type: "video/webm" | "image/png",
 	signal?: AbortSignal,
 ) {
 	const result = await sandbox.exec(
-		`curl -fsS --max-time 120 -X PUT -H "content-type: video/webm" --upload-file '${path}' "$UPLOAD_URL" >/dev/null`,
+		`curl -fsS --max-time 120 -X PUT -H "content-type: ${type}" --upload-file '${path}' "$UPLOAD_URL" >/dev/null`,
 		{ env: { UPLOAD_URL: url }, signal, timeoutMs: 130_000 },
 	);
 	if (result.exitCode === 0 && !result.timedOut) return null;

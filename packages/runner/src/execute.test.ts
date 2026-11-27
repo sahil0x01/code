@@ -270,6 +270,32 @@ describe.skipIf(!hasDocker)("executeRun", () => {
 		expect(row).toMatchObject({ inputTokens: 400, outputTokens: 80 });
 	});
 
+	it("attaches a mentioned file, and reviews the whole branch without changing it", async () => {
+		const first = await setup({ message: "Add notes, see @README.md" });
+		const writing = new MockLanguageModelV4({
+			doGenerate: [toolCalls({ name: "write", input: { path: "notes.txt", content: "from run one\n" } }), answer("Added.")],
+		});
+		await executeRun(deps(writing), first.runId);
+		expect(JSON.stringify(writing.doGenerateCalls[0]?.prompt)).toContain('<file path=\\"README.md\\">');
+		const before = (await remote.git(`rev-parse ${first.branch}`)).stdout;
+
+		const next = await followUp(first.userId, first.chatId, "/review");
+		const model = new MockLanguageModelV4({
+			doGenerate: [
+				toolCalls({ name: "task", input: { kind: "review", prompt: "Add notes" } }),
+				answer("REPORT"),
+				answer("No problems."),
+			],
+		});
+
+		expect(await executeRun(deps(model), next.runId)).toMatchObject({ status: "succeeded" });
+
+		expect(model.doGenerateCalls[0]?.tools?.map((tool) => tool.name).sort()).toEqual(["grep", "list", "read", "task"]);
+		// The helper sees what an earlier run changed.
+		expect(JSON.stringify(model.doGenerateCalls[1]?.prompt)).toContain("from run one");
+		expect((await remote.git(`rev-parse ${first.branch}`)).stdout).toBe(before);
+	});
+
 	describe("a user's own model", () => {
 		const apiKey = "sk-user-own-key-987654";
 		const ownKey = `own:${crypto.randomUUID()}`;

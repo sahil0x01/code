@@ -14,7 +14,6 @@ export * from "./chats";
 export * from "./inbox";
 export * from "./installations";
 export * from "./preferences";
-export * from "./preview";
 export * from "./projects";
 export * from "./recordings";
 export * from "./runs";

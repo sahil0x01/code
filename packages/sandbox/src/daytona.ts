@@ -32,7 +32,6 @@ export type DaytonaBox = {
 		uploadFile(file: Buffer, remotePath: string): Promise<void>;
 		downloadFile(remotePath: string): Promise<Buffer>;
 	};
-	getSignedPreviewUrl(port: number, expiresInSeconds: number): Promise<{ url: string }>;
 	delete(): Promise<void>;
 };
 
@@ -165,10 +164,6 @@ class DaytonaSandbox implements Sandbox {
 		const made = await this.exec(`mkdir -p -- "$(dirname -- ${quote(filePath)})"`, { cwd: "/" });
 		if (made.exitCode !== 0) throw new SandboxError(`Cannot write ${filePath}: ${made.stderr.trim()}`);
 		await this.box.fs.uploadFile(Buffer.from(content), filePath);
-	}
-
-	async previewUrl(port: number, expiresInSeconds: number) {
-		return (await this.box.getSignedPreviewUrl(port, expiresInSeconds)).url;
 	}
 
 	async destroy(): Promise<void> {

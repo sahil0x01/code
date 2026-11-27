@@ -115,12 +115,11 @@ export function ReasoningPicker({ value, onChange }: Choice) {
 	);
 }
 
-export function RunToggles({ canRecord }: { canRecord: boolean }) {
+export function RunToggles() {
 	return (
 		<span className="flex items-center gap-1">
 			<Toggle name="planOnly" icon="plan" label="Plan" hint="Plan first: nothing changes until you approve" />
 			<Toggle name="verify" icon="tests" label="Tests" hint="Run the tests afterwards" />
-			{canRecord && <Toggle name="record" icon="video" label="Video" hint="Record a video of the change" />}
 		</span>
 	);
 }

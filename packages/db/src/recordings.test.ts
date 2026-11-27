@@ -42,7 +42,6 @@ async function recorded(finishedDaysAgo = 0) {
 		baseBranch: "main",
 		model: "m",
 		content: "hi",
-		record: true,
 	});
 	if (!created.ok) throw new Error(created.reason);
 	await claimRun(db, created.runId);
@@ -75,6 +74,17 @@ describe("recording deletion", () => {
 		await db.delete(user).where(eq(user.id, account.userId));
 		await db.delete(chat).where(eq(chat.id, project.chatId));
 		expect((await queued(account.key, project.key)).sort()).toEqual([account.key, project.key].sort());
+	});
+
+	it("queues a proof's screenshots along with its video", async () => {
+		const made = await recorded();
+		const shots = [`${made.key}-1.png`, `${made.key}-2.png`];
+		await db
+			.update(run)
+			.set({ recording: { ...video(`${made.key}.new`), screenshots: shots.map((key) => ({ key, label: "" })) } })
+			.where(eq(run.id, made.runId));
+		await deleteChat(db, made.userId, made.chatId);
+		expect((await queued(`${made.key}.new`, ...shots)).sort()).toEqual([`${made.key}.new`, ...shots].sort());
 	});
 
 	it("queues a replaced video, but not one that is unchanged", async () => {

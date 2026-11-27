@@ -26,6 +26,7 @@ import { formatCost } from "@/lib/format";
 import { db } from "@/server/db";
 import { recordingStore } from "@/server/recordings";
 import { requireSession } from "@/server/session";
+import { ChatTitle } from "./chat-title";
 import { DeleteChatButton } from "./delete-chat-button";
 import { MessageForm } from "./message-form";
 
@@ -151,9 +152,7 @@ export default async function ChatPage({
 
 			<header className="flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border pb-3 md:px-5 md:py-2.5">
 				<div className="min-w-0 flex-1">
-					<h1 className="truncate text-sm font-semibold" title={chat.title}>
-						{chat.title}
-					</h1>
+					<ChatTitle key={chat.title} chatId={chat.id} title={chat.title} />
 					<p className="truncate font-mono text-xs text-muted">
 						<Link
 							href={`/dashboard/projects/${chat.projectId}`}
@@ -189,11 +188,6 @@ export default async function ChatPage({
 					<span className={`font-mono text-xs ${testsPassed ? "text-green" : "text-red"}`}>
 						{testsPassed ? "Tests passed" : "Tests failed"}
 					</span>
-				)}
-				{chat.connected && chat.canRecord && chat.workingBranch && (
-					<Link href={`/dashboard/chats/${chat.id}/preview`} className={buttonClass("secondary", "sm")}>
-						Preview
-					</Link>
 				)}
 				<DeleteChatButton chatId={chat.id} />
 			</header>
@@ -242,9 +236,10 @@ export default async function ChatPage({
 						<MessageForm
 							key={chat.id}
 							chatId={chat.id}
+							projectId={chat.projectId}
+							branch={chat.workingBranch ?? chat.baseBranch}
 							defaultModel={defaultModel}
 							defaultReasoning={defaultReasoning}
-							canRecord={chat.canRecord}
 							ownModels={ownModels.map(({ id, label }) => ({ id, label }))}
 							running={
 								running && { id: running.id, stopping: running.stopRequestedAt !== null }

@@ -11,6 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@nullfuse/agent": "workspace:*",
     "@nullfuse/db": "workspace:*",
     "@nullfuse/models": "workspace:*",
     "@nullfuse/secrets": "workspace:*",

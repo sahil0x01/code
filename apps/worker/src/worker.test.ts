@@ -127,7 +127,7 @@ describe("recording link", () => {
 		expect(second).toContain("https://app.test/b");
 		expect(second).toContain("checks failed");
 		expect(second).not.toContain("https://app.test/a");
-		expect(second.match(/### Recording/g)).toHaveLength(1);
+		expect(second.match(/### Proof/g)).toHaveLength(1);
 	});
 
 	it("updates only the PR description", async () => {

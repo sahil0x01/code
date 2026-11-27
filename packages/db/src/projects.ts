@@ -11,7 +11,6 @@ export function listProjects(db: Db, userId: string) {
 			fullName: project.fullName,
 			defaultBranch: project.defaultBranch,
 			isPrivate: project.isPrivate,
-			canRecord: sql<boolean>`${project.startCommand} is not null and ${project.appPort} is not null`,
 		})
 		.from(project)
 		.where(eq(project.userId, userId))

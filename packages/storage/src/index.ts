@@ -28,6 +28,9 @@ export function recordingKey(input: { userId: string; chatId: string; runId: str
 	return `recordings/${user}/${input.chatId}/${input.runId}-${input.attempt}.webm`;
 }
 
+/** A screenshot sits beside its run's video, so both are found and removed alike. */
+export const screenshotKey = (video: string, number: number) => video.replace(/\.webm$/, `-${number}.png`);
+
 export function createR2Store(config: R2Config) {
 	const client = new AwsClient({
 		accessKeyId: config.accessKeyId,

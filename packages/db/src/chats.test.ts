@@ -15,6 +15,7 @@ import {
 	exportAccountData,
 	getChatForUser,
 	listChats,
+	renameChat,
 	listMessages,
 	listProjectSummaries,
 	listRuns,
@@ -482,5 +483,26 @@ describe("listOverlaps", () => {
 
 		expect(await listOverlaps(db, userId, mine)).toEqual([{ chatId: same, title: "Same", files: ["b.ts"] }]);
 		expect(await listOverlaps(db, await fixtures.user(), mine)).toEqual([]);
+	});
+});
+
+describe("renameChat", () => {
+	it("renames only the owner's chat, tidies the name and does not count as activity", async () => {
+		const userId = await fixtures.user();
+		const projectId = await fixtures.project(userId);
+		const created = await createChat(db, { userId, projectId, baseBranch: "main", model: "m", content: "Old name" });
+		if (!created.ok) throw new Error(created.reason);
+		const before = await getChatForUser(db, userId, created.chatId);
+		const [listed] = await listChats(db, userId);
+
+		expect(await renameChat(db, await fixtures.user(), created.chatId, "Theirs")).toBe(false);
+		expect(await renameChat(db, userId, created.chatId, "   ")).toBe(false);
+		expect(await renameChat(db, userId, created.chatId, "  New \n  name  ")).toBe(true);
+
+		expect(before?.title).toBe("Old name");
+		expect((await getChatForUser(db, userId, created.chatId))?.title).toBe("New name");
+		expect((await listChats(db, userId))[0]?.updatedAt).toEqual(listed?.updatedAt);
+		await renameChat(db, userId, created.chatId, "x".repeat(200));
+		expect((await getChatForUser(db, userId, created.chatId))?.title).toHaveLength(80);
 	});
 });

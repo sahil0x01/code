@@ -181,6 +181,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@nullfuse/agent':
+        specifier: workspace:*
+        version: link:../../packages/agent
       '@nullfuse/db':
         specifier: workspace:*
         version: link:../../packages/db

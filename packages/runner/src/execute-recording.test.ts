@@ -14,6 +14,7 @@ import { MockLanguageModelV4 } from "ai/test";
 import { eq, like } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { executeRun, type Recorder, type RunnerDeps } from "./execute";
+import { COMMANDS_PATH, proofPage } from "./proof";
 import { SCRIPT_PATH } from "./recording";
 
 const hasDocker = await dockerAvailable();
@@ -78,7 +79,7 @@ describe.skipIf(!hasDocker)("executeRun with a recording", () => {
 		await db.$client.end();
 	});
 
-	async function setup({ record = true, startCommand = "node server.js" as string | null } = {}) {
+	async function setup({ startCommand = "node server.js" as string | null, message = "Add a notes page" } = {}) {
 		const userId = await fixtures.user();
 		const projectId = await fixtures.project(userId);
 		await db
@@ -90,8 +91,7 @@ describe.skipIf(!hasDocker)("executeRun with a recording", () => {
 			projectId,
 			baseBranch: "main",
 			model: "deepseek-v4-pro",
-			content: "Add a notes page",
-			record,
+			content: message,
 		});
 		if (!created.ok) throw new Error(created.reason);
 		return { userId, ...created };
@@ -149,9 +149,10 @@ describe.skipIf(!hasDocker)("executeRun with a recording", () => {
 		expect(row).toMatchObject({ status: "succeeded", recording: { status: "recorded", passed: true } });
 		if (row?.recording?.status !== "recorded") return;
 		expect(row.recording.key).toContain(`${chatId}/${runId}-1.webm`);
-		const stored = await storage.exec("cat /tmp/upload.txt; echo; wc -c < /tmp/upload.bin");
-		expect(stored.stdout).toContain(`PUT /video/${row.recording.key}`);
-		expect(Number(stored.stdout.trim().split("\n").at(-1))).toBe(row.recording.bytes);
+		expect(row.recording).toMatchObject({ kind: "web", screenshots: [{ label: "At the end" }] });
+		// The screenshot is sent after the video, so it is what the stand-in kept last.
+		const stored = await storage.exec("cat /tmp/upload.txt");
+		expect(stored.stdout).toContain(`PUT /video/${row.recording.screenshots?.[0]?.key}`);
 		expect(linked).toMatchObject([{ number: 3, runId, passed: true }]);
 
 		const first = model.doGenerateCalls[0]?.prompt[0];
@@ -184,7 +185,7 @@ describe.skipIf(!hasDocker)("executeRun with a recording", () => {
 	});
 
 	it("lets the agent check the app in a browser, with the repository's rules in its prompt", async () => {
-		const { userId, chatId, runId } = await setup({ record: false });
+		const { userId, chatId, runId } = await setup();
 		const broken = app.replace("<h1>Notes</h1>", "<h1>Notes</h1><script>console.error('boom-in-page')</script><img src=/missing.png>");
 		const model = new MockLanguageModelV4({
 			doGenerate: [
@@ -215,7 +216,7 @@ describe.skipIf(!hasDocker)("executeRun with a recording", () => {
 	});
 
 	it("tells the agent why the app could not be checked", async () => {
-		const { userId, runId } = await setup({ record: false, startCommand: "echo no-database >&2; exit 1" });
+		const { userId, runId } = await setup({ startCommand: "echo no-database >&2; exit 1" });
 		const model = new MockLanguageModelV4({
 			doGenerate: [toolCalls({ name: "check_app", input: {} }), answer("It does not start.")],
 		});
@@ -226,13 +227,86 @@ describe.skipIf(!hasDocker)("executeRun with a recording", () => {
 		expect(step?.toolResults[0]).toMatchObject({ isError: true, output: expect.stringContaining("no-database") });
 	});
 
-	it("says why when the agent writes no script, and keeps the run succeeded", async () => {
-		const { userId, chatId, runId } = await setup();
-		await executeRun(deps(writesApp(false), recorder()), runId);
-		expect(await result(userId, chatId)).toMatchObject({
-			status: "succeeded",
-			recording: { status: "skipped", message: expect.stringContaining("nothing to show") },
+	it("records a page of the work when there is no script, with commands run again", async () => {
+		const { userId, chatId, runId } = await setup({ startCommand: null });
+		const model = new MockLanguageModelV4({
+			doGenerate: [
+				toolCalls(
+					{ name: "write", input: { path: "sum.js", content: "console.log('total', 2 + 3)\n" } },
+					{ name: "write", input: { path: COMMANDS_PATH, content: '["node sum.js"]' } },
+				),
+				answer("Added sum.js."),
+			],
 		});
+
+		await executeRun(deps(model, recorder()), runId);
+
+		const row = await result(userId, chatId);
+		expect(row).toMatchObject({ status: "succeeded", recording: { status: "recorded", kind: "page", passed: true } });
+		if (row?.recording?.status !== "recorded") return;
+		expect(row.recording.screenshots).toEqual([
+			{ key: row.recording.key.replace(".webm", "-1.png"), label: "The whole record" },
+		]);
+		const first = model.doGenerateCalls[0]?.prompt[0];
+		expect(first?.role === "system" && first.content).toContain(COMMANDS_PATH);
+		const files = (await remote.git(`ls-tree -r --name-only nullfuse/chat-${chatId.slice(0, 8)}`)).stdout;
+		expect(files).not.toContain("commands.json");
+	});
+
+	it("shows a command that fails when run again", async () => {
+		const { userId, chatId, runId } = await setup({ startCommand: null });
+		const model = new MockLanguageModelV4({
+			doGenerate: [
+				toolCalls({ name: "write", input: { path: COMMANDS_PATH, content: '["exit 3"]' } }),
+				answer("It works."),
+			],
+		});
+
+		await executeRun(deps(model, recorder()), runId);
+
+		expect((await result(userId, chatId))?.recording).toMatchObject({ status: "recorded", passed: false });
+	});
+
+	it("records nothing for an answer, documentation or a read-only turn", async () => {
+		const answering = await setup({ startCommand: null });
+		await executeRun(deps(new MockLanguageModelV4({ doGenerate: async () => answer("It adds notes.") }), recorder()), answering.runId);
+		expect((await result(answering.userId, answering.chatId))?.recording).toBeNull();
+
+		const documenting = await setup({ startCommand: null });
+		const docs = new MockLanguageModelV4({
+			doGenerate: [toolCalls({ name: "write", input: { path: "NOTES.md", content: "# Notes\n" } }), answer("Documented.")],
+		});
+		await executeRun(deps(docs, recorder()), documenting.runId);
+		expect((await result(documenting.userId, documenting.chatId))?.recording).toBeNull();
+
+		const asking = await setup({ message: "/ask what is here?" });
+		const model = new MockLanguageModelV4({ doGenerate: async () => answer("A page.") });
+		await executeRun(deps(model, recorder()), asking.runId);
+		expect((await result(asking.userId, asking.chatId))?.recording).toBeNull();
+		const prompt = model.doGenerateCalls[0]?.prompt[0];
+		expect(prompt?.role === "system" && prompt.content).not.toContain(COMMANDS_PATH);
+	});
+
+	it("records logs the agent asks to show, even when no file changed", async () => {
+		const { userId, chatId, runId } = await setup({ startCommand: null });
+		const model = new MockLanguageModelV4({
+			doGenerate: [
+				toolCalls({ name: "write", input: { path: COMMANDS_PATH, content: '["echo the-log-line"]' } }),
+				answer("This is the log."),
+			],
+		});
+		await executeRun(deps(model, recorder()), runId);
+		expect((await result(userId, chatId))?.recording).toMatchObject({ status: "recorded", kind: "page" });
+	});
+
+	it("records changed code even when the agent asks for nothing, and when the app cannot start", async () => {
+		const silent = await setup({ startCommand: null });
+		await executeRun(deps(writesApp(false), recorder()), silent.runId);
+		expect((await result(silent.userId, silent.chatId))?.recording).toMatchObject({ status: "recorded", kind: "page" });
+
+		const broken = await setup({ startCommand: "exit 1" });
+		await executeRun(deps(writesApp(), recorder()), broken.runId);
+		expect((await result(broken.userId, broken.chatId))?.recording).toMatchObject({ status: "recorded", kind: "page" });
 	});
 
 	it("reports a refused upload without storing the upload link", async () => {
@@ -243,22 +317,24 @@ describe.skipIf(!hasDocker)("executeRun with a recording", () => {
 		expect(JSON.stringify(row?.recording)).not.toContain("do-not-log");
 	});
 
-	it("explains missing settings and storage, and records nothing unless asked", async () => {
-		const answering = () => new MockLanguageModelV4({ doGenerate: async () => answer("Done.") });
-		const noCommand = await setup({ startCommand: null });
+	it("says when proof of changed code cannot be kept", async () => {
 		const noStorage = await setup();
-		const notAsked = await setup({ record: false });
-
-		await executeRun(deps(answering(), recorder()), noCommand.runId);
-		await executeRun(deps(answering()), noStorage.runId);
-		await executeRun(deps(answering(), recorder()), notAsked.runId);
-
-		expect((await result(noCommand.userId, noCommand.chatId))?.recording).toMatchObject({
-			message: expect.stringContaining("start command"),
-		});
+		await executeRun(deps(writesApp()), noStorage.runId);
 		expect((await result(noStorage.userId, noStorage.chatId))?.recording).toMatchObject({
 			message: expect.stringContaining("isn't set up"),
 		});
-		expect((await result(notAsked.userId, notAsked.chatId))?.recording).toBeNull();
+	});
+});
+
+describe("proofPage", () => {
+	it("escapes everything, and hides secrets before escaping changes them", () => {
+		const html = proofPage(
+			[{ heading: "Out", blocks: [{ title: "<img src=x>", text: "<script>alert(1)</script> pa<ss&word" }] }],
+			(text) => text.replaceAll("pa<ss&word", "[hidden]"),
+		);
+		expect(html).not.toContain("<script>");
+		expect(html).not.toContain("<img");
+		expect(html).toContain("[hidden]");
+		expect(html).not.toContain("ss&amp;word");
 	});
 });

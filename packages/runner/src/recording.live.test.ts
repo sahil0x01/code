@@ -1,7 +1,7 @@
 import { DaytonaDriver, ensureDaytonaRecordingSnapshot, type Sandbox } from "@nullfuse/sandbox";
 import { createR2Store, r2ConfigFrom } from "@nullfuse/storage";
 import { afterAll, describe, expect, it } from "vitest";
-import { recordChange, uploadRecording } from "./recording";
+import { recordChange, uploadFile } from "./recording";
 
 // Opt in with RUN_RECORDING_LIVE=1, DAYTONA_API_KEY and the R2 values. It uses real,
 // billed services: it builds the snapshot if missing and runs one short sandbox.
@@ -35,7 +35,7 @@ describe.skipIf(!apiKey || !r2)("recording on Daytona", () => {
 
 		const store = createR2Store(r2);
 		const key = `recordings/live-test/${Date.now()}.webm`;
-		expect(await uploadRecording(sandbox, recording.path, await store.uploadUrl(key))).toBeNull();
+		expect(await uploadFile(sandbox, recording.path, await store.uploadUrl(key), "video/webm")).toBeNull();
 		try {
 			const video = await (await fetch(await store.downloadUrl(key))).arrayBuffer();
 			expect(video.byteLength).toBe(recording.bytes);

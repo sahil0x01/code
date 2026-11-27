@@ -48,6 +48,15 @@ describe("handleVideo", () => {
 		}
 	});
 
+	it("serves a screenshot by its number, and nothing past the last", async () => {
+		const found = { ...recorded, screenshots: [{ key: "recordings/a-1.png", label: "" }] };
+		const response = await handleVideo(deps(found), { ...input, screenshot: "0" });
+		expect(response.headers.get("Location")).toBe("https://store.test/recordings/a-1.png?sig=1");
+		for (const screenshot of ["1", "-1", "key", "00"]) {
+			expect((await handleVideo(deps(found), { ...input, screenshot })).status).toBe(404);
+		}
+	});
+
 	it("says when storage is not set up", async () => {
 		expect((await handleVideo({ ...deps(recorded), downloadUrl: null }, input)).status).toBe(503);
 	});
