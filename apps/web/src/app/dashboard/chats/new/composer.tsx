@@ -10,6 +10,7 @@ import {
 	DEFAULT_REASONING,
 	REASONING_OPTIONS,
 } from "@/lib/chat";
+import { IssuePicker } from "./issue-picker";
 
 type ProjectOption = {
 	id: string;
@@ -36,9 +37,30 @@ export function Composer({ projects, initialProjectId }: Props) {
 	);
 	const [model, setModel] = useState<string>(DEFAULT_MODEL_ID);
 	const [content, setContent] = useState("");
+	// The issue the message was filled from; the pull request will close it.
+	const [issue, setIssue] = useState<{ number: number; message: string } | null>(null);
 
 	return (
 		<form action={formAction} className="flex flex-col gap-3">
+			<IssuePicker
+				key={projectId}
+				projectId={projectId}
+				onPick={(picked) => {
+					// Keeps what the user typed, and replaces an issue picked before.
+					const typed = issue ? content.replace(issue.message, "").trim() : content.trim();
+					setContent([picked.message, typed].filter(Boolean).join("\n\n").slice(0, MAX_MESSAGE_LENGTH));
+					setIssue(picked);
+				}}
+			/>
+			{issue && (
+				<p className="flex flex-wrap items-center gap-3 text-sm text-muted">
+					<input type="hidden" name="issueNumber" value={issue.number} />
+					Linked to issue #{issue.number}. The pull request will close it. Check the text before you start.
+					<button type="button" onClick={() => setIssue(null)} className="underline hover:text-foreground">
+						Unlink
+					</button>
+				</p>
+			)}
 			<div className="pixel-inset flex flex-col bg-surface focus-within:bg-background focus-within:outline-2 focus-within:outline-offset-3 focus-within:outline-ink focus-within:outline-dashed">
 				<textarea
 					name="content"
@@ -67,6 +89,10 @@ export function Composer({ projects, initialProjectId }: Props) {
 								(project) => project.id === event.target.value,
 							);
 							setProjectId(event.target.value);
+							if (issue) {
+								setContent(content.replace(issue.message, "").trim());
+								setIssue(null);
+							}
 							if (next) setBranch(next.defaultBranch);
 						}}
 						aria-label="Project"

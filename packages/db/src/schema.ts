@@ -202,6 +202,8 @@ export const chat = pgTable(
 		title: text("title").notNull(),
 		baseBranch: text("base_branch").notNull(),
 		workingBranch: text("working_branch"),
+		// The GitHub issue the chat was started from. Its pull request closes it.
+		issueNumber: integer("issue_number"),
 		pullRequestNumber: integer("pull_request_number"),
 		pullRequestUrl: text("pull_request_url"),
 		// Why the last attempt to open the PR failed, shown to the user.

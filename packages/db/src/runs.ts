@@ -326,6 +326,7 @@ export type RunContext = {
 		id: string;
 		baseBranch: string;
 		workingBranch: string | null;
+		issueNumber: number | null;
 		pullRequestNumber: number | null;
 		pullRequestUrl: string | null;
 	};
@@ -362,6 +363,7 @@ export async function loadRunContext(db: Db, runId: string): Promise<RunContext 
 				id: chat.id,
 				baseBranch: chat.baseBranch,
 				workingBranch: chat.workingBranch,
+				issueNumber: chat.issueNumber,
 				pullRequestNumber: chat.pullRequestNumber,
 				pullRequestUrl: chat.pullRequestUrl,
 			},

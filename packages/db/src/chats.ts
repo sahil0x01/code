@@ -84,6 +84,7 @@ export function createChat(
 		verify?: boolean;
 		record?: boolean;
 		reasoning?: ReasoningLevel;
+		issueNumber?: number;
 	},
 ) {
 	return db.transaction(async (tx): Promise<SendResult> => {
@@ -112,6 +113,7 @@ export function createChat(
 					projectId: input.projectId,
 					title: titleFromMessage(input.content),
 					baseBranch: input.baseBranch,
+					issueNumber: input.issueNumber,
 				})
 				.returning({ id: chat.id }),
 		);
@@ -207,6 +209,7 @@ export async function getChatForUser(db: Db, userId: string, chatId: string) {
 			title: chat.title,
 			baseBranch: chat.baseBranch,
 			workingBranch: chat.workingBranch,
+			issueNumber: chat.issueNumber,
 			pullRequestNumber: chat.pullRequestNumber,
 			pullRequestUrl: chat.pullRequestUrl,
 			pullRequestError: chat.pullRequestError,

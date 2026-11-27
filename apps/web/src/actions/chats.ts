@@ -47,6 +47,7 @@ const startSchema = z.object({
 	verify,
 	record,
 	reasoning,
+	issueNumber: z.coerce.number().int().positive().max(2_000_000_000).optional(),
 });
 
 const sendSchema = z.object({
@@ -91,6 +92,7 @@ export async function startChat(
 		verify: formData.get("verify") === "on",
 		record: formData.get("record") === "on",
 		reasoning: formData.get("reasoning"),
+		issueNumber: formData.get("issueNumber") ?? undefined,
 	});
 	if (!input.success) return inputError;
 

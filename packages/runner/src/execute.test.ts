@@ -730,6 +730,28 @@ describe.skipIf(!hasDocker)("executeRun", () => {
 		expect((await remote.git(`show ${branch}:${file}`)).stdout).toBe(onBranch);
 	});
 
+	it("closes the issue the chat was started from in its pull request", async () => {
+		const { chatId, runId } = await setup();
+		await db.update(chat).set({ issueNumber: 7 }).where(eq(chat.id, chatId));
+		const bodies: string[] = [];
+		const model = new MockLanguageModelV4({
+			doGenerate: [toolCalls({ name: "write", input: { path: "fix.txt", content: "x\n" } }), answer("Fixed.")],
+		});
+
+		await executeRun(
+			deps(model, {
+				openPullRequest: async (input) => {
+					bodies.push(input.body);
+					return { number: 3, url: "https://github.com/acme/app/pull/3" };
+				},
+			}),
+			runId,
+		);
+
+		expect(bodies[0]).toContain("Closes #7");
+		expect(bodies[0]).toContain("fix.txt");
+	});
+
 	it("puts a run back in the queue when there is no room for its sandbox", async () => {
 		const { userId, chatId, runId } = await setup();
 		const full: SandboxDriver = {

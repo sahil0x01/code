@@ -227,8 +227,15 @@ function pullRequestTitle(context: RunContext) {
 	return title || "Changes from Code by NullFuse";
 }
 
-function pullRequestBody(answer: string, files: { path: string; status: string }[], verification?: RunVerification) {
+function pullRequestBody(
+	answer: string,
+	files: { path: string; status: string }[],
+	verification: RunVerification | undefined,
+	issueNumber: number | null,
+) {
 	const parts = [answer.trim() || "Changes made by the agent."];
+	// GitHub closes the issue when this is merged into the default branch.
+	if (issueNumber !== null) parts.push(`Closes #${issueNumber}`);
 	if (files.length > 0) {
 		const shown = files.slice(0, 50).map((file) => `- \`${file.path}\` (${file.status})`);
 		if (files.length > shown.length) shown.push(`- and ${files.length - shown.length} more`);
@@ -588,7 +595,7 @@ async function perform(
 				head: branch,
 				base: chat.baseBranch,
 				title: redact.text(pullRequestTitle(context)),
-				body: redact.text(pullRequestBody(agent?.text ?? "", lastFiles, verification)),
+				body: redact.text(pullRequestBody(agent?.text ?? "", lastFiles, verification, chat.issueNumber)),
 			});
 			if (pr) {
 				await setPullRequest(deps.db, chat.id, pr);

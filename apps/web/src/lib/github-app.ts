@@ -13,6 +13,12 @@ export function installUrl() {
 	return `https://github.com/apps/${env.GITHUB_APP_SLUG}/installations/new`;
 }
 
+/** What the owner granted, which can be less than the app now asks for. */
+export async function installationPermissions(installationId: number) {
+	const { data } = await app.octokit.rest.apps.getInstallation({ installation_id: installationId });
+	return data.permissions;
+}
+
 export function getInstallationOctokit(installationId: number) {
 	return app.getInstallationOctokit(installationId);
 }

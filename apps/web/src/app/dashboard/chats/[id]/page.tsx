@@ -159,6 +159,19 @@ export default async function ChatPage({
 						{chat.baseBranch}
 						{chat.workingBranch ? ` → ${chat.workingBranch}` : ""}
 						{chat.connected ? "" : " · disconnected"}
+						{chat.issueNumber !== null && (
+							<>
+								{" · "}
+								<a
+									href={`https://github.com/${chat.projectName}/issues/${chat.issueNumber}`}
+									target="_blank"
+									rel="noreferrer"
+									className="underline hover:text-foreground"
+								>
+									issue #{chat.issueNumber}
+								</a>
+							</>
+						)}
 						{chatCost > 0 && (
 							<span title="Estimate from list prices, for runs that recorded a cost">
 								{` · about ${formatCost(chatCost)}`}

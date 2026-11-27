@@ -162,6 +162,13 @@
       "when": 1795775123369,
       "tag": "0022_lowly_queen_noir",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1795775834273,
+      "tag": "0023_tired_famine",
+      "breakpoints": true
     }
   ]
 }
