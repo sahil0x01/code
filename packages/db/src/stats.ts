@@ -236,3 +236,103 @@ export async function getDailyStats(db: Db, days = 90, now = new Date()) {
 		.where(gte(dailyStats.day, addDays(utcDay(now), -(days - 1))))
 		.orderBy(asc(dailyStats.day));
 }
+
+export type UserStats = {
+	totals: {
+		projects: number;
+		chats: number;
+		runsStarted: number;
+		runsSucceeded: number;
+		runsFailed: number;
+		runsCancelled: number;
+		agentSeconds: number;
+		steps: number;
+		toolCalls: number;
+		fileEdits: number;
+		inputTokens: number;
+		outputTokens: number;
+		cachedInputTokens: number;
+		reasoningTokens: number;
+		modelCost: number;
+		sandboxCost: number;
+		runsVerified: number;
+		runsVerifiedPassed: number;
+		pullRequestsOpened: number;
+		pullRequestsMerged: number;
+		linesAdded: number;
+		linesRemoved: number;
+	};
+	byModel: { model: string; runs: number; tokens: number; modelCost: number }[];
+	daily: { day: string; runs: number; tokens: number }[];
+};
+
+/**
+ * One person's numbers, read live from their own rows. Unlike the public totals these
+ * include cost, and they go away with the account.
+ */
+export async function getUserStats(db: Db, userId: string, days = 30, now = new Date()): Promise<UserStats> {
+	const from = addDays(utcDay(now), -(days - 1));
+	const to = utcDay(now);
+
+	const [runs, steps, chats, models, daily] = await Promise.all([
+		db.execute<Record<string, number>>(sql`
+			select
+				count(*)::int as "runsStarted",
+				count(*) filter (where status = 'succeeded')::int as "runsSucceeded",
+				count(*) filter (where status = 'failed')::int as "runsFailed",
+				count(*) filter (where status = 'cancelled')::int as "runsCancelled",
+				coalesce(sum(extract(epoch from finished_at - started_at))
+					filter (where started_at is not null and finished_at is not null), 0)::float8 as "agentSeconds",
+				coalesce(sum(jsonb_array_length(changed_files)) filter (where status = 'succeeded'), 0)::int as "fileEdits",
+				coalesce(sum(input_tokens), 0)::float8 as "inputTokens",
+				coalesce(sum(output_tokens), 0)::float8 as "outputTokens",
+				coalesce(sum(cached_input_tokens), 0)::float8 as "cachedInputTokens",
+				coalesce(sum(reasoning_tokens), 0)::float8 as "reasoningTokens",
+				coalesce(sum(model_cost), 0)::float8 as "modelCost",
+				coalesce(sum(sandbox_cost), 0)::float8 as "sandboxCost",
+				count(*) filter (where verification is not null)::int as "runsVerified",
+				count(*) filter (
+					where (verification->>'exitCode')::int = 0
+						and not coalesce((verification->>'timedOut')::boolean, false)
+				)::int as "runsVerifiedPassed"
+			from run where user_id = ${userId}
+		`),
+		db.execute<Record<string, number>>(sql`
+			select count(*)::int as "steps", coalesce(sum(jsonb_array_length(s.tool_calls)), 0)::int as "toolCalls"
+			from run_step s join run r on r.id = s.run_id
+			where r.user_id = ${userId}
+		`),
+		db.execute<Record<string, number>>(sql`
+			select
+				count(*)::int as "chats",
+				(select count(*)::int from project where user_id = ${userId}) as "projects",
+				count(pull_request_opened_at)::int as "pullRequestsOpened",
+				count(pull_request_merged_at)::int as "pullRequestsMerged",
+				coalesce(sum(pull_request_additions), 0)::float8 as "linesAdded",
+				coalesce(sum(pull_request_deletions), 0)::float8 as "linesRemoved"
+			from chat where user_id = ${userId}
+		`),
+		db.execute<UserStats["byModel"][number]>(sql`
+			select coalesce(model_label, model) as model, count(*)::int as runs,
+				coalesce(sum(input_tokens + output_tokens), 0)::float8 as tokens,
+				coalesce(sum(model_cost), 0)::float8 as "modelCost"
+			from run where user_id = ${userId}
+			group by 1 order by tokens desc, runs desc
+		`),
+		db.execute<UserStats["daily"][number]>(sql`
+			select to_char(d, 'YYYY-MM-DD') as day,
+				count(r.id)::int as runs,
+				coalesce(sum(r.input_tokens + r.output_tokens), 0)::float8 as tokens
+			from generate_series(${from}::date, ${to}::date, interval '1 day') as d
+			left join run r on r.user_id = ${userId}
+				and (r.created_at at time zone 'UTC')::date = d::date
+			group by d order by d
+		`),
+	]);
+
+	return {
+		totals: { ...runs.rows[0], ...steps.rows[0], ...chats.rows[0] } as UserStats["totals"],
+		byModel: models.rows,
+		daily: daily.rows,
+	};
+}

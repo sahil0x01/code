@@ -6,6 +6,7 @@ import {
 	chat,
 	createChat,
 	dailyStats,
+	getUserStats,
 	markChatMerged,
 	markPullMerged,
 	project,
@@ -122,5 +123,32 @@ describe("daily stats", () => {
 			linesAdded: 40,
 			linesRemoved: 4,
 		});
+	});
+});
+
+describe("a user's stats", () => {
+	it("add up only their own runs, chats and steps", async () => {
+		const { userId } = await seed(otherDay);
+		await seed(otherDay);
+		const stats = await getUserStats(db, userId, 7, new Date(`${otherDay}T12:00:00Z`));
+
+		expect(stats.totals).toMatchObject({
+			projects: 1,
+			chats: 1,
+			runsStarted: 1,
+			runsSucceeded: 1,
+			agentSeconds: 1800,
+			steps: 1,
+			toolCalls: 2,
+			fileEdits: 2,
+			inputTokens: 1000,
+			outputTokens: 200,
+			cachedInputTokens: 600,
+			runsVerifiedPassed: 1,
+			pullRequestsOpened: 1,
+		});
+		expect(stats.byModel).toEqual([{ model: "deepseek-v4-pro", runs: 1, tokens: 1200, modelCost: 0 }]);
+		expect(stats.daily).toHaveLength(7);
+		expect(stats.daily.at(-1)).toEqual({ day: otherDay, runs: 1, tokens: 1200 });
 	});
 });

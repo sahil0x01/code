@@ -14,6 +14,7 @@ const main: Item[] = [
 	{ href: "/dashboard/chats", label: "Chats", exact: true },
 ];
 const account: Item[] = [
+	{ href: "/dashboard/stats", label: "Stats" },
 	{ href: "/dashboard/credits", label: "Credits" },
 	{ href: "/dashboard/settings", label: "Settings" },
 ];
