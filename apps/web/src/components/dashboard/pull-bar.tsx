@@ -2,7 +2,14 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
-import { fixCheck, mergePullRequest, type PullActionResult, updateFromBase } from "@/actions/pull-request";
+import {
+	fixCheck,
+	mergePullRequest,
+	type PullActionResult,
+	sendComments,
+	updateFromBase,
+} from "@/actions/pull-request";
+import { PullComments } from "@/components/dashboard/pull-comments";
 import { buttonClass } from "@/components/ui/styles";
 import { type CheckState, type PullResponse, type PullStatus, summarizeChecks } from "@/lib/pr";
 
@@ -206,6 +213,14 @@ export function PullBar({ chatId, number, url, model, busy, refreshKey }: Props)
 						})}
 					</ul>
 				</details>
+			)}
+
+			{open && (
+				<PullComments
+					chatId={chatId}
+					disabled={pending || busy}
+					onSend={(picked) => act(() => sendComments({ chatId, model, picked }))}
+				/>
 			)}
 
 			{open && pull?.checksUnavailable && (

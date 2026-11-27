@@ -4,6 +4,8 @@ import { addMessage, getChatForUser, listRuns, setChatDone } from "@nullfuse/db"
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { isModelId } from "@/lib/chat";
+import { listPullComments } from "@/lib/comment-source";
+import { commentsMessage } from "@/lib/comments";
 import { getInstallationOctokit } from "@/lib/github-app";
 import { failureReport, mergePull } from "@/lib/pr-source";
 import { db } from "@/server/db";
@@ -117,6 +119,52 @@ export async function updateFromBase(input: z.input<typeof updateInput>): Promis
 		await enqueueRun({ runId: sent.runId, chatId: sent.chatId });
 	} catch (error) {
 		console.error("update from base failed", error);
+		return failed(retry);
+	}
+
+	revalidatePath("/dashboard", "layout");
+	return { ok: true };
+}
+
+const commentsInput = z.object({
+	chatId: z.uuid(),
+	model: z.string().refine(isModelId),
+	picked: z.array(z.object({ key: z.string().max(40), updatedAt: z.string().max(40) })).min(1).max(30),
+});
+
+/** Sends comments the user chose to the agent, as one follow-up. */
+export async function sendComments(input: z.input<typeof commentsInput>): Promise<PullActionResult> {
+	const { user } = await requireSession();
+	const parsed = commentsInput.safeParse(input);
+	if (!parsed.success) return failed(retry);
+	const { chatId, model, picked } = parsed.data;
+
+	try {
+		const pull = await ownedPull(user.id, chatId);
+		if (!pull) return failed("That pull request was not found.");
+		const all = await listPullComments(pull.client, pull.chat.projectName, pull.number);
+		// Only the text the user saw is sent: an edit since then has to be read first.
+		const chosen = all.filter((comment) =>
+			picked.some((p) => p.key === comment.key && p.updatedAt === comment.updatedAt),
+		);
+		if (chosen.length !== picked.length) {
+			return failed("A comment changed since you looked. Read the comments again, then send.");
+		}
+		const sent = await addMessage(db, {
+			userId: user.id,
+			chatId,
+			model,
+			content: commentsMessage(chosen),
+			verify: false,
+		});
+		if (!sent.ok) {
+			return failed(
+				sent.reason === "queue_full" ? "You have too many unfinished runs." : "The message could not be sent.",
+			);
+		}
+		await enqueueRun({ runId: sent.runId, chatId: sent.chatId });
+	} catch (error) {
+		console.error("send comments failed", error);
 		return failed(retry);
 	}
 
