@@ -1,20 +1,24 @@
 import {
 	type AgentLimits,
 	type AgentRun,
+	type AgentStep,
 	changedFiles,
 	DEFAULT_LIMITS,
+	modelCost,
 	prepareWorkspace,
+	priceModel,
 	readProjectRules,
 	reasoningOptions,
 	runAgent,
-	SYSTEM_PROMPT,
 	saveProgress,
+	SYSTEM_PROMPT,
 	toStepRecord,
-	type WorkspaceSpec,
 	workingBranchFor,
+	type WorkspaceSpec,
 } from "@nullfuse/agent";
 import {
 	type ClaimResult,
+	addSandboxCost,
 	claimRun,
 	clearRunWaiting,
 	type Db,
@@ -69,6 +73,8 @@ export type RunnerDeps = {
 	/** The run fails when the workspace is bigger than this. */
 	maxDiskMb?: number;
 	maxRunningPerUser?: number;
+	/** What an hour of sandbox costs, in millionths of a dollar. Left out when it is free. */
+	sandboxHourlyCost?: { plain: number; browser: number };
 	/** Opens the chat's PR. Returns null when the branch has nothing to propose yet. */
 	openPullRequest?(input: PullRequestInput): Promise<{ number: number; url: string } | null>;
 	/**
@@ -211,7 +217,13 @@ function pullRequestBody(answer: string, files: { path: string; status: string }
 	return parts.join("\n\n");
 }
 
-function outcomeFor(agent: AgentRun): RunOutcome {
+const overBudget = (maxCost: number): RunOutcome => ({
+	status: "failed",
+	stopReason: "cost-limit",
+	error: `Stopped: reached the spending cap of $${(maxCost / 1_000_000).toFixed(2)} for one run.`,
+});
+
+function outcomeFor(agent: AgentRun, maxCost: number): RunOutcome {
 	const base = { stopReason: agent.stoppedBy, text: agent.text };
 	switch (agent.stoppedBy) {
 		case "completed":
@@ -222,6 +234,8 @@ function outcomeFor(agent: AgentRun): RunOutcome {
 			return { ...base, status: "failed", error: "Stopped: reached the step limit." };
 		case "token-budget":
 			return { ...base, status: "failed", error: "Stopped: reached the token budget." };
+		case "cost-limit":
+			return { ...base, ...overBudget(maxCost) };
 		case "timeout":
 			return { ...base, status: "failed", error: "Stopped: ran out of time." };
 	}
@@ -232,7 +246,7 @@ async function perform(
 	runId: string,
 	attempt: number,
 	signal: AbortSignal | undefined,
-	track: (sandbox: Sandbox) => void,
+	track: (sandbox: Sandbox, hourlyCost: number) => void,
 	fence: { superseded: boolean },
 ): Promise<RunOutcome> {
 	const context = await loadRunContext(deps.db, runId);
@@ -276,6 +290,8 @@ async function perform(
 		return { status: "failed", stopReason: "token-budget", error: "Stopped: reached the token budget." };
 	}
 
+	if (before.cost >= limits.maxCost) return clean(overBudget(limits.maxCost));
+
 	// The browser image is used when the project says how to start its app.
 	let image = deps.image;
 	let app: { startCommand: string; port: number } | undefined;
@@ -305,7 +321,7 @@ async function perform(
 	}
 
 	const sandbox = await deps.driver.create({ image });
-	track(sandbox);
+	track(sandbox, deps.sandboxHourlyCost?.[app ? "browser" : "plain"] ?? 0);
 	await clearRunWaiting(deps.db, runId, attempt);
 	await prepareWorkspace(sandbox, spec);
 	// Read before the agent runs, so a run cannot rewrite the rules it was given.
@@ -417,6 +433,22 @@ async function perform(
 	// What earlier runs read, changed and ran, so a follow-up does not start from nothing.
 	const memory = workSummary(await loadEarlierWork(deps.db, runId), redact.text);
 
+	// Priced once per step, so the cap and the saved cost always agree.
+	const costs = new WeakMap<AgentStep, number>();
+	const stepCost = (step: AgentStep) => {
+		let cost = costs.get(step);
+		if (cost === undefined) {
+			const { inputTokens = 0, outputTokens = 0, inputTokenDetails } = step.usage;
+			cost = modelCost(
+				priceModel(step.response?.modelId, context.run.model),
+				{ inputTokens, outputTokens, cachedInputTokens: inputTokenDetails?.cacheReadTokens ?? 0 },
+				new Date(),
+			);
+			costs.set(step, cost);
+		}
+		return cost;
+	};
+
 	let agent: AgentRun | undefined;
 	let agentError: unknown;
 	try {
@@ -446,12 +478,14 @@ async function perform(
 					...deps.limits,
 					maxSteps: limits.maxSteps - before.steps,
 					maxTokens: limits.maxTokens - before.tokens,
+					maxCost: limits.maxCost - before.cost,
 				},
+				stepCost,
 				signal: abort,
 				onDelta: live?.add,
 				onStep: async (step) => {
 					await live?.next(step.stepNumber + 1);
-					const record = redact.step(toStepRecord(step));
+					const record = redact.step(toStepRecord(step, stepCost(step)));
 					await recordStep(
 						deps.db,
 						runId,
@@ -598,7 +632,7 @@ async function perform(
 	if (agentError !== undefined || !agent) {
 		return clean(failed([describe(agentError), saveError].filter(Boolean).join(" ")));
 	}
-	const outcome = outcomeFor(agent);
+	const outcome = outcomeFor(agent, limits.maxCost);
 	if (saveError === undefined) return clean(outcome);
 	return clean({
 		...outcome,
@@ -618,6 +652,7 @@ export async function executeRun(
 	const { attempt } = claim.run;
 
 	let sandbox: Sandbox | undefined;
+	let billing: { since: number; hourly: number } | undefined;
 	let outcome: RunOutcome;
 	const fence = { superseded: false };
 	try {
@@ -626,8 +661,9 @@ export async function executeRun(
 			runId,
 			attempt,
 			options.signal,
-			(created) => {
+			(created, hourly) => {
 				sandbox = created;
+				billing = { since: Date.now(), hourly };
 			},
 			fence,
 		);
@@ -639,6 +675,12 @@ export async function executeRun(
 		outcome = failed(describe(error));
 	} finally {
 		await sandbox?.destroy();
+		if (billing && billing.hourly > 0) {
+			const cost = Math.round(((Date.now() - billing.since) / 3_600_000) * billing.hourly);
+			await addSandboxCost(deps.db, runId, cost).catch((error) =>
+				console.warn("could not save the sandbox cost", describe(error)),
+			);
+		}
 	}
 
 	await finishRun(deps.db, runId, outcome, attempt);

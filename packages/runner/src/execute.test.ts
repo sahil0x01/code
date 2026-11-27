@@ -650,6 +650,34 @@ describe.skipIf(!hasDocker)("executeRun", () => {
 		expect(model.doGenerateCalls).toHaveLength(0);
 	});
 
+	it("saves what the model and the sandbox cost", async () => {
+		const { userId, chatId, runId } = await setup();
+		const model = new MockLanguageModelV4({ doGenerate: [answer("done")] });
+
+		await executeRun(deps(model, { sandboxHourlyCost: { plain: 3_600_000_000, browser: 0 } }), runId);
+
+		const [row] = await listRuns(db, userId, chatId);
+		// 100 new input and 20 output tokens at the Pro price, doubled in peak hours.
+		expect([106, 211]).toContain(row?.modelCost);
+		expect(row?.sandboxCost).toBeGreaterThan(0);
+		const [step] = await listRunSteps(db, userId, runId);
+		expect(step?.cost).toBe(row?.modelCost);
+	});
+
+	it("stops a run that reaches its spending cap, keeping its work", async () => {
+		const { userId, chatId, runId } = await setup();
+		const model = new MockLanguageModelV4({
+			doGenerate: async () => toolCalls({ name: "write", input: { path: "notes.txt", content: "x\n" } }),
+		});
+
+		const result = await executeRun(deps(model, { limits: { maxCost: 150 } }), runId);
+
+		expect(result).toMatchObject({ status: "failed", stopReason: "cost-limit" });
+		const [row] = await listRuns(db, userId, chatId);
+		expect(row?.error).toContain("spending cap");
+		expect(row?.changedFiles).toEqual([{ path: "notes.txt", status: "added" }]);
+	});
+
 	it("puts a run back in the queue when there is no room for its sandbox", async () => {
 		const { userId, chatId, runId } = await setup();
 		const full: SandboxDriver = {

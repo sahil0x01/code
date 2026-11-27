@@ -16,6 +16,7 @@ const schema = z.object({
 	RUN_MAX_DISK_MB: z.coerce.number().int().positive().default(2048),
 	RUN_MAX_STEPS: z.coerce.number().int().positive().optional(),
 	RUN_MAX_TOKENS: z.coerce.number().int().positive().optional(),
+	RUN_MAX_COST_USD: z.coerce.number().positive().max(2000).default(1),
 	// A running run that has not reported in for this long is taken to have crashed.
 	RUN_STALE_SECONDS: z.coerce.number().int().min(30).default(90),
 	// A run is given up after its worker died this many times.

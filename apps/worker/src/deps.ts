@@ -15,6 +15,10 @@ import { loadEnv } from "./env";
 import { createPullRequestOpener, createRecordingLinker, createTokenMinter } from "./github";
 import { deepseekModelId } from "./models";
 
+// Daytona's list prices, read 2026-11-27: $0.0504 per vCPU hour and $0.0162 per GiB hour,
+// for the plain sandbox (1 vCPU, 1 GiB) and the browser one (2 vCPU, 2 GiB).
+const DAYTONA_HOURLY_COST = { plain: 66_600, browser: 133_200 };
+
 let cached: Promise<RunnerDeps> | undefined;
 
 // Built once per worker process. Sandboxes use Docker for now; the hosted
@@ -30,11 +34,13 @@ export function getDeps(): Promise<RunnerDeps> {
 		// Docker runs only where a Docker daemon is (a laptop or your own server); Trigger's cloud needs Daytona.
 		let sandbox: Pick<RunnerDeps, "driver" | "image">;
 		let recordingImage: () => Promise<string> = ensureRecordingImage;
+		let sandboxHourlyCost: RunnerDeps["sandboxHourlyCost"];
 		if (env.SANDBOX_DRIVER === "daytona" && env.DAYTONA_API_KEY) {
 			const apiKey = env.DAYTONA_API_KEY;
 			recordingImage = async () => (await ensureDaytonaRecordingSnapshot(apiKey)).snapshot;
 			const { client, snapshot } = await ensureDaytonaSnapshot(env.DAYTONA_API_KEY, env.DAYTONA_SNAPSHOT);
 			sandbox = { driver: new DaytonaDriver({ client, snapshot }) };
+			sandboxHourlyCost = DAYTONA_HOURLY_COST;
 		} else {
 			sandbox = { driver: new DockerDriver(), image: await ensureSandboxImage() };
 		}
@@ -63,7 +69,9 @@ export function getDeps(): Promise<RunnerDeps> {
 			author: { name: env.RUN_AUTHOR_NAME, email: env.RUN_AUTHOR_EMAIL },
 			maxRunningPerUser: env.MAX_RUNNING_PER_USER,
 			maxDiskMb: env.RUN_MAX_DISK_MB,
+			sandboxHourlyCost,
 			limits: {
+				maxCost: Math.round(env.RUN_MAX_COST_USD * 1_000_000),
 				...(env.RUN_MAX_STEPS && { maxSteps: env.RUN_MAX_STEPS }),
 				...(env.RUN_MAX_TOKENS && { maxTokens: env.RUN_MAX_TOKENS }),
 			},

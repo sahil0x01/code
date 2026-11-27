@@ -186,6 +186,7 @@ export type StepRecord = {
 	reasoning?: string;
 	cachedInputTokens?: number;
 	reasoningTokens?: number;
+	cost?: number;
 };
 
 // Saving the same step twice (a retried task) is a no-op, and its tokens are
@@ -214,6 +215,7 @@ export function recordStep(db: Db, runId: string, step: StepRecord, attempt?: nu
 				outputTokens: sql`${run.outputTokens} + ${step.outputTokens}`,
 				cachedInputTokens: sql`${run.cachedInputTokens} + ${step.cachedInputTokens ?? 0}`,
 				reasoningTokens: sql`${run.reasoningTokens} + ${step.reasoningTokens ?? 0}`,
+				modelCost: sql`${run.modelCost} + ${step.cost ?? 0}`,
 				live: null,
 				updatedAt: new Date(),
 			})
@@ -300,6 +302,7 @@ export function listRunSteps(db: Db, userId: string, runId: string) {
 			toolResults: runStep.toolResults,
 			inputTokens: runStep.inputTokens,
 			outputTokens: runStep.outputTokens,
+			cost: runStep.cost,
 			createdAt: runStep.createdAt,
 		})
 		.from(runStep)
@@ -435,14 +438,26 @@ export async function setChangedFiles(
 /** What an earlier attempt already did, so a restarted run continues instead of starting over. */
 export async function getRunProgress(db: Db, runId: string) {
 	const [row] = await db
-		.select({ inputTokens: run.inputTokens, outputTokens: run.outputTokens })
+		.select({ inputTokens: run.inputTokens, outputTokens: run.outputTokens, modelCost: run.modelCost })
 		.from(run)
 		.where(eq(run.id, runId));
 	const [{ steps } = { steps: 0 }] = await db
 		.select({ steps: sql<number>`count(*)::int` })
 		.from(runStep)
 		.where(eq(runStep.runId, runId));
-	return { steps, tokens: (row?.inputTokens ?? 0) + (row?.outputTokens ?? 0) };
+	return {
+		steps,
+		tokens: (row?.inputTokens ?? 0) + (row?.outputTokens ?? 0),
+		cost: row?.modelCost ?? 0,
+	};
+}
+
+/** Added by every attempt, also a replaced one: its sandbox was paid for. */
+export async function addSandboxCost(db: Db, runId: string, cost: number) {
+	await db
+		.update(run)
+		.set({ sandboxCost: sql`${run.sandboxCost} + ${cost}` })
+		.where(eq(run.id, runId));
 }
 
 export async function setVerification(

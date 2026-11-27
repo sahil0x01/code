@@ -3,6 +3,8 @@ import { afterAll, describe, expect, it } from "vitest";
 import { connect, Fixtures } from "../test/fixtures";
 import {
 	addMessage,
+	addSandboxCost,
+	getRunProgress,
 	cancelRun,
 	chat,
 	claimRun,
@@ -555,6 +557,20 @@ describe("listRunActivity", () => {
 const longAgo = () => new Date(Date.now() - 10 * 60_000);
 const age = (runId: string, column: "heartbeatAt" | "updatedAt" = "heartbeatAt") =>
 	db.update(run).set({ [column]: longAgo() }).where(eq(run.id, runId));
+
+describe("run cost", () => {
+	it("adds up step costs once each, and sandbox time across attempts", async () => {
+		const { runId } = await running();
+		await recordStep(db, runId, step(0, { cost: 300 }));
+		await recordStep(db, runId, step(0, { cost: 300 }));
+		await recordStep(db, runId, step(1, { cost: 200 }));
+		await addSandboxCost(db, runId, 40);
+		await addSandboxCost(db, runId, 2);
+
+		expect(await runRow(runId)).toMatchObject({ modelCost: 500, sandboxCost: 42 });
+		expect((await getRunProgress(db, runId)).cost).toBe(500);
+	});
+});
 
 describe("claim limits and attempts", () => {
 	it("counts attempts and starts the heartbeat on every claim", async () => {

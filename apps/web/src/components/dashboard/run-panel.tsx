@@ -1,7 +1,7 @@
 import type { ActivityStep, listRuns } from "@nullfuse/db";
 import { stopRun } from "@/actions/chats";
 import { buttonClass } from "@/components/ui/styles";
-import { formatTokens } from "@/lib/format";
+import { formatCost, formatTokens } from "@/lib/format";
 import { durationSince } from "@/lib/time";
 import { LiveOutput } from "./live-output";
 import { RunStatusBadge } from "./run-status";
@@ -144,6 +144,7 @@ export function RunPanel({
 			`${formatTokens(run.inputTokens)} in${detail(run.cachedInputTokens, "cached")}`,
 		run.outputTokens > 0 &&
 			`${formatTokens(run.outputTokens)} out${detail(run.reasoningTokens, "thinking")}`,
+		run.modelCost + run.sandboxCost > 0 && `about ${formatCost(run.modelCost + run.sandboxCost)}`,
 		`${run.model} · thinking ${run.reasoning}`,
 	].filter(Boolean);
 

@@ -15,6 +15,8 @@ export type StepRecord = {
 	cachedInputTokens: number;
 	/** Part of the output spent thinking. */
 	reasoningTokens: number;
+	/** Estimated, in millionths of a dollar. */
+	cost: number;
 };
 
 // The model sees full output; the database keeps enough to show what happened.
@@ -39,7 +41,7 @@ function asText(output: unknown) {
 	return typeof output === "string" ? output : (JSON.stringify(output) ?? "");
 }
 
-export function toStepRecord(step: AgentStep): StepRecord {
+export function toStepRecord(step: AgentStep, cost = 0): StepRecord {
 	const results = new Map(step.toolResults.map((result) => [result.toolCallId, asText(result.output)]));
 	const errors = new Map(
 		step.content.flatMap((part) =>
@@ -72,5 +74,6 @@ export function toStepRecord(step: AgentStep): StepRecord {
 		outputTokens: step.usage.outputTokens ?? 0,
 		cachedInputTokens: step.usage.inputTokenDetails?.cacheReadTokens ?? 0,
 		reasoningTokens: step.usage.outputTokenDetails?.reasoningTokens ?? 0,
+		cost,
 	};
 }

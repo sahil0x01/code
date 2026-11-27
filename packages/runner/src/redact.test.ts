@@ -25,6 +25,7 @@ describe("redactor", () => {
 			text: "using hunter2!!",
 			reasoning: "the key is hunter2!!",
 			cachedInputTokens: 0,
+			cost: 0,
 			reasoningTokens: 0,
 			toolCalls: [{ id: "1", name: "bash", input: { command: "echo hunter2!!", list: ["hunter2!!", 3] } }],
 			toolResults: [{ id: "1", name: "bash", output: "hunter2!!\n", isError: false }],

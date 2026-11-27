@@ -189,6 +189,22 @@ describe.skipIf(!hasDocker)("runAgent", () => {
 			expect(result.usage.totalTokens).toBe(3000);
 		});
 
+		it("stops once the spending cap is reached and says so", async () => {
+			const model = new MockLanguageModelV4({
+				doGenerate: async () => toolCalls({ name: "list", input: {} }),
+			});
+			const result = await runAgent({
+				model,
+				sandbox,
+				messages: asks("spend money"),
+				limits: { maxCost: 250 },
+				stepCost: () => 100,
+			});
+
+			expect(result.stoppedBy).toBe("cost-limit");
+			expect(result.steps).toHaveLength(3);
+		});
+
 		it("returns the steps so far when time runs out", async () => {
 			const model = new MockLanguageModelV4({
 				doGenerate: async (options) => {

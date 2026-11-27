@@ -247,6 +247,7 @@ export const runStopReasons = [
 	"completed",
 	"step-limit",
 	"token-budget",
+	"cost-limit",
 	"timeout",
 	"aborted",
 	"error",
@@ -333,6 +334,9 @@ export const run = pgTable(
 		attempts: integer("attempts").notNull().default(0),
 		inputTokens: integer("input_tokens").notNull().default(0),
 		outputTokens: integer("output_tokens").notNull().default(0),
+		// Estimates from list prices, in millionths of a dollar.
+		modelCost: integer("model_cost").notNull().default(0),
+		sandboxCost: integer("sandbox_cost").notNull().default(0),
 		createdAt: timestamp("created_at", { withTimezone: true })
 			.notNull()
 			.defaultNow(),
@@ -410,6 +414,7 @@ export const runStep = pgTable(
 		outputTokens: integer("output_tokens").notNull().default(0),
 		cachedInputTokens: integer("cached_input_tokens").notNull().default(0),
 		reasoningTokens: integer("reasoning_tokens").notNull().default(0),
+		cost: integer("cost").notNull().default(0),
 		createdAt: timestamp("created_at", { withTimezone: true })
 			.notNull()
 			.defaultNow(),

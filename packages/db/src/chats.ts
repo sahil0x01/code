@@ -256,6 +256,8 @@ export function listRuns(db: Db, userId: string, chatId: string) {
 			stopRequestedAt: run.stopRequestedAt,
 			inputTokens: run.inputTokens,
 			outputTokens: run.outputTokens,
+			modelCost: run.modelCost,
+			sandboxCost: run.sandboxCost,
 			startedAt: run.startedAt,
 			finishedAt: run.finishedAt,
 			createdAt: run.createdAt,

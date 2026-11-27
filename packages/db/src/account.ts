@@ -151,6 +151,8 @@ export async function exportAccountData(db: Db, userId: string) {
 			reasoningTokens: run.reasoningTokens,
 			inputTokens: run.inputTokens,
 			outputTokens: run.outputTokens,
+			modelCost: run.modelCost,
+			sandboxCost: run.sandboxCost,
 			startedAt: run.startedAt,
 			finishedAt: run.finishedAt,
 			createdAt: run.createdAt,
@@ -172,6 +174,7 @@ export async function exportAccountData(db: Db, userId: string) {
 			toolResults: runStep.toolResults,
 			inputTokens: runStep.inputTokens,
 			outputTokens: runStep.outputTokens,
+			cost: runStep.cost,
 			createdAt: runStep.createdAt,
 		})
 		.from(runStep)

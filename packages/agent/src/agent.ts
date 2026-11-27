@@ -16,6 +16,8 @@ export type AgentLimits = {
 	maxSteps: number;
 	maxTokens: number;
 	timeoutMs: number;
+	/** Millionths of a dollar. Only counts when `stepCost` is given. */
+	maxCost: number;
 };
 
 // Placeholders until credits (Phase 8) set a real cap per run.
@@ -23,11 +25,18 @@ export const DEFAULT_LIMITS: AgentLimits = {
 	maxSteps: 50,
 	maxTokens: 2_000_000,
 	timeoutMs: 15 * 60_000,
+	maxCost: 1_000_000,
 };
 
 export type AgentStep = StepResult<AgentTools>;
 
-export type AgentStopReason = "completed" | "step-limit" | "token-budget" | "timeout" | "aborted";
+export type AgentStopReason = 
+	| "completed"
+	| "step-limit"
+	| "token-budget"
+	| "cost-limit"
+	| "timeout"
+	| "aborted";
 
 export type AgentRun = {
 	text: string;
@@ -58,6 +67,8 @@ export type RunAgentOptions = {
 	signal?: AbortSignal;
 	/** When given, the model's output is streamed and passed here as it arrives. */
 	onDelta?: (delta: AgentDelta) => void;
+	/** What a step cost, in millionths of a dollar, for the spending cap. */
+	stepCost?: (step: AgentStep) => number;
 	/** Called after every step, in order. */
 	onStep?: (step: AgentStep) => void | Promise<void>;
 };
@@ -99,6 +110,9 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRun> {
 	const steps: AgentStep[] = [];
 	let fatal: { error: unknown } | undefined;
 
+	const costOf = (taken: AgentStep[]) =>
+		taken.reduce((sum, step) => sum + (options.stepCost?.(step) ?? 0), 0);
+
 	const agent = new ToolLoopAgent({
 		model: options.model,
 		providerOptions: options.providerOptions,
@@ -110,6 +124,7 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRun> {
 		stopWhen: [
 			isStepCount(limits.maxSteps),
 			({ steps }) => tokensUsed(steps as AgentStep[]) >= limits.maxTokens,
+			({ steps }) => costOf(steps as AgentStep[]) >= limits.maxCost,
 			() => fatal !== undefined,
 		],
 		// The SDK shows every error a tool throws to the model. Only ToolError is
@@ -160,6 +175,7 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRun> {
 	const unfinished = last?.finishReason === "tool-calls";
 	let stoppedBy: AgentStopReason = "completed";
 	if (aborted) stoppedBy = options.signal?.aborted ? "aborted" : "timeout";
+	else if (unfinished && costOf(steps) >= limits.maxCost) stoppedBy = "cost-limit";
 	else if (unfinished && tokensUsed(steps) >= limits.maxTokens) stoppedBy = "token-budget";
 	else if (unfinished && steps.length >= limits.maxSteps) stoppedBy = "step-limit";
 

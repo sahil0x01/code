@@ -18,6 +18,7 @@ import { PullBar } from "@/components/dashboard/pull-bar";
 import { RunPanel } from "@/components/dashboard/run-panel";
 import { buttonClass } from "@/components/ui/styles";
 import { DEFAULT_MODEL_ID, DEFAULT_REASONING, isModelId } from "@/lib/chat";
+import { formatCost } from "@/lib/format";
 import { db } from "@/server/db";
 import { recordingStore } from "@/server/recordings";
 import { requireSession } from "@/server/session";
@@ -107,6 +108,7 @@ export default async function ChatPage({
 
 	const running = runs.find((run) => run.status === "running");
 	const canPlay = recordingStore() !== null;
+	const chatCost = runs.reduce((sum, run) => sum + run.modelCost + run.sandboxCost, 0);
 	const hasPull = chat.pullRequestNumber !== null && chat.pullRequestUrl?.startsWith("https://");
 
 	return (
@@ -133,6 +135,11 @@ export default async function ChatPage({
 						{chat.baseBranch}
 						{chat.workingBranch ? ` → ${chat.workingBranch}` : ""}
 						{chat.connected ? "" : " · disconnected"}
+						{chatCost > 0 && (
+							<span title="Estimate from list prices, for runs that recorded a cost">
+								{` · about ${formatCost(chatCost)}`}
+							</span>
+						)}
 					</p>
 				</div>
 				{tests && (
