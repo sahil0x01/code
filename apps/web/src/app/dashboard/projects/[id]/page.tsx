@@ -6,6 +6,7 @@ import { removeEnvVar } from "@/actions/project-setup";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { buttonClass } from "@/components/ui/styles";
 import { db } from "@/server/db";
+import { suggestSetup } from "@/server/detect-setup";
 import { requireSession } from "@/server/session";
 import { EnvVarForm } from "./env-var-form";
 import { SetupForm } from "./setup-form";
@@ -29,6 +30,14 @@ export default async function ProjectPage({
 		projectId: project.id,
 		limit: 10,
 	});
+
+	// Only for a project with nothing set up, so saved choices are never replaced.
+	const untouched =
+		!project.installCommand && !project.testCommand && !project.startCommand && project.appPort === null;
+	const suggestion =
+		untouched && project.installationId !== null
+			? await suggestSetup(project.installationId, project.fullName)
+			: null;
 
 	return (
 		<div className="flex flex-col gap-8">
@@ -70,10 +79,13 @@ export default async function ProjectPage({
 				</p>
 				<SetupForm
 					projectId={project.id}
-					installCommand={project.installCommand ?? ""}
-					testCommand={project.testCommand ?? ""}
-					startCommand={project.startCommand ?? ""}
-					appPort={project.appPort?.toString() ?? ""}
+					{...(suggestion ?? {
+						installCommand: project.installCommand ?? "",
+						testCommand: project.testCommand ?? "",
+						startCommand: project.startCommand ?? "",
+						appPort: project.appPort?.toString() ?? "",
+					})}
+					suggested={suggestion !== null}
 				/>
 			</section>
 

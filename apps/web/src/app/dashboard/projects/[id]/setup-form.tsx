@@ -10,6 +10,8 @@ type Props = {
 	testCommand: string;
 	startCommand: string;
 	appPort: string;
+	/** The fields were filled from the repository and are not saved yet. */
+	suggested?: boolean;
 };
 
 const initialState: SetupState = { status: "idle" };
@@ -20,6 +22,7 @@ export function SetupForm({
 	testCommand,
 	startCommand,
 	appPort,
+	suggested,
 }: Props) {
 	const [state, formAction, pending] = useActionState(saveSetup, initialState);
 	const installId = useId();
@@ -30,6 +33,12 @@ export function SetupForm({
 	return (
 		<form action={formAction} className="flex max-w-xl flex-col gap-3">
 			<input type="hidden" name="projectId" value={projectId} />
+
+			{suggested && state.status !== "success" && (
+				<p className="pixel-flat bg-surface-2 p-3 text-sm">
+					Suggested from the repository. Check them and save to use them.
+				</p>
+			)}
 
 			<label
 				htmlFor={installId}
