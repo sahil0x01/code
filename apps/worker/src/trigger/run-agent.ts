@@ -15,9 +15,9 @@ export const runAgentTask = task({
 
 		if (!result.claimed) {
 			logger.warn("Run was not started", { runId: payload.runId, reason: result.reason });
-			// user_busy: the user's other runs are using their share; retry, and the sweeper picks it up if this runs out.
-			if (result.reason === "busy" || result.reason === "not_next" || result.reason === "user_busy") {
-				throw new Error(`Waiting for an earlier run in the same chat (${result.reason})`);
+			// These clear up on their own: retry, and the sweeper picks the run up if the retries run out.
+			if (["busy", "not_next", "user_busy", "no_capacity"].includes(result.reason)) {
+				throw new Error(`The run has to wait (${result.reason})`);
 			}
 			return { claimed: false, reason: result.reason };
 		}

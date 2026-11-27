@@ -9,6 +9,7 @@ import {
 	MAX_OUTPUT_BYTES,
 	type Sandbox,
 	type SandboxDriver,
+	SandboxCapacityError,
 	SandboxError,
 } from "./types";
 import { recordingImage } from "./docker";
@@ -170,6 +171,10 @@ class DaytonaSandbox implements Sandbox {
 	}
 }
 
+// Daytona reports a full organisation pool only through the message.
+const isCapacityMessage = (message: string) =>
+	/\b(cpu|memory|disk|storage)\b.{0,60}\blimit exceeded/i.test(message);
+
 export class DaytonaDriver implements SandboxDriver {
 	readonly name = "daytona";
 
@@ -194,9 +199,9 @@ export class DaytonaDriver implements SandboxDriver {
 				autoDeleteInterval: 0,
 			});
 		} catch (error) {
-			throw new SandboxError(`Could not create a Daytona sandbox: ${error instanceof Error ? error.message : String(error)}`, {
-				cause: error,
-			});
+			const reason = error instanceof Error ? error.message : String(error);
+			const Failure = isCapacityMessage(reason) ? SandboxCapacityError : SandboxError;
+			throw new Failure(`Could not create a Daytona sandbox: ${reason}`, { cause: error });
 		}
 		const sandbox = new DaytonaSandbox(randomBytes(6).toString("hex"), workdir, box);
 		try {

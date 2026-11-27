@@ -118,6 +118,22 @@ export function claimRun(db: Db, runId: string, options: { maxRunningPerUser?: n
 	});
 }
 
+/** Puts a claimed run that never started back in the queue, without using up an attempt. */
+export async function releaseRun(db: Db, runId: string, attempt: number) {
+	const rows = await db
+		.update(run)
+		.set({
+			status: "queued",
+			attempts: attempt - 1,
+			startedAt: attempt === 1 ? null : sql`${run.startedAt}`,
+			heartbeatAt: null,
+			updatedAt: new Date(),
+		})
+		.where(and(eq(run.id, runId), eq(run.status, "running"), eq(run.attempts, attempt)))
+		.returning({ id: run.id });
+	return rows.length === 1;
+}
+
 export type StepRecord = {
 	stepIndex: number;
 	finishReason: string;

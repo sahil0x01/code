@@ -34,7 +34,7 @@ describe("loadEnv", () => {
 
 	it("fills in the run limits and lets them be set", () => {
 		expect(loadEnv(valid)).toMatchObject({
-			MAX_RUNNING_PER_USER: 2,
+			MAX_RUNNING_PER_USER: 5,
 			RUN_MAX_DISK_MB: 2048,
 			RUN_STALE_SECONDS: 90,
 			RUN_MAX_ATTEMPTS: 3,

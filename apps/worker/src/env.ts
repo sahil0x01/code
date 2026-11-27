@@ -12,7 +12,7 @@ const schema = z.object({
 	SANDBOX_DRIVER: z.enum(["docker", "daytona"]).default("docker"),
 	DAYTONA_API_KEY: z.string().min(1).optional(),
 	DAYTONA_SNAPSHOT: z.string().min(1).default("nullfuse-sandbox"),
-	MAX_RUNNING_PER_USER: z.coerce.number().int().positive().default(2),
+	MAX_RUNNING_PER_USER: z.coerce.number().int().positive().default(5),
 	RUN_MAX_DISK_MB: z.coerce.number().int().positive().default(2048),
 	RUN_MAX_STEPS: z.coerce.number().int().positive().optional(),
 	RUN_MAX_TOKENS: z.coerce.number().int().positive().optional(),

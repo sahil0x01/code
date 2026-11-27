@@ -52,3 +52,11 @@ export class SandboxError extends Error {
 		this.name = "SandboxError";
 	}
 }
+
+/** No room for another sandbox right now. Trying later can work. */
+export class SandboxCapacityError extends SandboxError {
+	constructor(message: string, options?: { cause?: unknown }) {
+		super(message, options);
+		this.name = "SandboxCapacityError";
+	}
+}

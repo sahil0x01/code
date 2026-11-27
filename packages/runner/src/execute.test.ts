@@ -28,6 +28,7 @@ import {
 	type ExecOptions,
 	type ExecResult,
 	type Sandbox,
+	SandboxCapacityError,
 	type SandboxDriver,
 } from "@nullfuse/sandbox";
 import { decryptEnvValue, encryptEnvValue } from "@nullfuse/secrets";
@@ -646,6 +647,24 @@ describe.skipIf(!hasDocker)("executeRun", () => {
 		expect(result).toEqual({ claimed: false, reason: "user_busy" });
 		expect(spy.created).toBe(0);
 		expect(model.doGenerateCalls).toHaveLength(0);
+	});
+
+	it("puts a run back in the queue when there is no room for its sandbox", async () => {
+		const { userId, chatId, runId } = await setup();
+		const full: SandboxDriver = {
+			name: "full",
+			create: async () => {
+				throw new SandboxCapacityError("Total memory limit exceeded");
+			},
+		};
+		const model = new MockLanguageModelV4({ doGenerate: [answer("unused")] });
+
+		const result = await executeRun(deps(model, { driver: full }), runId);
+
+		expect(result).toEqual({ claimed: false, reason: "no_capacity" });
+		const [row] = await listRuns(db, userId, chatId);
+		expect(row).toMatchObject({ status: "queued", startedAt: null, error: null });
+		expect(await claimRun(db, runId)).toMatchObject({ ok: true, run: { attempt: 1 } });
 	});
 
 	it("runs the tests when asked, records the result, and does not change the run's status", async () => {

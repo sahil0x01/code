@@ -28,6 +28,7 @@ import {
 	type RunRecording,
 	type RunVerification,
 	recordStep,
+	releaseRun,
 	setChangedFiles,
 	setPullRequest,
 	setPullRequestError,
@@ -37,7 +38,7 @@ import {
 	setWorkingBranchIfUnset,
 	touchRun,
 } from "@nullfuse/db";
-import { readText, type Sandbox, type SandboxDriver } from "@nullfuse/sandbox";
+import { readText, type Sandbox, SandboxCapacityError, type SandboxDriver } from "@nullfuse/sandbox";
 import { recordingKey } from "@nullfuse/storage";
 import type { LanguageModel } from "ai";
 import { checkAppTool } from "./check-app";
@@ -103,7 +104,7 @@ export type PullRequestInput = {
 };
 
 export type ExecuteResult =
-	| { claimed: false; reason: Extract<ClaimResult, { ok: false }>["reason"] }
+	| { claimed: false; reason: Extract<ClaimResult, { ok: false }>["reason"] | "no_capacity" }
 	| { claimed: true; status: RunOutcome["status"]; stopReason: RunOutcome["stopReason"] };
 
 const SETUP_TIMEOUT_MS = 10 * 60_000;
@@ -629,6 +630,10 @@ export async function executeRun(
 			fence,
 		);
 	} catch (error) {
+		// No room for a sandbox yet: the run waits in the queue instead of failing.
+		if (error instanceof SandboxCapacityError && (await releaseRun(deps.db, runId, attempt))) {
+			return { claimed: false, reason: "no_capacity" };
+		}
 		outcome = failed(describe(error));
 	} finally {
 		await sandbox?.destroy();
