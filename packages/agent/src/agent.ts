@@ -63,6 +63,8 @@ export type RunAgentOptions = {
 	/** Offered to the model beside the built-in tools. */
 	tools?: ToolSet;
 	limits?: Partial<AgentLimits>;
+	/** Leaves out the tools that change files or run commands. */
+	readOnly?: boolean;
 	/** Aborting stops the run and returns what happened so far. */
 	signal?: AbortSignal;
 	/** When given, the model's output is streamed and passed here as it arrives. */
@@ -113,13 +115,16 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRun> {
 	const costOf = (taken: AgentStep[]) =>
 		taken.reduce((sum, step) => sum + (options.stepCost?.(step) ?? 0), 0);
 
+	const builtIn = createTools({ sandbox: options.sandbox, env: options.env });
+	const reading = { list: builtIn.list, read: builtIn.read, grep: builtIn.grep } as AgentTools;
+
 	const agent = new ToolLoopAgent({
 		model: options.model,
 		providerOptions: options.providerOptions,
 		instructions: options.instructions ?? SYSTEM_PROMPT,
 		tools: {
-			...createTools({ sandbox: options.sandbox, env: options.env }),
-			...(options.tools as Partial<AgentTools> | undefined),
+			...(options.readOnly ? reading : builtIn),
+			...(options.readOnly ? undefined : (options.tools as Partial<AgentTools> | undefined)),
 		},
 		stopWhen: [
 			isStepCount(limits.maxSteps),

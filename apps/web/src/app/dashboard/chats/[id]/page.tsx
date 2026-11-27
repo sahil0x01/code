@@ -8,6 +8,7 @@ import {
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { z } from "zod";
+import { approvePlan } from "@/actions/chats";
 import { AutoRefresh } from "@/components/dashboard/auto-refresh";
 import { ChangesPanel } from "@/components/dashboard/changes-panel";
 import { ChatThread } from "@/components/dashboard/chat-thread";
@@ -223,6 +224,15 @@ export default async function ChatPage({
 								);
 							})}
 						</ol>
+						{chat.connected && unfinished.length === 0 && runs.at(-1)?.planOnly && runs.at(-1)?.status === "succeeded" && (
+							<form action={approvePlan} className="mt-6 flex flex-wrap items-center gap-3">
+								<input type="hidden" name="chatId" value={chat.id} />
+								<button type="submit" className={buttonClass()}>
+									Approve and build
+								</button>
+								<span className="text-sm text-muted">Or reply to change the plan, with Plan first ticked.</span>
+							</form>
+						)}
 					</ChatThread>
 				}
 				composer={

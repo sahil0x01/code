@@ -145,6 +145,7 @@ export function RunPanel({
 		run.outputTokens > 0 &&
 			`${formatTokens(run.outputTokens)} out${detail(run.reasoningTokens, "thinking")}`,
 		run.modelCost + run.sandboxCost > 0 && `about ${formatCost(run.modelCost + run.sandboxCost)}`,
+		run.planOnly && "plan only",
 		`${run.model} · thinking ${run.reasoning}`,
 	].filter(Boolean);
 

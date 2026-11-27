@@ -46,6 +46,7 @@ async function enqueue(
 		verify?: boolean;
 		record?: boolean;
 		updateBase?: boolean;
+		planOnly?: boolean;
 		reasoning?: ReasoningLevel;
 	},
 ) {
@@ -66,6 +67,7 @@ async function enqueue(
 				verify: input.verify ?? false,
 				record: input.record ?? false,
 				updateBase: input.updateBase ?? false,
+				planOnly: input.planOnly ?? false,
 				reasoning: input.reasoning,
 			})
 			.returning({ id: run.id }),
@@ -83,6 +85,7 @@ export function createChat(
 		content: string;
 		verify?: boolean;
 		record?: boolean;
+		planOnly?: boolean;
 		reasoning?: ReasoningLevel;
 		issueNumber?: number;
 	},
@@ -132,6 +135,7 @@ export function addMessage(
 		verify?: boolean;
 		record?: boolean;
 		updateBase?: boolean;
+		planOnly?: boolean;
 		reasoning?: ReasoningLevel;
 	},
 ) {
@@ -257,6 +261,7 @@ export function listRuns(db: Db, userId: string, chatId: string) {
 			changedFiles: run.changedFiles,
 			verify: run.verify,
 			record: run.record,
+			planOnly: run.planOnly,
 			recording: run.recording,
 			verification: run.verification,
 			stopRequestedAt: run.stopRequestedAt,

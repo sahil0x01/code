@@ -7,6 +7,7 @@ import {
 	deleteChat,
 	getChatForUser,
 	getProjectForUser,
+	listRuns,
 	markChatSeen,
 	requestStop,
 	type SendResult,
@@ -37,6 +38,7 @@ const model = z.string().refine(isModelId);
 
 const verify = z.boolean();
 const record = z.boolean();
+const planOnly = z.boolean();
 const reasoning = z.custom<ReasoningId>(isReasoningId).catch(DEFAULT_REASONING);
 
 const startSchema = z.object({
@@ -46,6 +48,7 @@ const startSchema = z.object({
 	content,
 	verify,
 	record,
+	planOnly,
 	reasoning,
 	issueNumber: z.coerce.number().int().positive().max(2_000_000_000).optional(),
 });
@@ -56,6 +59,7 @@ const sendSchema = z.object({
 	content,
 	verify,
 	record,
+	planOnly,
 	reasoning,
 });
 
@@ -91,6 +95,7 @@ export async function startChat(
 		content: formData.get("content"),
 		verify: formData.get("verify") === "on",
 		record: formData.get("record") === "on",
+		planOnly: formData.get("planOnly") === "on",
 		reasoning: formData.get("reasoning"),
 		issueNumber: formData.get("issueNumber") ?? undefined,
 	});
@@ -145,6 +150,7 @@ export async function sendMessage(
 		content: formData.get("content"),
 		verify: formData.get("verify") === "on",
 		record: formData.get("record") === "on",
+		planOnly: formData.get("planOnly") === "on",
 		reasoning: formData.get("reasoning"),
 	});
 	if (!input.success) return inputError;
@@ -241,4 +247,25 @@ export async function removeChat(
 
 	revalidatePath("/dashboard", "layout");
 	redirect("/dashboard/chats");
+}
+
+/** Answers a plan with the go-ahead, using the same model and thinking level. */
+export async function approvePlan(formData: FormData) {
+	const { user } = await requireSession();
+	const chatId = z.uuid().safeParse(formData.get("chatId"));
+	if (!chatId.success) return;
+
+	const latest = (await listRuns(db, user.id, chatId.data)).at(-1);
+	if (!latest?.planOnly || latest.status !== "succeeded" || !isModelId(latest.model)) return;
+	const sent = await addMessage(db, {
+		userId: user.id,
+		chatId: chatId.data,
+		model: latest.model,
+		reasoning: latest.reasoning,
+		verify: latest.verify,
+		record: latest.record,
+		content: "The plan is approved. Carry it out.",
+	});
+	if (sent.ok) await enqueueRun({ runId: sent.runId, chatId: sent.chatId });
+	revalidatePath("/dashboard", "layout");
 }

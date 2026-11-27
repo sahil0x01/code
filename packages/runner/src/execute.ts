@@ -190,6 +190,11 @@ function instructionsFor(
 			"Resolve every conflict so that the intent of both sides is kept, and remove all conflict markers. A file deleted on one side has no markers: decide whether it should stay. Do not run git commit, merge --abort, reset or checkout; the merge is committed for you when you finish. Then check that the project still works.",
 		);
 	}
+	if (context.run.planOnly) {
+		lines.push(
+			"This is a planning turn: you can only read. Do not claim to have changed or run anything. Reply with a short plan the user can approve: what you would change, in which files, how you would check it, and anything you need the user to decide.",
+		);
+	}
 	if (resumed) {
 		lines.push(
 			"This task was interrupted and restarted. Your earlier work is on the branch; check `git status` and `git diff` to see where you left off, then continue instead of starting over.",
@@ -290,7 +295,9 @@ async function perform(
 	}
 
 	const branch = workingBranchFor(chat.id);
-	await setWorkingBranchIfUnset(deps.db, chat.id, branch);
+	const planOnly = context.run.planOnly;
+	// A plan saves nothing, so the chat has no branch yet.
+	if (!planOnly) await setWorkingBranchIfUnset(deps.db, chat.id, branch);
 
 	const env = Object.fromEntries(
 		context.envVars.map((v) => [v.name, deps.decryptEnvValue(project.id, v.name, v.valueEncrypted)]),
@@ -329,7 +336,7 @@ async function perform(
 	let image = deps.image;
 	let app: { startCommand: string; port: number } | undefined;
 	let browserProblem: string | undefined;
-	if (project.startCommand && project.appPort !== null && deps.browserImage) {
+	if (!planOnly && project.startCommand && project.appPort !== null && deps.browserImage) {
 		try {
 			image = await deps.browserImage();
 			app = { startCommand: project.startCommand, port: project.appPort };
@@ -341,7 +348,7 @@ async function perform(
 	// Why a requested recording cannot happen, or what is needed to make it.
 	let recordingBlocked: string | undefined;
 	let recordingPlan: { startCommand: string; port: number; recorder: Recorder } | undefined;
-	if (context.run.record) {
+	if (context.run.record && !planOnly) {
 		if (!project.startCommand || project.appPort === null) {
 			recordingBlocked = "Set a start command and port on the project to record videos.";
 		} else if (!deps.recorder || !deps.browserImage) {
@@ -456,8 +463,8 @@ async function perform(
 
 	let sinceCheckpoint = 0;
 	const checkpoint = async () => {
-		// A half-resolved merge must not reach the branch.
-		if (merge) return;
+		// A half-resolved merge must not reach the branch, and a plan changes nothing.
+		if (merge || planOnly) return;
 		if (++sinceCheckpoint < (deps.checkpointEverySteps ?? DEFAULT_CHECKPOINT_STEPS)) return;
 		sinceCheckpoint = 0;
 		try {
@@ -502,7 +509,7 @@ async function perform(
 	let agent: AgentRun | undefined;
 	let agentError: unknown;
 	try {
-		const setup = project.installCommand
+		const setup = project.installCommand && !planOnly
 			? await runSetup(sandbox, project.installCommand, env, abort)
 			: undefined;
 		try {
@@ -513,6 +520,7 @@ async function perform(
 				providerOptions: reasoningOptions(context.run.reasoning),
 				sandbox,
 				messages: withEarlierWork(context.messages, memory),
+				readOnly: planOnly,
 				env,
 				instructions: instructionsFor(
 					context,
@@ -549,7 +557,7 @@ async function perform(
 					await checkpoint();
 				},
 			});
-			if (context.run.verify && project.testCommand && !diskExceeded && !fence.superseded) {
+			if (context.run.verify && !planOnly && project.testCommand && !diskExceeded && !fence.superseded) {
 				await verify(project.testCommand, abort);
 			}
 		} catch (error) {
@@ -564,6 +572,11 @@ async function perform(
 	}
 	if (fence.superseded) return failed("This attempt was replaced by a newer one.");
 	await syncFiles();
+
+	if (planOnly) {
+		if (agentError !== undefined || !agent) return clean(failed(describe(agentError)));
+		return clean(outcomeFor(agent, limits.maxCost));
+	}
 
 	if (diskExceeded) {
 		agentError = new Error(`Stopped: the workspace grew past ${maxDiskMb} MB.`);

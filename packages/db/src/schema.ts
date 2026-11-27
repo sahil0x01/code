@@ -330,6 +330,8 @@ export const run = pgTable(
 		record: boolean("record").notNull().default(false),
 		// Merge the latest base branch into the chat's branch before answering.
 		updateBase: boolean("update_base").notNull().default(false),
+		// The agent only reads and proposes; nothing is changed or pushed.
+		planOnly: boolean("plan_only").notNull().default(false),
 		recording: jsonb("recording").$type<RunRecording>(),
 		heartbeatAt: timestamp("heartbeat_at", { withTimezone: true }),
 		// Set while the run waits for room to start. Cleared once it has a sandbox.

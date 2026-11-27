@@ -169,6 +169,13 @@
       "when": 1795775834273,
       "tag": "0023_tired_famine",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1795779390957,
+      "tag": "0024_known_felicia_hardy",
+      "breakpoints": true
     }
   ]
 }

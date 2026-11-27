@@ -144,6 +144,10 @@ export function Composer({ projects, initialProjectId }: Props) {
 					</select>
 
 <label className="flex items-center gap-2 text-sm text-muted">
+						<input type="checkbox" name="planOnly" className="size-4 accent-ink" />
+						Plan first
+					</label>
+					<label className="flex items-center gap-2 text-sm text-muted">
 						<input type="checkbox" name="verify" className="size-4 accent-ink" />
 						Run tests after
 					</label>

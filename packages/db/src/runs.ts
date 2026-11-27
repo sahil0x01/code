@@ -320,6 +320,7 @@ export type RunContext = {
 		verify: boolean;
 		record: boolean;
 		updateBase: boolean;
+		planOnly: boolean;
 		reasoning: ReasoningLevel;
 	};
 	chat: {
@@ -357,6 +358,7 @@ export async function loadRunContext(db: Db, runId: string): Promise<RunContext 
 				verify: run.verify,
 				record: run.record,
 				updateBase: run.updateBase,
+				planOnly: run.planOnly,
 				reasoning: run.reasoning,
 			},
 			chat: {

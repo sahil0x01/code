@@ -98,6 +98,11 @@ export function MessageForm({
 						</select>
 
 						<label className="flex items-center gap-1.5 font-mono text-xs text-muted">
+							<input type="checkbox" name="planOnly" className="size-3.5 accent-ink" />
+							Plan first
+						</label>
+
+						<label className="flex items-center gap-1.5 font-mono text-xs text-muted">
 							<input type="checkbox" name="verify" className="size-3.5 accent-ink" />
 							Run tests
 						</label>

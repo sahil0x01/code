@@ -752,6 +752,27 @@ describe.skipIf(!hasDocker)("executeRun", () => {
 		expect(bodies[0]).toContain("fix.txt");
 	});
 
+	it("only reads and proposes in a planning run, and pushes nothing", async () => {
+		const { userId, chatId, runId, branch } = await setup({ installCommand: "echo x > setup.txt" });
+		await db.update(runTable).set({ planOnly: true }).where(eq(runTable.id, runId));
+		const model = new MockLanguageModelV4({
+			doGenerate: [
+				toolCalls({ name: "write", input: { path: "sneaky.txt", content: "x\n" } }),
+				answer("Plan: edit README.md."),
+			],
+		});
+
+		const result = await executeRun(deps(model), runId);
+
+		expect(result).toMatchObject({ status: "succeeded" });
+		expect(model.doGenerateCalls[0]?.tools?.map((tool) => tool.name).sort()).toEqual(["grep", "list", "read"]);
+		expect((await remote.git(`rev-parse --verify ${branch}`)).exitCode).not.toBe(0);
+		expect((await listMessages(db, userId, chatId)).at(-1)?.content).toBe("Plan: edit README.md.");
+		expect((await getChatForUser(db, userId, chatId))?.workingBranch).toBeNull();
+		const [row] = await listRuns(db, userId, chatId);
+		expect(row?.changedFiles).toEqual([]);
+	});
+
 	it("puts a run back in the queue when there is no room for its sandbox", async () => {
 		const { userId, chatId, runId } = await setup();
 		const full: SandboxDriver = {
