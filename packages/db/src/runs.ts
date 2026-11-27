@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import type { Db } from "./index";
 import {
 	type ChangedFile,
@@ -30,7 +30,14 @@ export type ClaimResult =
 				attempt: number;
 			};
 	  }
-	| { ok: false; reason: "not_found" | "not_queued" | "busy" | "not_next" | "user_busy" };
+	| {
+			ok: false;
+			reason: "not_found" | "not_queued" | "busy" | "not_next" | "user_busy" | "waiting_turn";
+	  };
+
+// A waiting run is tried every few seconds. One not tried for this long has nobody
+// waiting for it, so it no longer holds back newer runs.
+const WAITING_FRESH_MS = 60_000;
 
 // Lock order is always chat first, then run, so a claim, a finish and a delete
 // can never wait on each other in a circle.
@@ -91,15 +98,40 @@ export function claimRun(db: Db, runId: string, options: { maxRunningPerUser?: n
 			.limit(1);
 		if (older) return { ok: false, reason: "not_next" };
 
+		const now = new Date();
+		const wait = async (reason: "user_busy" | "waiting_turn"): Promise<ClaimResult> => {
+			await tx
+				.update(run)
+				.set({ waitingSince: sql`coalesce(${run.waitingSince}, ${now.toISOString()}::timestamptz)`, updatedAt: now })
+				.where(eq(run.id, runId));
+			return { ok: false, reason };
+		};
+
 		if (options.maxRunningPerUser !== undefined) {
 			const [{ total } = { total: 0 }] = await tx
 				.select({ total: sql<number>`count(*)::int` })
 				.from(run)
 				.where(and(eq(run.userId, current.userId), eq(run.status, "running")));
-			if (total >= options.maxRunningPerUser) return { ok: false, reason: "user_busy" };
+			if (total >= options.maxRunningPerUser) return wait("user_busy");
 		}
 
-		const now = new Date();
+		// Room goes to the run that has waited in line longest: an older one goes first.
+		const fresh = new Date(now.getTime() - WAITING_FRESH_MS);
+		const [ahead] = await tx
+			.select({ id: run.id })
+			.from(run)
+			.where(
+				and(
+					eq(run.userId, current.userId),
+					inArray(run.status, ["queued", "running"]),
+					isNotNull(run.waitingSince),
+					sql`${run.updatedAt} > ${fresh.toISOString()}::timestamptz`,
+					sql`(${run.createdAt}, ${run.id}) < (select created_at, id from run where id = ${runId})`,
+				),
+			)
+			.limit(1);
+		if (ahead) return wait("waiting_turn");
+
 		const [started] = await tx
 			.update(run)
 			.set({
@@ -127,11 +159,20 @@ export async function releaseRun(db: Db, runId: string, attempt: number) {
 			attempts: attempt - 1,
 			startedAt: attempt === 1 ? null : sql`${run.startedAt}`,
 			heartbeatAt: null,
+			waitingSince: sql`coalesce(${run.waitingSince}, now())`,
 			updatedAt: new Date(),
 		})
 		.where(and(eq(run.id, runId), eq(run.status, "running"), eq(run.attempts, attempt)))
 		.returning({ id: run.id });
 	return rows.length === 1;
+}
+
+/** The run got its sandbox, so it is no longer waiting. */
+export async function clearRunWaiting(db: Db, runId: string, attempt: number) {
+	await db
+		.update(run)
+		.set({ waitingSince: null })
+		.where(and(eq(run.id, runId), eq(run.attempts, attempt)));
 }
 
 export type StepRecord = {
@@ -223,6 +264,7 @@ export function finishRun(db: Db, runId: string, outcome: RunOutcome, attempt?: 
 			.update(run)
 			.set({
 				live: null,
+				waitingSince: null,
 				status: outcome.status,
 				stopReason: outcome.stopReason,
 				error: outcome.error ?? null,

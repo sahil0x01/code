@@ -327,6 +327,8 @@ export const run = pgTable(
 		record: boolean("record").notNull().default(false),
 		recording: jsonb("recording").$type<RunRecording>(),
 		heartbeatAt: timestamp("heartbeat_at", { withTimezone: true }),
+		// Set while the run waits for room to start. Cleared once it has a sandbox.
+		waitingSince: timestamp("waiting_since", { withTimezone: true }),
 		live: jsonb("live").$type<RunLive>(),
 		attempts: integer("attempts").notNull().default(0),
 		inputTokens: integer("input_tokens").notNull().default(0),

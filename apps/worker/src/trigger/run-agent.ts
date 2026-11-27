@@ -1,24 +1,25 @@
 import { executeRun } from "@nullfuse/runner";
-import { logger, task } from "@trigger.dev/sdk";
+import { logger, task, wait } from "@trigger.dev/sdk";
 import { getDeps } from "../deps";
+import { RETRY_SECONDS, runWhenThereIsRoom } from "../wait";
 
 export const runAgentTask = task({
 	id: "run-agent",
 	// One run at a time per chat (the web app triggers with concurrencyKey = chat id).
 	concurrency: { perKey: 1 },
 	maxDuration: 30 * 60,
-	// A retry after the run was claimed would find it already taken. Waiting for
-	// an earlier run is the one case worth retrying, and it throws below.
+	// Only for failures before the run is claimed, such as the database being away.
 	retry: { maxAttempts: 5, minTimeoutInMs: 5_000, factor: 2, maxTimeoutInMs: 60_000 },
 	run: async (payload: { runId: string }, { signal }) => {
-		const result = await executeRun(await getDeps(), payload.runId, { signal });
+		const deps = await getDeps();
+		// Waiting happens here and not through retries, which run out and back off.
+		const result = await runWhenThereIsRoom(
+			() => executeRun(deps, payload.runId, { signal }),
+			() => wait.for({ seconds: RETRY_SECONDS }),
+		);
 
 		if (!result.claimed) {
 			logger.warn("Run was not started", { runId: payload.runId, reason: result.reason });
-			// These clear up on their own: retry, and the sweeper picks the run up if the retries run out.
-			if (["busy", "not_next", "user_busy", "no_capacity"].includes(result.reason)) {
-				throw new Error(`The run has to wait (${result.reason})`);
-			}
 			return { claimed: false, reason: result.reason };
 		}
 

@@ -9,6 +9,7 @@ import {
 	claimRun,
 	getRunLive,
 	createChat,
+	getChatForUser,
 	installation,
 	listMessages,
 	listRuns,
@@ -664,6 +665,11 @@ describe.skipIf(!hasDocker)("executeRun", () => {
 		expect(result).toEqual({ claimed: false, reason: "no_capacity" });
 		const [row] = await listRuns(db, userId, chatId);
 		expect(row).toMatchObject({ status: "queued", startedAt: null, error: null });
+		// A newer run of the same user waits behind it, even though nothing else is running.
+		const projectId = (await getChatForUser(db, userId, chatId))?.projectId ?? "";
+		const newer = await createChat(db, { userId, projectId, baseBranch: "main", model: "deepseek-v4-pro", content: "Next" });
+		if (!newer.ok) throw new Error(newer.reason);
+		expect(await claimRun(db, newer.runId)).toEqual({ ok: false, reason: "waiting_turn" });
 		expect(await claimRun(db, runId)).toMatchObject({ ok: true, run: { attempt: 1 } });
 	});
 

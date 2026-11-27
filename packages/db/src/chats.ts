@@ -157,6 +157,12 @@ export function addMessage(
 	});
 }
 
+// A waiting run is briefly "running" each time it tries to start. It is shown as queued.
+const shownStatus = sql<RunStatus>`case
+	when "run"."status" = 'running' and "run"."waiting_since" is not null then 'queued'
+	else "run"."status"
+end`;
+
 export function listChats(
 	db: Db,
 	userId: string,
@@ -173,7 +179,7 @@ export function listChats(
 			state: chatState,
 			unread: chatUnread,
 			lastRunStatus: sql<RunStatus | null>`(
-				select ${run.status} from ${run}
+				select ${shownStatus} from ${run}
 				where ${run.chatId} = ${chat.id}
 				order by ${run.createdAt} desc
 				limit 1
@@ -239,7 +245,7 @@ export function listRuns(db: Db, userId: string, chatId: string) {
 			reasoning: run.reasoning,
 			cachedInputTokens: run.cachedInputTokens,
 			reasoningTokens: run.reasoningTokens,
-			status: run.status,
+			status: shownStatus,
 			stopReason: run.stopReason,
 			error: run.error,
 			changedFiles: run.changedFiles,

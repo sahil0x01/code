@@ -1,0 +1,1 @@
+ALTER TABLE "run" ADD COLUMN "waiting_since" timestamp with time zone;

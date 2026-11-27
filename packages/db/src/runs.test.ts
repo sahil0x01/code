@@ -6,6 +6,7 @@ import {
 	cancelRun,
 	chat,
 	claimRun,
+	clearRunWaiting,
 	createChat,
 	deleteChat,
 	exportAccountData,
@@ -561,6 +562,36 @@ describe("claim limits and attempts", () => {
 		const [row] = await db.select().from(run).where(eq(run.id, runId));
 		expect(row?.attempts).toBe(1);
 		expect(row?.heartbeatAt).toBeInstanceOf(Date);
+	});
+
+	it("lets waiting runs start oldest first, and shows them as queued", async () => {
+		const { userId, projectId } = await owner();
+		const first = await start(userId, projectId, "First");
+		const second = await start(userId, projectId, "Second");
+		const third = await start(userId, projectId, "Third");
+		const claim = (id: string) => claimRun(db, id, { maxRunningPerUser: 1 });
+		expect((await claim(first.runId)).ok).toBe(true);
+		expect(await claim(second.runId)).toEqual({ ok: false, reason: "user_busy" });
+		await finishRun(db, first.runId, { status: "succeeded", stopReason: "completed" });
+
+		expect(await claim(third.runId)).toEqual({ ok: false, reason: "waiting_turn" });
+
+		// While it tries to get a sandbox it is still shown as waiting.
+		expect((await claim(second.runId)).ok).toBe(true);
+		const [trying] = await listRuns(db, userId, second.chatId);
+		expect(trying?.status).toBe("queued");
+		await clearRunWaiting(db, second.runId, 1);
+		const [started] = await listRuns(db, userId, second.chatId);
+		expect(started?.status).toBe("running");
+	});
+
+	it("does not hold newer runs back for one nobody is waiting for any more", async () => {
+		const { userId, projectId } = await owner();
+		const first = await start(userId, projectId, "First");
+		const second = await start(userId, projectId, "Second");
+		await db.update(run).set({ waitingSince: longAgo(), updatedAt: longAgo() }).where(eq(run.id, first.runId));
+
+		expect((await claimRun(db, second.runId)).ok).toBe(true);
 	});
 
 	it("keeps one user under their cap, even when claims arrive together", async () => {

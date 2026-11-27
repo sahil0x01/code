@@ -16,6 +16,7 @@ import {
 import {
 	type ClaimResult,
 	claimRun,
+	clearRunWaiting,
 	type Db,
 	finishRun,
 	getRunProgress,
@@ -305,6 +306,7 @@ async function perform(
 
 	const sandbox = await deps.driver.create({ image });
 	track(sandbox);
+	await clearRunWaiting(deps.db, runId, attempt);
 	await prepareWorkspace(sandbox, spec);
 	// Read before the agent runs, so a run cannot rewrite the rules it was given.
 	const rules = await readProjectRules(sandbox);
