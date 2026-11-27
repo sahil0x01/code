@@ -6,11 +6,12 @@ import { useNeedsReview } from "./inbox";
 
 type Item = { href: string; label: string; exact?: boolean };
 
-// Desktop: "main" sits under the New chat button, "account" at the bottom.
+// Desktop: "main" sits under the New chat button, with the chats by section right
+// below its last item, and "account" at the bottom.
 // Mobile: one row with everything ("all").
 const main: Item[] = [
-	{ href: "/dashboard/chats", label: "Chats", exact: true },
 	{ href: "/dashboard/projects", label: "Projects" },
+	{ href: "/dashboard/chats", label: "Chats", exact: true },
 ];
 const account: Item[] = [
 	{ href: "/dashboard/credits", label: "Credits" },

@@ -20,7 +20,7 @@ import { SignOutButton } from "./sign-out-button";
 // the session wait, each behind its own Suspense boundary, so navigating never
 // shows a blank screen.
 //
-// Desktop sidebar: New chat, main nav, recent chats (scrolls), then account
+// Desktop sidebar: New chat, main nav, chats by section (scrolls), then account
 // links and the signed-in user. Phone: a top bar with one row of links.
 export default function DashboardLayout({
 	children,
