@@ -4,7 +4,9 @@ import {
 	listOverlaps,
 	listRunActivity,
 	listRuns,
+	listUserModels,
 } from "@nullfuse/db";
+import { isOwnModelKey, ownModelKey } from "@nullfuse/models/providers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { z } from "zod";
@@ -88,10 +90,11 @@ export default async function ChatPage({
 	const chat = await getChatForUser(db, session.user.id, id);
 	if (!chat) notFound();
 
-	const [messages, runs, overlaps] = await Promise.all([
+	const [messages, runs, overlaps, ownModels] = await Promise.all([
 		listMessages(db, session.user.id, chat.id),
 		listRuns(db, session.user.id, chat.id),
 		listOverlaps(db, session.user.id, chat.id),
+		listUserModels(db, session.user.id),
 	]);
 	const activity = await listRunActivity(
 		db,
@@ -122,6 +125,8 @@ export default async function ChatPage({
 	const defaultModel =
 		lastModel && isModelId(lastModel) ? lastModel : DEFAULT_MODEL_ID;
 	const defaultReasoning = runs.at(-1)?.reasoning ?? DEFAULT_REASONING;
+	const modelRemoved =
+		isOwnModelKey(defaultModel) && !ownModels.some((model) => ownModelKey(model.id) === defaultModel);
 	const tests = runs.findLast((run) => run.verification)?.verification;
 	const testsPassed = tests && tests.exitCode === 0 && !tests.timedOut;
 	// A new step, status or PR can mean new commits on the branch.
@@ -221,7 +226,7 @@ export default async function ChatPage({
 								);
 							})}
 						</ol>
-						{chat.connected && unfinished.length === 0 && runs.at(-1)?.planOnly && runs.at(-1)?.status === "succeeded" && (
+						{chat.connected && unfinished.length === 0 && runs.at(-1)?.planOnly && runs.at(-1)?.status === "succeeded" && !modelRemoved && (
 							<form action={approvePlan} className="mt-6 flex flex-wrap items-center gap-3">
 								<input type="hidden" name="chatId" value={chat.id} />
 								<button type="submit" className={buttonClass()}>
@@ -240,6 +245,7 @@ export default async function ChatPage({
 							defaultModel={defaultModel}
 							defaultReasoning={defaultReasoning}
 							canRecord={chat.canRecord}
+							ownModels={ownModels.map(({ id, label }) => ({ id, label }))}
 							running={
 								running && { id: running.id, stopping: running.stopRequestedAt !== null }
 							}

@@ -1,3 +1,4 @@
+import { isOwnModelKey, ownModelKey } from "@nullfuse/models/providers";
 import type { ComponentProps } from "react";
 import { PixelIcon, type IconName } from "@/components/ui/pixel-icon";
 import { Tooltip } from "@/components/ui/tooltip";
@@ -59,7 +60,11 @@ export function Picker({
 
 type Choice = { value: string; onChange(value: string): void };
 
-export function ModelPicker({ value, onChange }: Choice) {
+export type OwnModelOption = { id: string; label: string };
+
+export function ModelPicker({ value, onChange, own }: Choice & { own: OwnModelOption[] }) {
+	// A removed model stays selected, so a message is never moved to another one unnoticed.
+	const removed = isOwnModelKey(value) && !own.some((option) => ownModelKey(option.id) === value);
 	return (
 		<Picker
 			icon="model"
@@ -70,11 +75,23 @@ export function ModelPicker({ value, onChange }: Choice) {
 			value={value}
 			onChange={(event) => onChange(event.target.value)}
 		>
-			{MODELS.map((option) => (
-				<option key={option.id} value={option.id}>
-					{option.label}
-				</option>
-			))}
+			{removed && <option value={value}>Removed model</option>}
+			<optgroup label="Prefill">
+				{MODELS.map((option) => (
+					<option key={option.id} value={option.id}>
+						{option.label}
+					</option>
+				))}
+			</optgroup>
+			{own.length > 0 && (
+				<optgroup label="Your keys">
+					{own.map((option) => (
+						<option key={option.id} value={ownModelKey(option.id)}>
+							{option.label}
+						</option>
+					))}
+				</optgroup>
+			)}
 		</Picker>
 	);
 }

@@ -28,6 +28,8 @@ const schema = z.object({
 	R2_BUCKET: z.string().optional(),
 	R2_ACCESS_KEY_ID: z.string().optional(),
 	R2_SECRET_ACCESS_KEY: z.string().optional(),
+	// For self-hosting: lets users add a model server on your own network.
+	ALLOW_PRIVATE_MODEL_URLS: z.stringbool().default(false),
 	// Where the web app lives, to link recordings from pull requests.
 	APP_URL: z.url().optional(),
 });

@@ -13,6 +13,7 @@
   "dependencies": {
     "@nullfuse/agent": "workspace:*",
     "@nullfuse/db": "workspace:*",
+    "@nullfuse/models": "workspace:*",
     "@nullfuse/sandbox": "workspace:*",
     "@nullfuse/storage": "workspace:*",
     "ai": "^7.0.181",

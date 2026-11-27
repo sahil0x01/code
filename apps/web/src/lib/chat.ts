@@ -1,14 +1,17 @@
+import { parseOwnModelKey } from "@nullfuse/models/providers";
+
 export const MODELS = [
 	{ id: "deepseek-flash", label: "DeepSeek Flash", hint: "Default" },
 	{ id: "deepseek-v4-pro", label: "DeepSeek V4 Pro", hint: "Costs more" },
 ] as const;
 
-export type ModelId = (typeof MODELS)[number]["id"];
+export type ModelId = (typeof MODELS)[number]["id"] | `own:${string}`;
 
 export const DEFAULT_MODEL_ID: ModelId = "deepseek-flash";
 
 export function isModelId(value: string): value is ModelId {
-	return MODELS.some((model) => model.id === value);
+	// Whether a user's own model is still theirs is checked when the message is saved.
+	return MODELS.some((model) => model.id === value) || parseOwnModelKey(value) !== null;
 }
 
 export const REASONING_OPTIONS = [

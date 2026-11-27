@@ -14,6 +14,7 @@ import {
 	uniqueIndex,
 	uuid,
 } from "drizzle-orm/pg-core";
+import type { ProviderId } from "@nullfuse/models/providers";
 
 export const waitlist = pgTable("waitlist", {
 	id: uuid("id").primaryKey().defaultRandom(),
@@ -110,6 +111,37 @@ export const userPreference = pgTable("user_preference", {
 		.notNull()
 		.defaultNow(),
 });
+
+/** A model a user added with their own API key. */
+export const userModel = pgTable(
+	"user_model",
+	{
+		id: uuid("id").primaryKey(),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		provider: text("provider").$type<ProviderId>().notNull(),
+		modelId: text("model_id").notNull(),
+		label: text("label").notNull(),
+		baseUrl: text("base_url"),
+		keyEncrypted: text("key_encrypted").notNull(),
+		keyLast4: text("key_last4").notNull(),
+		contextTokens: integer("context_tokens"),
+		maxOutputTokens: integer("max_output_tokens"),
+		// Dollars per million tokens. Null when the price is not known.
+		price: jsonb("price").$type<UserModelPrice>(),
+		// The most tokens one run may use. Null for the server's limit.
+		maxRunTokens: integer("max_run_tokens"),
+		createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+		testedAt: timestamp("tested_at", { withTimezone: true }).notNull().defaultNow(),
+	},
+	(t) => [
+		index("user_model_user_idx").on(t.userId),
+		unique("user_model_user_label_unique").on(t.userId, t.label),
+	],
+);
+
+export type UserModelPrice = { input: number; output: number; cacheRead: number; cacheWrite: number };
 
 export const installation = pgTable("installation", {
 	id: bigint("id", { mode: "number" }).primaryKey(),
@@ -309,6 +341,8 @@ export const run = pgTable(
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
 		model: text("model").notNull(),
+		// The name to show for a user's own model, kept after the model is removed.
+		modelLabel: text("model_label"),
 		status: text("status")
 			.$type<"queued" | "running" | "succeeded" | "failed" | "cancelled">()
 			.notNull()

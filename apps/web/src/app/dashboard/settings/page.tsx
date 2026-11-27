@@ -3,7 +3,9 @@ import { buttonClass } from "@/components/ui/styles";
 import { requireSession } from "@/server/session";
 import { DeleteAccount } from "./delete-account";
 import { SettingsSection } from "./section";
-import { getPreferences } from "@nullfuse/db";
+import { getPreferences, listUserModels } from "@nullfuse/db";
+import { PROVIDERS, suggestModels } from "@nullfuse/models";
+import { ModelsSection } from "./models-section";
 import { db } from "@/server/db";
 import { SettingsForm } from "./settings-form";
 
@@ -11,13 +13,17 @@ export const metadata = { title: "Settings" };
 
 export default async function SettingsPage() {
 	const { user } = await requireSession();
-	const prefs = await getPreferences(db, user.id);
+	const [prefs, models, ...lists] = await Promise.all([
+		getPreferences(db, user.id),
+		listUserModels(db, user.id),
+		...PROVIDERS.map(async ({ id }) => [id, await suggestModels(id)] as const),
+	]);
 
 	return (
 		<div className="flex max-w-xl flex-col gap-4">
 			<PageHeader
 				title="Settings"
-				description="Your account, notifications and data."
+				description="Your account, notifications, models and data."
 			/>
 
 			<SettingsForm
@@ -25,6 +31,11 @@ export default async function SettingsPage() {
 				email={user.email}
 				notifyRunFinished={prefs.notifyRunFinished}
 				notifyRunFailed={prefs.notifyRunFailed}
+			/>
+
+			<ModelsSection
+				models={models.map(({ price, ...model }) => ({ ...model, hasPrice: price !== null }))}
+				suggestions={Object.fromEntries(lists)}
 			/>
 
 			<SettingsSection

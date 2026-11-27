@@ -53,6 +53,12 @@ export async function mergePullRequest(input: z.input<typeof mergeInput>): Promi
 	return { ok: true };
 }
 
+function notSent(reason: string) {
+	if (reason === "queue_full") return "You have too many unfinished runs.";
+	if (reason === "model_removed") return "That model was removed. Pick another one in the message box.";
+	return "The message could not be sent.";
+}
+
 const fixInput = z.object({
 	chatId: z.uuid(),
 	checkRunId: z.number().int().positive(),
@@ -73,9 +79,7 @@ export async function fixCheck(input: z.input<typeof fixInput>): Promise<PullAct
 
 		const sent = await addMessage(db, { userId: user.id, chatId, model, content, verify: false });
 		if (!sent.ok) {
-			return failed(
-				sent.reason === "queue_full" ? "You have too many unfinished runs." : "The message could not be sent.",
-			);
+			return failed(notSent(sent.reason));
 		}
 		await enqueueRun({ runId: sent.runId, chatId: sent.chatId });
 	} catch (error) {
@@ -112,9 +116,7 @@ export async function updateFromBase(input: z.input<typeof updateInput>): Promis
 			updateBase: true,
 		});
 		if (!sent.ok) {
-			return failed(
-				sent.reason === "queue_full" ? "You have too many unfinished runs." : "The message could not be sent.",
-			);
+			return failed(notSent(sent.reason));
 		}
 		await enqueueRun({ runId: sent.runId, chatId: sent.chatId });
 	} catch (error) {
@@ -158,9 +160,7 @@ export async function sendComments(input: z.input<typeof commentsInput>): Promis
 			verify: false,
 		});
 		if (!sent.ok) {
-			return failed(
-				sent.reason === "queue_full" ? "You have too many unfinished runs." : "The message could not be sent.",
-			);
+			return failed(notSent(sent.reason));
 		}
 		await enqueueRun({ runId: sent.runId, chatId: sent.chatId });
 	} catch (error) {

@@ -5,6 +5,7 @@ import { type ChatState, sendMessage, stopRun } from "@/actions/chats";
 import {
 	IconButton,
 	ModelPicker,
+	type OwnModelOption,
 	ReasoningPicker,
 	RunToggles,
 } from "@/components/dashboard/composer-controls";
@@ -18,6 +19,7 @@ type Props = {
 	running?: { id: string; stopping: boolean };
 	/** The project says how to start its app, so a run can record it. */
 	canRecord: boolean;
+	ownModels: OwnModelOption[];
 };
 
 const initialState: ChatState = { status: "idle" };
@@ -29,6 +31,7 @@ export function MessageForm({
 	defaultReasoning,
 	running,
 	canRecord,
+	ownModels,
 }: Props) {
 	const [reasoning, setReasoning] = useState(defaultReasoning);
 	const [content, setContent] = useState("");
@@ -74,7 +77,7 @@ export function MessageForm({
 					/>
 
 					<div className="flex flex-wrap items-center gap-x-2 gap-y-2 px-2 pb-2.5">
-						<ModelPicker value={model} onChange={setModel} />
+						<ModelPicker value={model} onChange={setModel} own={ownModels} />
 						<ReasoningPicker value={reasoning} onChange={setReasoning} />
 						<RunToggles canRecord={canRecord} />
 

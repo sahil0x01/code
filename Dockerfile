@@ -11,6 +11,7 @@ FROM base AS deps
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/web/package.json apps/web/
 COPY packages/db/package.json packages/db/
+COPY packages/models/package.json packages/models/
 COPY packages/sandbox/package.json packages/sandbox/
 COPY packages/agent/package.json packages/agent/
 COPY packages/secrets/package.json packages/secrets/
@@ -23,6 +24,7 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
 FROM deps AS build
 COPY apps/web apps/web
 COPY packages/db packages/db
+COPY packages/models packages/models
 COPY packages/secrets packages/secrets
 COPY packages/storage packages/storage
 ARG NEXT_PUBLIC_APP_URL
@@ -43,6 +45,7 @@ RUN pnpm --filter @nullfuse/web build
 
 FROM deps AS migrate
 COPY packages/db packages/db
+COPY packages/models packages/models
 WORKDIR /repo/packages/db
 CMD ["pnpm", "db:migrate"]
 

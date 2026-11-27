@@ -1,4 +1,4 @@
-import { listProjects } from "@nullfuse/db";
+import { listProjects, listUserModels } from "@nullfuse/db";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { db } from "@/server/db";
@@ -39,11 +39,13 @@ export default async function NewChatPage({
 	}
 
 	const initial = projects.find((project) => project.id === requested);
+	const ownModels = await listUserModels(db, session.user.id);
 
 	return (
 		<div className="flex flex-col gap-6">
 			{header}
 			<Composer
+				ownModels={ownModels.map(({ id, label }) => ({ id, label }))}
 				projects={projects.map((project) => ({
 					id: project.id,
 					fullName: project.fullName,

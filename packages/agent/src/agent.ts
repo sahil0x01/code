@@ -60,6 +60,9 @@ export type RunAgentOptions = {
 	instructions?: string;
 	/** Settings only one provider understands, such as how hard to think. */
 	providerOptions?: Record<string, Record<string, JSONValue>>;
+	/** How hard to think, in the SDK's own words, for providers that take it that way. */
+	reasoning?: "none" | "low" | "high" | "xhigh";
+	maxOutputTokens?: number;
 	/** Offered to the model beside the built-in tools. */
 	tools?: ToolSet;
 	limits?: Partial<AgentLimits>;
@@ -121,6 +124,8 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRun> {
 	const agent = new ToolLoopAgent({
 		model: options.model,
 		providerOptions: options.providerOptions,
+		reasoning: options.reasoning,
+		maxOutputTokens: options.maxOutputTokens,
 		instructions: options.instructions ?? SYSTEM_PROMPT,
 		tools: {
 			...(options.readOnly ? reading : builtIn),

@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@nullfuse/db": "workspace:*",
+    "@nullfuse/models": "workspace:*",
     "@nullfuse/secrets": "workspace:*",
     "@nullfuse/storage": "workspace:*",
     "@t3-oss/env-nextjs": "^0.13.11",

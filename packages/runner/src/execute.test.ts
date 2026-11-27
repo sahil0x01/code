@@ -223,6 +223,82 @@ describe.skipIf(!hasDocker)("executeRun", () => {
 		expect(await containerGone(spy.ids[0] ?? "")).toBe(true);
 	});
 
+	describe("a user's own model", () => {
+		const apiKey = "sk-user-own-key-987654";
+		const ownKey = `own:${crypto.randomUUID()}`;
+		// The name is set directly: choosing a model is the database's own test.
+		async function ownRun() {
+			const created = await setup();
+			await db.update(runTable).set({ model: ownKey }).where(eq(runTable.id, created.runId));
+			return created;
+		}
+		const neverOurs = () => {
+			throw new Error("our model must not be used");
+		};
+		const own = (model: LanguageModel) => async () => ({
+			model,
+			settings: {},
+			apiKey,
+			cost: () => 7,
+			explain: () => "Your provider rejected the API key.",
+		});
+
+		it("uses it, prices it, and keeps the key out of the sandbox and what is saved", async () => {
+			const { userId, chatId, runId } = await ownRun();
+			const model = new MockLanguageModelV4({
+				doGenerate: [
+					toolCalls({ name: "bash", input: { command: "env" } }),
+					answer(`The key is ${apiKey}.`),
+				],
+			});
+
+			const result = await executeRun(deps(model, { createModel: neverOurs, ownModel: own(model) }), runId);
+			expect(result).toMatchObject({ status: "succeeded" });
+
+			const steps = await listRunSteps(db, userId, runId);
+			expect(steps[0]?.toolResults[0]?.output).toContain("HOME=");
+			expect(steps[0]?.toolResults[0]?.output).not.toContain("[hidden]");
+			expect(JSON.stringify(steps)).not.toContain(apiKey);
+			expect((await listMessages(db, userId, chatId)).at(-1)?.content).toBe("The key is [hidden].");
+			expect((await listRuns(db, userId, chatId))[0]?.modelCost).toBe(14);
+		});
+
+		it("fails with the provider's reason and never turns to our model", async () => {
+			const { userId, chatId, runId } = await ownRun();
+			const model = new MockLanguageModelV4({
+				doGenerate: async () => {
+					throw new Error(`401 ${apiKey}`);
+				},
+			});
+
+			const result = await executeRun(deps(model, { createModel: neverOurs, ownModel: own(model) }), runId);
+			expect(result).toMatchObject({ status: "failed" });
+			const [row] = await listRuns(db, userId, chatId);
+			expect(row?.error).toBe("Your provider rejected the API key.");
+		});
+
+		it("fails when the model cannot be loaded, without starting a sandbox", async () => {
+			const { userId, chatId, runId } = await ownRun();
+			const gone = async () => {
+				throw new Error("The model this message used was removed.");
+			};
+			const result = await executeRun(
+				deps(new MockLanguageModelV4(), { createModel: neverOurs, ownModel: gone }),
+				runId,
+			);
+			expect(result).toMatchObject({ status: "failed" });
+			expect(spy.created).toBe(0);
+			expect((await listRuns(db, userId, chatId))[0]?.error).toContain("was removed");
+		});
+
+		it("fails when this server has no support for it", async () => {
+			const { runId } = await ownRun();
+			const result = await executeRun(deps(new MockLanguageModelV4(), { createModel: neverOurs }), runId);
+			expect(result).toMatchObject({ status: "failed" });
+			expect(spy.created).toBe(0);
+		});
+	});
+
 	it("shows the model's output while it works, with secrets removed, and clears it after", async () => {
 		const { userId, chatId, runId } = await setup({ env: { API_KEY: "s3cr3t-key-value" } });
 		let release = () => {};

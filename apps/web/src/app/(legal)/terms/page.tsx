@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: "Terms of Service" };
 
 export default function TermsPage() {
 	return (
-		<LegalPage title="Terms of Service" updated="22 November 2026">
+		<LegalPage title="Terms of Service" updated="27 November 2026">
 			<p>
 				These terms cover your use of Prefill Code, including this website, the
 				waitlist, and the early access service. They are written to be read. If
@@ -77,6 +77,25 @@ export default function TermsPage() {
 					Task text is sent to the model that does the work.
 				</li>
 				<li>Review the agent work before you merge it.</li>
+			</ul>
+
+			<h2>Using your own model key</h2>
+			<ul>
+				<li>
+					You can add your own API key for a model provider, or the address of a
+					compatible server. Only use keys and servers you are allowed to use.
+				</li>
+				<li>
+					Runs and connection tests that use your key send your messages, and the
+					code and command output the agent reads, to that provider. Its terms
+					and privacy rules apply, and it bills you directly.
+				</li>
+				<li>
+					Costs we show for your key are estimates from public list prices.
+					Your provider&apos;s bill is what counts. Limits can stop a run only
+					after a step has finished, so set spending limits with your provider
+					too.
+				</li>
 			</ul>
 
 			<h2>The agent can be wrong</h2>

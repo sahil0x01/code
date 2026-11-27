@@ -11,6 +11,7 @@
   "dependencies": {
     "@nullfuse/agent": "workspace:*",
     "@nullfuse/db": "workspace:*",
+    "@nullfuse/models": "workspace:*",
     "@nullfuse/runner": "workspace:*",
     "@nullfuse/sandbox": "workspace:*",
     "@nullfuse/secrets": "workspace:*",

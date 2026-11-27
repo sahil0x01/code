@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: "Privacy Policy" };
 
 export default function PrivacyPage() {
 	return (
-		<LegalPage title="Privacy Policy" updated="26 November 2026">
+		<LegalPage title="Privacy Policy" updated="27 November 2026">
 			<p>
 				This policy explains what Prefill Code does with your data. It
 				describes what is live today: a website and a waitlist. We keep it short
@@ -115,6 +115,17 @@ export default function PrivacyPage() {
 				is stored privately with Cloudflare R2, only you can open it through your
 				account, and it is deleted after 30 days, or sooner when you delete the
 				chat or your account.
+			</p>
+
+			<p>
+				If you add your own model key, we store it encrypted, show only its
+				last four characters, and use it only for your runs and the tests you
+				ask for. Your messages, and the code and command output the agent
+				reads, go to the provider or server you chose, under its own privacy
+				rules. To suggest model names and prices we download a public list from
+				models.dev; nothing about you is sent to it. The key is deleted when
+				you remove the model or delete your account, and it is never part of
+				your data export.
 			</p>
 
 			<h2>Changes</h2>

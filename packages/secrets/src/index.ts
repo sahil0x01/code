@@ -40,3 +40,17 @@ export function encryptEnvValue(key: Buffer, projectId: string, name: string, va
 export function decryptEnvValue(key: Buffer, projectId: string, name: string, stored: string) {
 	return decryptSecret(key, stored, envContext(projectId, name));
 }
+
+// Bound to the address too, so a stored key cannot be pointed somewhere else.
+const modelContext = (model: { userId: string; id: string; provider: string; baseUrl: string | null }) =>
+	`user-model:${model.userId}:${model.id}:${model.provider}:${model.baseUrl ?? ""}`;
+
+type ModelOwner = Parameters<typeof modelContext>[0];
+
+export function encryptModelKey(key: Buffer, model: ModelOwner, apiKey: string) {
+	return encryptSecret(key, apiKey, modelContext(model));
+}
+
+export function decryptModelKey(key: Buffer, model: ModelOwner, stored: string) {
+	return decryptSecret(key, stored, modelContext(model));
+}

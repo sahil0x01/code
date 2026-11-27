@@ -11,6 +11,7 @@ import {
 	runStep,
 	session,
 	user,
+	userModel,
 	userPreference,
 	waitlist,
 } from "./schema";
@@ -139,6 +140,7 @@ export async function exportAccountData(db: Db, userId: string) {
 			chatId: run.chatId,
 			messageId: run.messageId,
 			model: run.model,
+			modelLabel: run.modelLabel,
 			status: run.status,
 			stopReason: run.stopReason,
 			error: run.error,
@@ -184,6 +186,19 @@ export async function exportAccountData(db: Db, userId: string) {
 		.innerJoin(run, eq(run.id, runStep.runId))
 		.where(eq(run.userId, userId));
 
+	const models = await db
+		.select({
+			id: userModel.id,
+			provider: userModel.provider,
+			modelId: userModel.modelId,
+			label: userModel.label,
+			baseUrl: userModel.baseUrl,
+			keyLast4: userModel.keyLast4,
+			createdAt: userModel.createdAt,
+		})
+		.from(userModel)
+		.where(eq(userModel.userId, userId));
+
 	return {
 		exportedAt: new Date().toISOString(),
 		profile,
@@ -198,6 +213,7 @@ export async function exportAccountData(db: Db, userId: string) {
 		messages,
 		runs,
 		runSteps,
+		models,
 	};
 }
 

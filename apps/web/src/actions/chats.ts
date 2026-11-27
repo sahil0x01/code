@@ -73,6 +73,7 @@ const failures = {
 		"This project is disconnected from GitHub. Reconnect it to keep working.",
 	queue_full:
 		"You have too many unfinished runs. Wait for some to finish, then send again.",
+	model_removed: "That model was removed. Pick another one, then send again.",
 } as const;
 
 function failure(

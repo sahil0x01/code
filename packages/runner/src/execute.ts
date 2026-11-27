@@ -12,6 +12,7 @@ import {
 	readProjectRules,
 	reasoningOptions,
 	runAgent,
+	type RunAgentOptions,
 	saveProgress,
 	startBaseMerge,
 	SYSTEM_PROMPT,
@@ -37,6 +38,7 @@ import {
 	type RunVerification,
 	recordStep,
 	releaseRun,
+	type ReasoningLevel,
 	setChangedFiles,
 	setPullRequest,
 	setPullRequestError,
@@ -46,6 +48,7 @@ import {
 	setWorkingBranchIfUnset,
 	touchRun,
 } from "@nullfuse/db";
+import { isOwnModelKey } from "@nullfuse/models/providers";
 import { readText, type Sandbox, SandboxCapacityError, type SandboxDriver } from "@nullfuse/sandbox";
 import { recordingKey } from "@nullfuse/storage";
 import type { LanguageModel } from "ai";
@@ -61,6 +64,8 @@ export type RunnerDeps = {
 	image?: string;
 	/** Turns the model name saved on the run into a model. */
 	createModel(modelKey: string): LanguageModel;
+	/** A model the user added with their own key. Throws when it can no longer be used. */
+	ownModel?(input: { userId: string; modelKey: string; reasoning: ReasoningLevel }): Promise<OwnModel>;
 	/** A token for git over https, limited to this repository. */
 	githubToken(input: { installationId: number; repository: string }): Promise<string>;
 	decryptEnvValue(projectId: string, name: string, stored: string): string;
@@ -89,6 +94,17 @@ export type RunnerDeps = {
 	liveUpdates?: boolean;
 	/** Without it, runs that ask for a recording say it is not set up. */
 	recorder?: Recorder;
+};
+
+export type OwnModel = {
+	model: LanguageModel;
+	settings: Pick<RunAgentOptions, "reasoning" | "providerOptions" | "maxOutputTokens">;
+	/** Hidden from everything the run saves. */
+	apiKey: string;
+	/** Millionths of a dollar, or 0 when the price is not known. */
+	cost(step: AgentStep): number;
+	maxTokens?: number;
+	explain(error: unknown): string;
 };
 
 export type Recorder = {
@@ -299,10 +315,22 @@ async function perform(
 	// A plan saves nothing, so the chat has no branch yet.
 	if (!planOnly) await setWorkingBranchIfUnset(deps.db, chat.id, branch);
 
+	// A user's own model never falls back to ours: any failure here ends the run.
+	let own: OwnModel | undefined;
+	if (isOwnModelKey(context.run.model)) {
+		if (!deps.ownModel) return failed("Your own models are not set up on this server.");
+		own = await deps.ownModel({
+			userId: context.run.userId,
+			modelKey: context.run.model,
+			reasoning: context.run.reasoning,
+		});
+	}
+
 	const env = Object.fromEntries(
 		context.envVars.map((v) => [v.name, deps.decryptEnvValue(project.id, v.name, v.valueEncrypted)]),
 	);
-	const redact = redactor(Object.values(env));
+	// The key is hidden too, in case a provider repeats it. It never enters the sandbox.
+	const redact = redactor([...Object.values(env), ...(own ? [own.apiKey] : [])]);
 	const clean = (outcome: RunOutcome): RunOutcome => ({
 		...outcome,
 		...(outcome.text !== undefined && { text: redact.text(outcome.text) }),
@@ -321,7 +349,7 @@ async function perform(
 		token,
 	};
 
-	const limits = { ...DEFAULT_LIMITS, ...deps.limits };
+	const limits = { ...DEFAULT_LIMITS, ...deps.limits, ...(own?.maxTokens && { maxTokens: own.maxTokens }) };
 	const before = await getRunProgress(deps.db, runId);
 	if (before.steps >= limits.maxSteps) {
 		return { status: "failed", stopReason: "step-limit", error: "Stopped: reached the step limit." };
@@ -496,11 +524,13 @@ async function perform(
 		let cost = costs.get(step);
 		if (cost === undefined) {
 			const { inputTokens = 0, outputTokens = 0, inputTokenDetails } = step.usage;
-			cost = modelCost(
-				priceModel(step.response?.modelId, context.run.model),
-				{ inputTokens, outputTokens, cachedInputTokens: inputTokenDetails?.cacheReadTokens ?? 0 },
-				new Date(),
-			);
+			cost = own
+				? own.cost(step)
+				: modelCost(
+						priceModel(step.response?.modelId, context.run.model),
+						{ inputTokens, outputTokens, cachedInputTokens: inputTokenDetails?.cacheReadTokens ?? 0 },
+						new Date(),
+					);
 			costs.set(step, cost);
 		}
 		return cost;
@@ -516,8 +546,12 @@ async function perform(
 			await checkDisk();
 			// A merge without conflicts needs no model.
 			agent = merge && merge.state !== "conflicts" ? mergedWithoutModel(context, merge) : await runAgent({
-				model: deps.createModel(context.run.model),
-				providerOptions: reasoningOptions(context.run.reasoning),
+				...(own
+					? { model: own.model, ...own.settings }
+					: {
+							model: deps.createModel(context.run.model),
+							providerOptions: reasoningOptions(context.run.reasoning),
+						}),
 				sandbox,
 				messages: withEarlierWork(context.messages, memory),
 				readOnly: planOnly,
@@ -572,9 +606,11 @@ async function perform(
 	}
 	if (fence.superseded) return failed("This attempt was replaced by a newer one.");
 	await syncFiles();
+	// Our own stops keep their wording; only what the model call threw is the provider's.
+	const explain = (error: unknown) => (own && !diskExceeded ? own.explain(error) : describe(error));
 
 	if (planOnly) {
-		if (agentError !== undefined || !agent) return clean(failed(describe(agentError)));
+		if (agentError !== undefined || !agent) return clean(failed(explain(agentError)));
 		return clean(outcomeFor(agent, limits.maxCost));
 	}
 
@@ -700,7 +736,7 @@ async function perform(
 	}
 
 	if (agentError !== undefined || !agent) {
-		return clean(failed([describe(agentError), saveError].filter(Boolean).join(" ")));
+		return clean(failed([explain(agentError), saveError].filter(Boolean).join(" ")));
 	}
 	const outcome = outcomeFor(agent, limits.maxCost);
 	if (saveError === undefined) return clean(outcome);

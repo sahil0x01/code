@@ -1,6 +1,8 @@
 import "server-only";
 import {
 	decryptEnvValue as decrypt,
+	decryptModelKey as decryptModel,
+	encryptModelKey as encryptModel,
 	encryptEnvValue as encrypt,
 	parseEncryptionKey,
 } from "@nullfuse/secrets";
@@ -14,4 +16,14 @@ export function encryptEnvValue(projectId: string, name: string, value: string) 
 
 export function decryptEnvValue(projectId: string, name: string, stored: string) {
 	return decrypt(key, projectId, name, stored);
+}
+
+type ModelOwner = Parameters<typeof encryptModel>[1];
+
+export function encryptModelKey(model: ModelOwner, apiKey: string) {
+	return encryptModel(key, model, apiKey);
+}
+
+export function decryptModelKey(model: ModelOwner, stored: string) {
+	return decryptModel(key, model, stored);
 }

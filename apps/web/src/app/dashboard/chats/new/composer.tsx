@@ -5,6 +5,7 @@ import { type ChatState, startChat } from "@/actions/chats";
 import {
 	IconButton,
 	ModelPicker,
+	type OwnModelOption,
 	Picker,
 	ReasoningPicker,
 	RunToggles,
@@ -28,11 +29,12 @@ type ProjectOption = {
 type Props = {
 	projects: ProjectOption[];
 	initialProjectId: string;
+	ownModels: OwnModelOption[];
 };
 
 const initialState: ChatState = { status: "idle" };
 
-export function Composer({ projects, initialProjectId }: Props) {
+export function Composer({ projects, initialProjectId, ownModels }: Props) {
 	const [state, formAction, pending] = useActionState(startChat, initialState);
 
 	const [projectId, setProjectId] = useState(initialProjectId);
@@ -130,7 +132,7 @@ export function Composer({ projects, initialProjectId }: Props) {
 						</label>
 					</Tooltip>
 
-					<ModelPicker value={model} onChange={setModel} />
+					<ModelPicker value={model} onChange={setModel} own={ownModels} />
 					<ReasoningPicker value={reasoning} onChange={setReasoning} />
 					<RunToggles canRecord={projects.find((project) => project.id === projectId)?.canRecord ?? false} />
 

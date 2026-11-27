@@ -13,7 +13,7 @@ import { decryptEnvValue, parseEncryptionKey } from "@nullfuse/secrets";
 import { createR2Store, r2ConfigFrom } from "@nullfuse/storage";
 import { loadEnv } from "./env";
 import { createPullRequestOpener, createRecordingLinker, createTokenMinter } from "./github";
-import { deepseekModelId } from "./models";
+import { deepseekModelId, ownModels } from "./models";
 
 // Daytona's list prices, read 2026-11-27: $0.0504 per vCPU hour and $0.0162 per GiB hour,
 // for the plain sandbox (1 vCPU, 1 GiB) and the browser one (2 vCPU, 2 GiB).
@@ -44,6 +44,7 @@ export function getDeps(): Promise<RunnerDeps> {
 		} else {
 			sandbox = { driver: new DockerDriver(), image: await ensureSandboxImage() };
 		}
+		const db = createDb(env.DATABASE_URL);
 		const r2 = r2ConfigFrom(env);
 		const store = r2 && createR2Store(r2);
 		return {
@@ -55,7 +56,8 @@ export function getDeps(): Promise<RunnerDeps> {
 					...(env.APP_URL && { linkPullRequest: createRecordingLinker(mint, env.APP_URL) }),
 				},
 			}),
-			db: createDb(env.DATABASE_URL),
+			db,
+			ownModel: ownModels(db, key, env.ALLOW_PRIVATE_MODEL_URLS),
 			...sandbox,
 			createModel: (modelKey) => {
 				const apiKey = env.DEEPSEEK_API_KEY;

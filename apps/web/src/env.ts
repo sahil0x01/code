@@ -17,6 +17,8 @@ export const env = createEnv({
 				(value) => Buffer.from(value, "base64").length === 32,
 				"Must be 32 bytes, base64 encoded",
 			),
+		// For self-hosting: lets users add a model server on your own network.
+		ALLOW_PRIVATE_MODEL_URLS: z.stringbool().default(false),
 		// Without it, messages are saved and runs stay queued.
 		TRIGGER_SECRET_KEY: z.string().min(1).optional(),
 		// Screen recordings can be watched only when all four are set.
@@ -39,6 +41,7 @@ export const env = createEnv({
 		GITHUB_APP_WEBHOOK_SECRET: process.env.GITHUB_APP_WEBHOOK_SECRET,
 		GITHUB_APP_PRIVATE_KEY_BASE64: process.env.GITHUB_APP_PRIVATE_KEY_BASE64,
 		ENV_ENCRYPTION_KEY: process.env.ENV_ENCRYPTION_KEY,
+		ALLOW_PRIVATE_MODEL_URLS: process.env.ALLOW_PRIVATE_MODEL_URLS,
 		TRIGGER_SECRET_KEY: process.env.TRIGGER_SECRET_KEY,
 		R2_ACCOUNT_ID: process.env.R2_ACCOUNT_ID,
 		R2_BUCKET: process.env.R2_BUCKET,

@@ -1,7 +1,8 @@
+import { isOwnModelKey, parseOwnModelKey } from "@nullfuse/models/providers";
 import { and, asc, count, desc, eq, inArray, sql } from "drizzle-orm";
 import type { Db } from "./index";
 import { chatState, chatUnread } from "./inbox";
-import { chat, message, project, run, type ReasoningLevel } from "./schema";
+import { chat, message, project, run, type ReasoningLevel, userModel } from "./schema";
 
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
@@ -11,7 +12,7 @@ export const MAX_UNFINISHED_RUNS_PER_USER = 10;
 
 export type SendResult =
 	| { ok: true; chatId: string; messageId: string; runId: string }
-	| { ok: false; reason: "not_found" | "disconnected" | "queue_full" };
+	| { ok: false; reason: "not_found" | "disconnected" | "queue_full" | "model_removed" };
 
 function one<T>(rows: T[]): T {
 	const row = rows[0];
@@ -36,6 +37,18 @@ async function countUnfinishedRuns(tx: Tx, userId: string) {
 	return row?.n ?? 0;
 }
 
+// A user's own model must still be theirs; the run keeps its name for later.
+async function modelFor(tx: Tx, userId: string, model: string) {
+	if (!isOwnModelKey(model)) return { label: null };
+	const id = parseOwnModelKey(model);
+	if (!id) return null;
+	const [found] = await tx
+		.select({ label: userModel.label })
+		.from(userModel)
+		.where(and(eq(userModel.id, id), eq(userModel.userId, userId)));
+	return found ?? null;
+}
+
 async function enqueue(
 	tx: Tx,
 	input: {
@@ -48,6 +61,7 @@ async function enqueue(
 		updateBase?: boolean;
 		planOnly?: boolean;
 		reasoning?: ReasoningLevel;
+		modelLabel: string | null;
 	},
 ) {
 	const msg = one(
@@ -64,6 +78,7 @@ async function enqueue(
 				messageId: msg.id,
 				userId: input.userId,
 				model: input.model,
+				modelLabel: input.modelLabel,
 				verify: input.verify ?? false,
 				record: input.record ?? false,
 				updateBase: input.updateBase ?? false,
@@ -107,6 +122,8 @@ export function createChat(
 		) {
 			return { ok: false, reason: "queue_full" };
 		}
+		const picked = await modelFor(tx, input.userId, input.model);
+		if (!picked) return { ok: false, reason: "model_removed" };
 
 		const created = one(
 			await tx
@@ -120,7 +137,7 @@ export function createChat(
 				})
 				.returning({ id: chat.id }),
 		);
-		const ids = await enqueue(tx, { ...input, chatId: created.id });
+		const ids = await enqueue(tx, { ...input, chatId: created.id, modelLabel: picked.label });
 		return { ok: true, chatId: created.id, ...ids };
 	});
 }
@@ -156,8 +173,10 @@ export function addMessage(
 		) {
 			return { ok: false, reason: "queue_full" };
 		}
+		const picked = await modelFor(tx, input.userId, input.model);
+		if (!picked) return { ok: false, reason: "model_removed" };
 
-		const ids = await enqueue(tx, input);
+		const ids = await enqueue(tx, { ...input, modelLabel: picked.label });
 		await tx
 			.update(chat)
 			.set({ updatedAt: new Date() })
@@ -252,6 +271,7 @@ export function listRuns(db: Db, userId: string, chatId: string) {
 			id: run.id,
 			messageId: run.messageId,
 			model: run.model,
+			modelLabel: run.modelLabel,
 			reasoning: run.reasoning,
 			cachedInputTokens: run.cachedInputTokens,
 			reasoningTokens: run.reasoningTokens,
