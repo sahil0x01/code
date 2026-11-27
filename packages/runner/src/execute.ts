@@ -69,6 +69,8 @@ export type RunnerDeps = {
 	db: Db;
 	driver: SandboxDriver;
 	image?: string;
+	/** The only domains a sandbox may reach. Everything when left out. */
+	allowedDomains?: string[];
 	/** Turns the model name saved on the run into a model. */
 	createModel(modelKey: string): LanguageModel;
 	/** A model the user added with their own key. Throws when it can no longer be used. */
@@ -206,6 +208,7 @@ function instructionsFor(
 	merge: BaseMerge | undefined,
 	skills: string | null,
 	answering: boolean,
+	restricted: boolean,
 ) {
 	const lines = [
 		SYSTEM_PROMPT,
@@ -214,6 +217,11 @@ function instructionsFor(
 	];
 	if (context.project.testCommand) lines.push(`To run the tests: ${context.project.testCommand}`);
 	if (setup) lines.push(setup);
+	if (restricted) {
+		lines.push(
+			"Network access is limited to code hosts and package registries. If a request is blocked, do not look for a way around it; say in your summary what could not be reached.",
+		);
+	}
 	if (browserProblem) {
 		lines.push(
 			`The browser check is not available in this run (${browserProblem}). Say in your summary that the app was not checked in a browser, and why.`,
@@ -422,7 +430,7 @@ async function perform(
 	}
 	const recorder = browser ? deps.recorder : undefined;
 
-	const sandbox = await deps.driver.create({ image });
+	const sandbox = await deps.driver.create({ image, allowedDomains: deps.allowedDomains });
 	track(sandbox, deps.sandboxHourlyCost?.[browser ? "browser" : "plain"] ?? 0);
 	await clearRunWaiting(deps.db, runId, attempt);
 	const workspace = await prepareWorkspace(sandbox, spec);
@@ -695,6 +703,7 @@ async function perform(
 					merge,
 					skillInstructions(skills),
 					readOnly && !planOnly,
+					deps.allowedDomains !== undefined,
 				),
 				baseSha: reviewBase ?? workspace.headSha,
 				guidance: rules.map((rule) => `<${rule.file}>\n${rule.text}\n</${rule.file}>`).join("\n") || undefined,

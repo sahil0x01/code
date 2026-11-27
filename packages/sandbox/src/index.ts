@@ -17,6 +17,7 @@ export {
 	ensureDaytonaRecordingSnapshot,
 	ensureDaytonaSnapshot,
 } from "./daytona";
+export * from "./network";
 export * from "./types";
 
 export async function readText(sandbox: Sandbox, path: string) {

@@ -40,6 +40,7 @@ export type DaytonaClient = {
 		snapshot: string;
 		resources?: { cpu?: number; memory?: number };
 		networkBlockAll?: boolean;
+		domainAllowList?: string;
 		labels?: Record<string, string>;
 		autoDeleteInterval?: number;
 	}): Promise<DaytonaBox>;
@@ -195,7 +196,10 @@ export class DaytonaDriver implements SandboxDriver {
 						...(options.memoryMb && { memory: Math.max(1, Math.ceil(options.memoryMb / 1024)) }),
 					},
 				}),
-				...(options.network === "none" && { networkBlockAll: true }),
+				// Daytona allows only one of the two.
+				...(options.network === "none"
+					? { networkBlockAll: true }
+					: options.allowedDomains && { domainAllowList: options.allowedDomains.join(",") }),
 				labels: { app: "nullfuse" },
 				// Removed as soon as it stops, so a crashed worker cannot leave one running up cost.
 				autoDeleteInterval: 0,

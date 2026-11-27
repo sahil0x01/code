@@ -27,6 +27,8 @@ export type CreateSandboxOptions = {
 	cpus?: number;
 	pidsLimit?: number;
 	network?: "default" | "none";
+	/** Only these domains can be reached ("*.example.com" includes subdomains). All when left out. */
+	allowedDomains?: string[];
 };
 
 export interface Sandbox {

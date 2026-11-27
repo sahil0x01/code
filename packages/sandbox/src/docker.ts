@@ -20,6 +20,8 @@ const DEFAULT_WORKDIR = "/workspace";
 // Numeric, so it works with images that have no passwd entry for it.
 const SANDBOX_USER = "1000:1000";
 const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const PROXY_HOST = "nf-egress";
+const PROXY_PORT = 3128;
 
 type RunOptions = {
 	input?: string | Uint8Array;
@@ -117,6 +119,7 @@ export async function dockerAvailable() {
 	}
 }
 
+/** Removes the sandboxes. The shared network proxies stay for the next ones. */
 export async function destroyAllDockerSandboxes() {
 	const listed = await runDocker(["ps", "-aq", "--filter", `label=${LABEL}=1`]);
 	const ids = listed.stdout.toString().split("\n").filter(Boolean);
@@ -167,6 +170,75 @@ export function ensureSandboxImage() {
 
 export function ensureRecordingImage() {
 	return ensureImage(recordingImage(), recordingDir());
+}
+
+const proxyScript = () => readFileSync(path.join(imageDir(), "egress", "proxy.mjs"), "utf8");
+
+/**
+ * A network with no route out, and a proxy on it that also has one. Sandboxes with the same
+ * rules share both. Returns the network's name. Safe to call from several runs at once.
+ */
+async function ensureEgress(domains: string[]) {
+	const script = proxyScript();
+	const allow = [...new Set(domains)].sort().join(",");
+	const name = `${PROXY_HOST}-${createHash("sha256").update(script).update(allow).digest("hex").slice(0, 12)}`;
+
+	// Another run may create either one first; what exists afterwards is what counts.
+	await runDocker(["network", "create", "--internal", "--label", `${LABEL}.egress=1`, name]);
+	const started = await runDocker(
+		[
+			"run",
+			"-d",
+			"--name",
+			name,
+			"--label",
+			`${LABEL}.egress=1`,
+			"--restart",
+			"unless-stopped",
+			"--memory",
+			"128m",
+			"--cap-drop",
+			"ALL",
+			"--security-opt",
+			"no-new-privileges",
+			"--read-only",
+			"--user",
+			SANDBOX_USER,
+			"--env",
+			`EGRESS_ALLOW=${allow}`,
+			DEFAULT_IMAGE,
+			"node",
+			"--input-type=module",
+			"-e",
+			script,
+		],
+		{ timeoutMs: 5 * 60_000 },
+	);
+	await runDocker(["network", "connect", "--alias", PROXY_HOST, name, name]);
+	await runDocker(["start", name]);
+
+	const probe = `require("net").connect(${PROXY_PORT},"${PROXY_HOST}").on("connect",()=>process.exit(0)).on("error",()=>process.exit(1))`;
+	for (let attempt = 0; attempt < 50; attempt++) {
+		const ready = await runDocker(["exec", name, "node", "-e", probe], { timeoutMs: 10_000 });
+		if (ready.exitCode === 0) return name;
+		await new Promise((resolve) => setTimeout(resolve, 200));
+	}
+	throw failure("Starting the sandbox network proxy", started);
+}
+
+function proxyEnv() {
+	const proxy = `http://${PROXY_HOST}:${PROXY_PORT}`;
+	const local = "localhost,127.0.0.1,::1,0.0.0.0";
+	return {
+		HTTP_PROXY: proxy,
+		HTTPS_PROXY: proxy,
+		http_proxy: proxy,
+		https_proxy: proxy,
+		NO_PROXY: local,
+		no_proxy: local,
+		// Node ignores the proxy variables without this.
+		NODE_USE_ENV_PROXY: "1",
+	};
 }
 
 function failure(action: string, result: RunResult) {
@@ -309,7 +381,12 @@ export class DockerDriver implements SandboxDriver {
 			"--workdir",
 			workdir,
 		];
-		if (options.network === "none") args.push("--network", "none");
+		if (options.network === "none") {
+			args.push("--network", "none");
+		} else if (options.allowedDomains) {
+			args.push("--network", await ensureEgress(options.allowedDomains));
+			for (const [name, value] of Object.entries(proxyEnv())) args.push("--env", `${name}=${value}`);
+		}
 		args.push(options.image ?? DEFAULT_IMAGE, "tail", "-f", "/dev/null");
 
 		const started = await runDocker(args, { timeoutMs: 120_000 });

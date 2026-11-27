@@ -212,3 +212,27 @@ describe("isBuildingMessage", () => {
 		expect(isBuildingMessage("Snapshot x was not found")).toBe(false);
 	});
 });
+
+describe("DaytonaDriver network rules", () => {
+	const params = async (options: Parameters<DaytonaDriver["create"]>[0]) => {
+		let seen: Parameters<DaytonaClient["create"]>[0] | undefined;
+		const client: DaytonaClient = {
+			create: async (value) => {
+				seen = value;
+				throw new Error("stop here");
+			},
+		};
+		await new DaytonaDriver({ client, snapshot: "s" }).create(options).catch(() => {});
+		return seen;
+	};
+
+	it("sends the allowed domains, or blocks everything, never both", async () => {
+		expect(await params({ allowedDomains: ["a.com", "*.b.com"] })).toMatchObject({
+			domainAllowList: "a.com,*.b.com",
+		});
+		const blocked = await params({ network: "none", allowedDomains: ["a.com"] });
+		expect(blocked).toMatchObject({ networkBlockAll: true });
+		expect(blocked).not.toHaveProperty("domainAllowList");
+		expect(await params({})).not.toHaveProperty("domainAllowList");
+	});
+});
