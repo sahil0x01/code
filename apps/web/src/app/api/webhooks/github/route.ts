@@ -1,3 +1,7 @@
+import { parseGitHubComment, parseGitHubIssue } from "@nullfuse/connectors";
+import { after } from "next/server";
+import { env } from "@/env";
+import { handleMention } from "@/server/github-mentions";
 import {
 	handleInstallation,
 	handleInstallationRepositories,
@@ -30,6 +34,16 @@ export async function POST(request: Request) {
 			case "pull_request":
 				await handlePullRequest(payload);
 				break;
+			case "issue_comment":
+			case "issues": {
+				const parse = event === "issues" ? parseGitHubIssue : parseGitHubComment;
+				const mention = parse(payload, env.GITHUB_APP_SLUG);
+				// GitHub gives up after ten seconds, so the work happens after the answer.
+				if (mention) {
+					after(() => handleMention(mention).catch((error) => console.error("github mention failed", error)));
+				}
+				break;
+			}
 			default:
 				break;
 		}

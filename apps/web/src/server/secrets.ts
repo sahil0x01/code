@@ -1,5 +1,7 @@
 import "server-only";
 import {
+	decryptConnectorToken as decryptConnector,
+	encryptConnectorToken as encryptConnector,
 	decryptEnvValue as decrypt,
 	decryptModelKey as decryptModel,
 	encryptModelKey as encryptModel,
@@ -26,4 +28,14 @@ export function encryptModelKey(model: ModelOwner, apiKey: string) {
 
 export function decryptModelKey(model: ModelOwner, stored: string) {
 	return decryptModel(key, model, stored);
+}
+
+type ConnectorOwner = Parameters<typeof encryptConnector>[1];
+
+export function encryptConnectorToken(link: ConnectorOwner, token: string) {
+	return encryptConnector(key, link, token);
+}
+
+export function decryptConnectorToken(link: ConnectorOwner, stored: string) {
+	return decryptConnector(key, link, stored);
 }

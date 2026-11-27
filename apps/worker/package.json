@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@nullfuse/agent": "workspace:*",
+    "@nullfuse/connectors": "workspace:*",
     "@nullfuse/db": "workspace:*",
     "@nullfuse/models": "workspace:*",
     "@nullfuse/runner": "workspace:*",

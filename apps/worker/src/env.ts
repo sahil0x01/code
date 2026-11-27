@@ -12,6 +12,10 @@ const schema = z.object({
 	SANDBOX_DRIVER: z.enum(["docker", "daytona"]).default("docker"),
 	DAYTONA_API_KEY: z.string().min(1).optional(),
 	DAYTONA_SNAPSHOT: z.string().min(1).default("nullfuse-sandbox"),
+	// "restricted" limits sandboxes to code hosts and package registries. The default for Docker.
+	SANDBOX_NETWORK: z.enum(["open", "restricted"]).optional(),
+	// More domains a restricted sandbox may reach, comma separated.
+	SANDBOX_ALLOW_DOMAINS: z.string().optional(),
 	MAX_RUNNING_PER_USER: z.coerce.number().int().positive().default(5),
 	RUN_MAX_DISK_MB: z.coerce.number().int().positive().default(2048),
 	RUN_MAX_STEPS: z.coerce.number().int().positive().optional(),
@@ -30,7 +34,10 @@ const schema = z.object({
 	R2_SECRET_ACCESS_KEY: z.string().optional(),
 	// For self-hosting: lets users add a model server on your own network.
 	ALLOW_PRIVATE_MODEL_URLS: z.stringbool().default(false),
-	// Where the web app lives, to link recordings from pull requests.
+	// To answer tasks sent from these tools. Slack and GitHub need nothing here.
+	DISCORD_BOT_TOKEN: z.string().min(1).optional(),
+	TELEGRAM_BOT_TOKEN: z.string().min(1).optional(),
+	// Where the web app lives, to link to it from pull requests and replies.
 	APP_URL: z.url().optional(),
 });
 

@@ -1,6 +1,7 @@
 import { idempotencyKeys, logger, schedules, tasks } from "@trigger.dev/sdk";
 import { getDeps } from "../deps";
 import { loadEnv } from "../env";
+import { reportToConnectors } from "../report";
 import { type Enqueue, sweepRuns } from "../sweep";
 
 const BUCKET_MS = 5 * 60_000;
@@ -32,6 +33,8 @@ export const sweepRunsTask = schedules.task({
 			stalledQueuedMs: 2 * 60_000,
 		});
 		if (result.swept.length > 0 || result.retriggered > 0) logger.warn("Run sweep", result);
+		// Covers replies that failed, and runs that ended without their task, such as a cancel.
+		await reportToConnectors();
 		return { swept: result.swept.length, retriggered: result.retriggered };
 	},
 });

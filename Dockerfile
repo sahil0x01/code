@@ -16,6 +16,7 @@ COPY packages/sandbox/package.json packages/sandbox/
 COPY packages/agent/package.json packages/agent/
 COPY packages/secrets/package.json packages/secrets/
 COPY packages/storage/package.json packages/storage/
+COPY packages/connectors/package.json packages/connectors/
 COPY packages/runner/package.json packages/runner/
 COPY apps/worker/package.json apps/worker/
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
@@ -28,6 +29,7 @@ COPY packages/agent packages/agent
 COPY packages/models packages/models
 COPY packages/secrets packages/secrets
 COPY packages/storage packages/storage
+COPY packages/connectors packages/connectors
 ARG NEXT_PUBLIC_APP_URL
 RUN test -n "$NEXT_PUBLIC_APP_URL" || (echo "NEXT_PUBLIC_APP_URL build arg is required" && exit 1)
 ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL \

@@ -54,3 +54,17 @@ export function encryptModelKey(key: Buffer, model: ModelOwner, apiKey: string) 
 export function decryptModelKey(key: Buffer, model: ModelOwner, stored: string) {
 	return decryptSecret(key, stored, modelContext(model));
 }
+
+// Bound to the account the token was issued for, so it cannot be moved to another link.
+const connectorContext = (link: { userId: string; provider: string; workspaceId: string }) =>
+	`connector:${link.userId}:${link.provider}:${link.workspaceId}`;
+
+type ConnectorOwner = Parameters<typeof connectorContext>[0];
+
+export function encryptConnectorToken(key: Buffer, link: ConnectorOwner, token: string) {
+	return encryptSecret(key, token, connectorContext(link));
+}
+
+export function decryptConnectorToken(key: Buffer, link: ConnectorOwner, stored: string) {
+	return decryptSecret(key, stored, connectorContext(link));
+}

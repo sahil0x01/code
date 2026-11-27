@@ -3,19 +3,25 @@ import { buttonClass } from "@/components/ui/styles";
 import { requireSession } from "@/server/session";
 import { DeleteAccount } from "./delete-account";
 import { SettingsSection } from "./section";
-import { getPreferences, listUserModels } from "@nullfuse/db";
+import { getPreferences, listConnections, listProjects, listUserModels } from "@nullfuse/db";
 import { PROVIDERS, suggestModels } from "@nullfuse/models";
 import { ModelsSection } from "./models-section";
 import { db } from "@/server/db";
+import { env } from "@/env";
+import { discordConfig, slackConfig, telegramConfig } from "@/server/connectors";
 import { SettingsForm } from "./settings-form";
+import { ConnectionsSection } from "./connections-section";
 
 export const metadata = { title: "Settings" };
 
-export default async function SettingsPage() {
+export default async function SettingsPage({ searchParams }: PageProps<"/dashboard/settings">) {
 	const { user } = await requireSession();
-	const [prefs, models, ...lists] = await Promise.all([
+	const { connect } = await searchParams;
+	const [prefs, models, connections, projects, ...lists] = await Promise.all([
 		getPreferences(db, user.id),
 		listUserModels(db, user.id),
+		listConnections(db, user.id),
+		listProjects(db, user.id),
 		...PROVIDERS.map(async ({ id }) => [id, await suggestModels(id)] as const),
 	]);
 
@@ -36,6 +42,23 @@ export default async function SettingsPage() {
 			<ModelsSection
 				models={models.map(({ price, ...model }) => ({ ...model, hasPrice: price !== null }))}
 				suggestions={Object.fromEntries(lists)}
+			/>
+
+			<ConnectionsSection
+				links={connections.flatMap(({ id, provider, workspaceName, projectId }) =>
+					// GitHub links are made by commenting, and follow the repository.
+					provider === "github" ? [] : [{ id, provider, name: workspaceName, projectId }],
+				)}
+				projects={projects
+					.filter((project) => project.installationId !== null)
+					.map(({ id, fullName }) => ({ id, fullName }))}
+				available={{
+					slack: slackConfig() !== null,
+					discord: discordConfig() !== null,
+					telegram: telegramConfig() !== null,
+				}}
+				githubHandle={env.GITHUB_APP_SLUG}
+				result={connect === "connected" || connect === "failed" ? connect : null}
 			/>
 
 			<SettingsSection

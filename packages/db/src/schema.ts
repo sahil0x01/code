@@ -1,16 +1,17 @@
 import { sql } from "drizzle-orm";
 import {
-	type AnyPgColumn,
 	bigint,
 	boolean,
 	check,
+	date,
 	index,
 	integer,
 	jsonb,
 	pgTable,
-	date,
+	primaryKey,
 	text,
 	timestamp,
+	type AnyPgColumn,
 	unique,
 	uniqueIndex,
 	uuid,
@@ -260,6 +261,65 @@ export const chat = pgTable(
 	},
 	(t) => [index("chat_project_updated_idx").on(t.projectId, t.updatedAt)],
 );
+
+export type ConnectorProvider = "slack" | "discord" | "telegram" | "github";
+
+/** An outside account linked to a user, and the project its tasks go to. */
+export const connection = pgTable(
+	"connection",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		provider: text("provider").$type<ConnectorProvider>().notNull(),
+		workspaceId: text("workspace_id").notNull(),
+		workspaceName: text("workspace_name").notNull(),
+		externalUserId: text("external_user_id").notNull(),
+		projectId: uuid("project_id").references(() => project.id, { onDelete: "set null" }),
+		// The token used to send results back, for tools that issue one per workspace.
+		tokenEncrypted: text("token_encrypted"),
+		createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+		updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+	},
+	(t) => [
+		unique("connection_identity_unique").on(t.provider, t.workspaceId, t.externalUserId),
+		index("connection_user_idx").on(t.userId),
+	],
+);
+
+/** A task sent from an outside tool: stops it being started twice, and tracks the reply. */
+export const connectorRequest = pgTable(
+	"connector_request",
+	{
+		connectionId: uuid("connection_id")
+			.notNull()
+			.references(() => connection.id, { onDelete: "cascade" }),
+		// The outside tool's own ID for the request.
+		externalId: text("external_id").notNull(),
+		runId: uuid("run_id").references((): AnyPgColumn => run.id, { onDelete: "cascade" }),
+		// Where the reply goes when it is not the person themselves, such as an issue number.
+		target: text("target"),
+		claimedAt: timestamp("claimed_at", { withTimezone: true }),
+		reportedAt: timestamp("reported_at", { withTimezone: true }),
+		attempts: integer("attempts").notNull().default(0),
+		createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+	},
+	(t) => [
+		primaryKey({ columns: [t.connectionId, t.externalId] }),
+		index("connector_request_run_idx").on(t.runId),
+	],
+);
+
+/** A one-time code that links a chat account to the user who made it. Only its hash is kept. */
+export const connectorLinkCode = pgTable("connector_link_code", {
+	codeHash: text("code_hash").primaryKey(),
+	userId: text("user_id")
+		.notNull()
+		.references(() => user.id, { onDelete: "cascade" }),
+	provider: text("provider").$type<ConnectorProvider>().notNull(),
+	expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+});
 
 export const message = pgTable(
 	"message",

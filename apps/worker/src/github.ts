@@ -20,6 +20,28 @@ export function createTokenMinter(options: { appId: string; privateKeyBase64: st
 	};
 }
 
+/** Posts a comment on an issue or pull request, with a token that can do only that. */
+export function createCommenter(options: { appId: string; privateKeyBase64: string }, fetcher: typeof fetch = fetch) {
+	const auth = createAppAuth({
+		appId: options.appId,
+		privateKey: Buffer.from(options.privateKeyBase64, "base64").toString("utf8"),
+	});
+	return async (input: { installationId: number; repository: string; number: number; body: string }) => {
+		const { token } = await auth({
+			type: "installation",
+			installationId: input.installationId,
+			repositoryNames: [input.repository.split("/")[1] ?? ""],
+			permissions: { issues: "write", pull_requests: "write" },
+		});
+		await call(
+			token,
+			`/repos/${input.repository}/issues/${input.number}/comments`,
+			{ method: "POST", body: { body: input.body } },
+			fetcher,
+		);
+	};
+}
+
 const API = "https://api.github.com";
 
 type Mint = ReturnType<typeof createTokenMinter>;

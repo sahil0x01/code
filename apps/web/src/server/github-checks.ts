@@ -40,3 +40,17 @@ export async function checkRepo(
 	}
 	return "ok";
 }
+
+/** Whether this person can push to the repository right now. */
+export async function canWrite(installationId: number, fullName: string, username: string) {
+	const [owner = "", repo = ""] = fullName.split("/");
+	const octokit = await getInstallationOctokit(installationId);
+	try {
+		const { data } = await octokit.rest.repos.getCollaboratorPermissionLevel({ owner, repo, username });
+		// GitHub reports "maintain" as write and "triage" as read.
+		return data.permission === "admin" || data.permission === "write";
+	} catch (error) {
+		if (isStatus(error, 403, 404)) return false;
+		throw error;
+	}
+}

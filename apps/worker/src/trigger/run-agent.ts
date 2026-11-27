@@ -3,6 +3,7 @@ import { executeRun } from "@nullfuse/runner";
 import { logger, task, wait } from "@trigger.dev/sdk";
 import { getDeps } from "../deps";
 import { loadEnv } from "../env";
+import { reportToConnectors } from "../report";
 import { RETRY_SECONDS, runWhenThereIsRoom, waitForDeadAttempt } from "../wait";
 
 export const runAgentTask = task({
@@ -47,6 +48,7 @@ export const runAgentTask = task({
 		}
 
 		logger.info("Run finished", { runId: payload.runId, status: result.status, stopReason: result.stopReason });
+		await reportToConnectors(payload.runId);
 		return { claimed: true, status: result.status, stopReason: result.stopReason };
 	},
 });

@@ -3,6 +3,7 @@ import type { Db } from "./index";
 import {
 	account,
 	chat,
+	connection,
 	installation,
 	message,
 	project,
@@ -198,6 +199,18 @@ export async function exportAccountData(db: Db, userId: string) {
 		.from(userModel)
 		.where(eq(userModel.userId, userId));
 
+	const connections = await db
+		.select({
+			provider: connection.provider,
+			workspaceId: connection.workspaceId,
+			workspaceName: connection.workspaceName,
+			externalUserId: connection.externalUserId,
+			projectId: connection.projectId,
+			createdAt: connection.createdAt,
+		})
+		.from(connection)
+		.where(eq(connection.userId, userId));
+
 	return {
 		exportedAt: new Date().toISOString(),
 		profile,
@@ -213,6 +226,7 @@ export async function exportAccountData(db: Db, userId: string) {
 		runs,
 		runSteps,
 		models,
+		connections,
 	};
 }
 
