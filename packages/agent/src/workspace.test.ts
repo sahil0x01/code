@@ -24,7 +24,7 @@ import {
 } from "./workspace";
 import { type GitRemote, startGitRemote } from "./testing";
 
-const author = { name: "NullFuse Code", email: "code@example.test" };
+const author = { name: "Prefill Code", email: "code@example.test" };
 
 // Skipped locally without Docker; a failure in CI so they cannot silently stop.
 const hasDocker = await dockerAvailable();
@@ -212,7 +212,7 @@ describe.skipIf(!hasDocker)("workspace in a real sandbox", () => {
 		expect((await box.exec("git branch --show-current")).stdout.trim()).toBe(spec.workingBranch);
 		expect(await readText(box, "src/a.ts")).toBe("export const a = 1;\n");
 		expect((await box.exec("git config user.name && git config user.email")).stdout).toBe(
-			"NullFuse Code\ncode@example.test\n",
+			"Prefill Code\ncode@example.test\n",
 		);
 	});
 
@@ -233,7 +233,7 @@ describe.skipIf(!hasDocker)("workspace in a real sandbox", () => {
 		expect((await onRemote(`ls-tree --name-only ${spec.workingBranch}`)).stdout).not.toContain("README.md");
 		expect((await onRemote("log --format=%s main")).stdout).toBe("initial\n");
 		expect((await onRemote(`log -1 --format=%an,%ae ${spec.workingBranch}`)).stdout.trim()).toBe(
-			"NullFuse Code,code@example.test",
+			"Prefill Code,code@example.test",
 		);
 	});
 

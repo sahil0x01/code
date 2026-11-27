@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-NullFuse Code is in early development and has no stable release yet. Security
+Prefill Code is in early development and has no stable release yet. Security
 fixes go to the `main` branch.
 
 ## Reporting a vulnerability
@@ -20,4 +20,4 @@ We will credit you in the fix unless you prefer to stay anonymous.
 ## Scope
 
 This policy covers the code in this repository. For the hosted service at
-code.nullfuse.com, report issues the same way.
+code.prefill.here, report issues the same way.

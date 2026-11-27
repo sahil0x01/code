@@ -16,9 +16,9 @@ export function Footer() {
 						aria-hidden="true"
 						className="pixel-flat dither size-3 bg-background"
 					/>
-					code by nullfuse
+					code by prefill
 				</span>
-				<span>&copy; {site.year} NullFuse</span>
+				<span>&copy; {site.year} Prefill</span>
 
 				<div className="flex-1" />
 

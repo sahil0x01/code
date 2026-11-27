@@ -40,7 +40,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { executeRun, type PullRequestInput, type RunnerDeps } from "./execute";
 
 const run = promisify(execFile);
-const author = { name: "NullFuse Code", email: "code@example.test" };
+const author = { name: "Prefill Code", email: "code@example.test" };
 const key = randomBytes(32);
 
 const hasDocker = await dockerAvailable();

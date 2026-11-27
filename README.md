@@ -1,10 +1,10 @@
-# NullFuse Code
+# Prefill Code
 
 An open-source cloud coding agent. Give it a task on one of your GitHub
 repositories, and it works in an isolated sandbox and opens a pull request for
 you to review.
 
-Hosted at [code.nullfuse.com](https://code.nullfuse.com) (coming soon).
+Hosted at [code.prefill.here](https://code.prefill.here) (coming soon).
 
 > **Status:** early development. Not ready to use yet.
 

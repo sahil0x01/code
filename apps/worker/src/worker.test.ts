@@ -21,8 +21,8 @@ describe("loadEnv", () => {
 	it("accepts a complete environment and fills in the commit author", () => {
 		expect(loadEnv(valid)).toMatchObject({
 			GITHUB_APP_ID: "123",
-			RUN_AUTHOR_NAME: "NullFuse Code",
-			RUN_AUTHOR_EMAIL: "code@nullfuse.invalid",
+			RUN_AUTHOR_NAME: "Prefill Code",
+			RUN_AUTHOR_EMAIL: "code@prefill.invalid",
 		});
 	});
 

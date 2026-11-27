@@ -229,7 +229,7 @@ function pullRequestTitle(context: RunContext) {
 	const first = context.messages.find((m) => m.role === "user")?.content ?? "";
 	const line = (first.trim().split("\n")[0] ?? "").trim();
 	const title = line.length > 72 ? `${line.slice(0, 69)}...` : line;
-	return title || "Changes from Code by NullFuse";
+	return title || "Changes from Code by Prefill";
 }
 
 function pullRequestBody(
@@ -251,7 +251,7 @@ function pullRequestBody(
 		const how = verification.timedOut ? "timed out" : `exit code ${verification.exitCode}`;
 		parts.push(`### Tests\n${passed ? "Passed" : "Failed"} (\`${verification.command}\`, ${how}).`);
 	}
-	parts.push("---\nOpened by Code by NullFuse. Review the changes before merging.");
+	parts.push("---\nOpened by Code by Prefill. Review the changes before merging.");
 	return parts.join("\n\n");
 }
 

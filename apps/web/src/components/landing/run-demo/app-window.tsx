@@ -28,7 +28,7 @@ export function AppWindow({
 					<span className="pixel-flat size-2.5 bg-surface-2" />
 				</span>
 				<span className="pixel-inset min-w-0 flex-1 truncate bg-background px-3 py-1 font-mono text-xs text-muted">
-					code.nullfuse.com{url}
+					code.prefill.here{url}
 				</span>
 			</div>
 

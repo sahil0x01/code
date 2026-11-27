@@ -9,20 +9,20 @@ export default function TermsPage() {
 	return (
 		<LegalPage title="Terms of Service" updated="22 November 2026">
 			<p>
-				These terms cover your use of NullFuse Code, including this website, the
+				These terms cover your use of Prefill Code, including this website, the
 				waitlist, and the early access service. They are written to be read. If
 				something is unclear, write to us.
 			</p>
 
 			<h2>Who we are</h2>
 			<p>
-				NullFuse Code is run by {site.legalName}, an individual based in India.
+				Prefill Code is run by {site.legalName}, an individual based in India.
 				You can reach us at {site.contactEmail}.
 			</p>
 
 			<h2>What this is</h2>
 			<p>
-				NullFuse Code is a coding agent that is still in development. Early
+				Prefill Code is a coding agent that is still in development. Early
 				access is offered as is. It can change, break, or be paused. We will
 				tell you before anything that affects your data.
 			</p>
@@ -95,7 +95,7 @@ export default function TermsPage() {
 
 			<h2>Open source</h2>
 			<p>
-				The source code of NullFuse Code is released under the AGPL-3.0 license.
+				The source code of Prefill Code is released under the AGPL-3.0 license.
 				These terms cover the hosted service. The license covers the code, and
 				it is what applies if you run your own copy.
 			</p>

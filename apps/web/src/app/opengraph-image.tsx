@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 
-export const alt = "NullFuse Code: give it a task, get a pull request";
+export const alt = "Prefill Code: give it a task, get a pull request";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -51,7 +51,7 @@ export default function OpengraphImage() {
 					color: "#0f0f0f",
 				}}
 			>
-				<span style={{ fontWeight: 700 }}>NullFuse Code</span>
+				<span style={{ fontWeight: 700 }}>Prefill Code</span>
 				<span style={{ color: "#6b6b6b" }}>Open-source cloud coding agent</span>
 			</div>
 		</div>,

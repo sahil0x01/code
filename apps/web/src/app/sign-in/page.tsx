@@ -22,7 +22,7 @@ export default function SignInPage() {
 			<Logo />
 
 			<section className="pixel flex w-full max-w-sm flex-col gap-5 bg-surface p-6">
-				<h1 className="text-xl font-semibold">Sign in to NullFuse Code</h1>
+				<h1 className="text-xl font-semibold">Sign in to Prefill Code</h1>
 				<p className="text-sm text-muted">
 					We use GitHub to sign you in. We read your name, email and avatar. We
 					do not get access to your repositories until you connect them later.

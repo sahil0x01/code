@@ -16,7 +16,7 @@ export async function GET() {
 	return new Response(JSON.stringify(data, null, 2), {
 		headers: {
 			"Content-Type": "application/json",
-			"Content-Disposition": 'attachment; filename="nullfuse-code-data.json"',
+			"Content-Disposition": 'attachment; filename="prefill-code-data.json"',
 			"Cache-Control": "no-store",
 		},
 	});

@@ -105,7 +105,7 @@ describe.skipIf(!hasDocker)("executeRun with a recording", () => {
 			createModel: () => model,
 			githubToken: async () => "unused",
 			decryptEnvValue: () => randomBytes(4).toString("hex"),
-			author: { name: "NullFuse Code", email: "code@example.test" },
+			author: { name: "Prefill Code", email: "code@example.test" },
 			repoUrl: () => remote.url,
 			browserImage: ensureRecordingImage,
 			recorder,

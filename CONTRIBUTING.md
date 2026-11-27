@@ -1,4 +1,4 @@
-# Contributing to NullFuse Code
+# Contributing to Prefill Code
 
 Thanks for your interest. This project is in early development, so the best
 first step is to open an issue and talk before writing a large change.

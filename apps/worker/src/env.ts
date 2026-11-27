@@ -6,9 +6,9 @@ const schema = z.object({
 	GITHUB_APP_PRIVATE_KEY_BASE64: z.string().min(1),
 	ENV_ENCRYPTION_KEY: z.string().min(1),
 	DEEPSEEK_API_KEY: z.string().min(1),
-	RUN_AUTHOR_NAME: z.string().min(1).default("NullFuse Code"),
+	RUN_AUTHOR_NAME: z.string().min(1).default("Prefill Code"),
 	// .invalid is reserved, so this can never be mistaken for a real address.
-	RUN_AUTHOR_EMAIL: z.string().min(1).default("code@nullfuse.invalid"),
+	RUN_AUTHOR_EMAIL: z.string().min(1).default("code@prefill.invalid"),
 	SANDBOX_DRIVER: z.enum(["docker", "daytona"]).default("docker"),
 	DAYTONA_API_KEY: z.string().min(1).optional(),
 	DAYTONA_SNAPSHOT: z.string().min(1).default("nullfuse-sandbox"),

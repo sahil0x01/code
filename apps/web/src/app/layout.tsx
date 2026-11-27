@@ -17,15 +17,15 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
 	metadataBase: new URL(env.NEXT_PUBLIC_APP_URL),
 	title: {
-		default: "NullFuse Code: an open-source cloud coding agent",
-		template: "%s | NullFuse Code",
+		default: "Prefill Code: an open-source cloud coding agent",
+		template: "%s | Prefill Code",
 	},
 	description: site.description,
 	applicationName: site.name,
 	openGraph: {
 		type: "website",
 		siteName: site.name,
-		title: "NullFuse Code: an open-source cloud coding agent",
+		title: "Prefill Code: an open-source cloud coding agent",
 		description: site.description,
 		url: "/",
 	},

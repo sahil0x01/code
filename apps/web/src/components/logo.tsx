@@ -15,7 +15,7 @@ export function Logo({
 			/>
 			<span className="text-[17px] font-bold tracking-tight">code</span>
 			{tagline && (
-				<span className="font-mono text-xs text-muted">by nullfuse</span>
+				<span className="font-mono text-xs text-muted">by prefill</span>
 			)}
 		</Link>
 	);

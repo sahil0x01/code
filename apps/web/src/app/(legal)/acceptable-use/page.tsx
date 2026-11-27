@@ -9,7 +9,7 @@ export default function AcceptableUsePage() {
 	return (
 		<LegalPage title="Acceptable Use Policy" updated="22 November 2026">
 			<p>
-				NullFuse Code runs code on your behalf in a sandbox. That is powerful,
+				Prefill Code runs code on your behalf in a sandbox. That is powerful,
 				so we need clear rules about what it must not be used for. This policy
 				is part of our <Link href="/terms">Terms of Service</Link>.
 			</p>
@@ -87,7 +87,7 @@ export default function AcceptableUsePage() {
 
 			<h2>Reporting abuse</h2>
 			<p>
-				If you think someone is using NullFuse Code to harm you or others, write
+				If you think someone is using Prefill Code to harm you or others, write
 				to {site.contactEmail} with as much detail as you can.
 			</p>
 

@@ -9,7 +9,7 @@ export default function PrivacyPage() {
 	return (
 		<LegalPage title="Privacy Policy" updated="26 November 2026">
 			<p>
-				This policy explains what NullFuse Code does with your data. It
+				This policy explains what Prefill Code does with your data. It
 				describes what is live today: a website and a waitlist. We keep it short
 				because we collect very little.
 			</p>
