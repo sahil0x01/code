@@ -12,6 +12,8 @@ type Props = Omit<ComponentProps<"textarea">, "value" | "onChange"> & {
 	branch: string;
 	/** Where the list opens, so it stays on screen. */
 	listPlacement: "above" | "below";
+	/** The chat has a pull request, so `/merge` is offered. */
+	canMerge?: boolean;
 };
 
 const none: FileList = { files: [], skills: [], partial: false };
@@ -43,7 +45,8 @@ function useFiles(projectId: string, branch: string, wanted: boolean) {
 }
 
 /** A message textarea that suggests commands after `/` and files after `@`. */
-export function MessageBox({ value, onChange, projectId, branch, listPlacement, onKeyDown, ...textarea }: Props) {
+export function MessageBox(props: Props) {
+	const { value, onChange, projectId, branch, listPlacement, canMerge, onKeyDown, ...textarea } = props;
 	const box = useRef<HTMLTextAreaElement>(null);
 	const listId = useId();
 	const [caret, setCaret] = useState(0);
@@ -56,9 +59,9 @@ export function MessageBox({ value, onChange, projectId, branch, listPlacement, 
 	const options: Suggestion[] = useMemo(() => {
 		if (!token) return [];
 		return token.kind === "command"
-			? suggestCommands(loaded?.list.skills ?? [], token.query)
+			? suggestCommands(loaded?.list.skills ?? [], token.query, canMerge)
 			: suggestFiles(loaded?.list.files ?? [], token.query);
-	}, [token?.kind, token?.query, loaded]); // eslint-disable-line react-hooks/exhaustive-deps
+	}, [token?.kind, token?.query, loaded, canMerge]); // eslint-disable-line react-hooks/exhaustive-deps
 
 	const open = token !== null && dismissed !== token.start;
 	const key = token ? `${token.kind}:${token.query}` : "";

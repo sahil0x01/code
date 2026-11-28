@@ -46,10 +46,14 @@ export function suggestFiles(files: readonly string[], query: string): Suggestio
 		.map(({ path }) => ({ value: `@${path}`, hint: path.endsWith("/") ? "Folder" : "" }));
 }
 
-export function suggestCommands(skills: readonly string[], query: string): Suggestion[] {
+// The app carries this one out itself, so the agent never sees it.
+export const MERGE_COMMAND = "/merge";
+
+export function suggestCommands(skills: readonly string[], query: string, canMerge = false): Suggestion[] {
 	const wanted = query.toLowerCase();
 	const known = new Set(COMMANDS.map((command) => command.name));
 	return [
+		...(canMerge ? [{ value: MERGE_COMMAND, hint: "Merge the pull request, fixing what blocks it first" }] : []),
 		...COMMANDS.map((command) => ({ value: `/${command.name}`, hint: command.hint })),
 		...skills.filter((name) => !known.has(name)).map((name) => ({ value: `/${name}`, hint: "Skill in this repository" })),
 	].filter((entry) => entry.value.slice(1).toLowerCase().startsWith(wanted));

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Disclosure } from "@/components/ui/disclosure";
 import { buttonClass } from "@/components/ui/styles";
-import type { CommentsResponse, PullComment } from "@nullfuse/connectors/pulls/comments";
+import type { CommentsResponse, PullComment } from "@/lib/comments";
 
 type Props = {
 	chatId: string;

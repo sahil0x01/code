@@ -1,5 +1,5 @@
 {
-  "id": "1599d724-7b48-4b7b-92e2-41918f843f6d",
+  "id": "632b4b84-6099-4dbe-8a2b-27af72acb6c0",
   "prevId": "6e2f2c68-5bf4-413c-9edf-2e2522e7617a",
   "version": "7",
   "dialect": "postgresql",
@@ -190,60 +190,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.auto_fix_seen": {
-      "name": "auto_fix_seen",
-      "schema": "",
-      "columns": {
-        "chat_id": {
-          "name": "chat_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "key": {
-          "name": "key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "auto_fix_seen_chat_id_chat_id_fk": {
-          "name": "auto_fix_seen_chat_id_chat_id_fk",
-          "tableFrom": "auto_fix_seen",
-          "tableTo": "chat",
-          "columnsFrom": [
-            "chat_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "auto_fix_seen_chat_id_key_pk": {
-          "name": "auto_fix_seen_chat_id_key_pk",
-          "columns": [
-            "chat_id",
-            "key"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.chat": {
       "name": "chat",
       "schema": "",
@@ -345,20 +291,51 @@
           "primaryKey": false,
           "notNull": false
         },
-        "auto_fix_since": {
-          "name": "auto_fix_since",
+        "merge_since": {
+          "name": "merge_since",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
         },
-        "auto_fix_checked_at": {
-          "name": "auto_fix_checked_at",
+        "merge_sha": {
+          "name": "merge_sha",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "merge_updated_from": {
+          "name": "merge_updated_from",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "merge_fixes": {
+          "name": "merge_fixes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "merge_run_id": {
+          "name": "merge_run_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "merge_fix_head": {
+          "name": "merge_fix_head",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "merge_checked_at": {
+          "name": "merge_checked_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
         },
-        "auto_fix_note": {
-          "name": "auto_fix_note",
+        "merge_note": {
+          "name": "merge_note",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -1548,13 +1525,6 @@
           "type": "jsonb",
           "primaryKey": false,
           "notNull": false
-        },
-        "auto_fix": {
-          "name": "auto_fix",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
         },
         "heartbeat_at": {
           "name": "heartbeat_at",

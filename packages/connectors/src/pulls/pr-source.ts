@@ -181,6 +181,8 @@ export async function loadPull(
 		headSha: ref,
 		baseSha: pull.base.sha,
 		conflicts: pull.mergeable_state === "dirty",
+		behind: pull.mergeable_state === "behind",
+		checking: pull.mergeable === null,
 		status,
 		blocker: status === "open" || status === "draft" ? blockerFor(pull) : null,
 		checks,

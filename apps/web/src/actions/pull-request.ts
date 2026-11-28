@@ -1,15 +1,16 @@
 "use server";
 
-import { addMessage, getChatForUser, listRuns, markAutoFixSeen, setAutoFix, setChatDone } from "@nullfuse/db";
+import { addMessage, cancelMerge, getChatForUser, listRuns, setChatDone } from "@nullfuse/db";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { isModelId } from "@/lib/chat";
-import { listPullComments } from "@nullfuse/connectors/pulls";
-import { commentsMessage } from "@nullfuse/connectors/pulls/comments";
+import { listPullComments } from "@/lib/comment-source";
+import { commentsMessage } from "@/lib/comments";
 import { getInstallationOctokit } from "@/lib/github-app";
 import { failureReport, mergePull } from "@nullfuse/connectors/pulls";
 import { db } from "@/server/db";
 import { enqueueRun } from "@/server/enqueue";
+import { startMergeFor } from "@/server/merge";
 import { requireSession } from "@/server/session";
 
 export type PullActionResult = { ok: true } | { ok: false; message: string };
@@ -44,6 +45,7 @@ export async function mergePullRequest(input: z.input<typeof mergeInput>): Promi
 		await setChatDone(db, user.id, pull.chat.id, true).catch((error) =>
 			console.error("mark chat done failed", error),
 		);
+		await cancelMerge(db, user.id, pull.chat.id).catch((error) => console.error("clear merge failed", error));
 	} catch (error) {
 		console.error("merge pull request failed", error);
 		return failed(retry);
@@ -82,7 +84,6 @@ export async function fixCheck(input: z.input<typeof fixInput>): Promise<PullAct
 			return failed(notSent(sent.reason));
 		}
 		await enqueueRun({ runId: sent.runId, chatId: sent.chatId });
-		await markAutoFixSeen(db, chatId, [`check:${checkRunId}`]);
 	} catch (error) {
 		console.error("fix check failed", error);
 		return failed(retry);
@@ -164,7 +165,6 @@ export async function sendComments(input: z.input<typeof commentsInput>): Promis
 			return failed(notSent(sent.reason));
 		}
 		await enqueueRun({ runId: sent.runId, chatId: sent.chatId });
-		await markAutoFixSeen(db, chatId, chosen.map((comment) => comment.key));
 	} catch (error) {
 		console.error("send comments failed", error);
 		return failed(retry);
@@ -174,18 +174,33 @@ export async function sendComments(input: z.input<typeof commentsInput>): Promis
 	return { ok: true };
 }
 
-const autoFixInput = z.object({ chatId: z.uuid(), on: z.boolean() });
-
-export async function toggleAutoFix(input: z.input<typeof autoFixInput>): Promise<PullActionResult> {
+/** Merges once the commit is ready, fixing conflicts and failed checks on the way. */
+export async function startMerge(input: z.input<typeof mergeInput>): Promise<PullActionResult> {
 	const { user } = await requireSession();
-	const parsed = autoFixInput.safeParse(input);
+	const parsed = mergeInput.safeParse(input);
+	if (!parsed.success) return failed(retry);
+
+	let result: PullActionResult;
+	try {
+		result = await startMergeFor(user.id, parsed.data.chatId, parsed.data.sha);
+	} catch (error) {
+		console.error("start merge failed", error);
+		return failed(retry);
+	}
+
+	revalidatePath("/dashboard", "layout");
+	return result;
+}
+
+export async function stopMerge(input: { chatId: string }): Promise<PullActionResult> {
+	const { user } = await requireSession();
+	const parsed = z.object({ chatId: z.uuid() }).safeParse(input);
 	if (!parsed.success) return failed(retry);
 
 	try {
-		const changed = await setAutoFix(db, user.id, parsed.data.chatId, parsed.data.on);
-		if (!changed) return failed("That pull request was not found.");
+		await cancelMerge(db, user.id, parsed.data.chatId);
 	} catch (error) {
-		console.error("toggle auto-fix failed", error);
+		console.error("cancel merge failed", error);
 		return failed(retry);
 	}
 

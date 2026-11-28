@@ -166,6 +166,7 @@ export default async function ChatPage({
 	const refreshKey = [
 		chat.workingBranch,
 		chat.pullRequestNumber,
+		chat.merging,
 		...runs.map((run) => `${run.status}:${stepsByRun.get(run.id)?.length ?? 0}`),
 	].join("|");
 
@@ -177,7 +178,10 @@ export default async function ChatPage({
 	return (
 		// Covers the area beside the sidebar so each column can scroll by itself.
 		<div className="flex min-h-[70dvh] flex-col bg-background md:fixed md:inset-y-0 md:right-0 md:left-64 md:min-h-0">
-			<AutoRefresh active={unfinished.length > 0} />
+			<AutoRefresh
+				active={unfinished.length > 0 || chat.merging}
+				intervalMs={unfinished.length > 0 ? undefined : 5000}
+			/>
 			{chat.unread && latestResult && (
 				<MarkSeen chatId={chat.id} until={latestResult.toISOString()} />
 			)}
@@ -270,6 +274,7 @@ export default async function ChatPage({
 							chatId={chat.id}
 							projectId={chat.projectId}
 							branch={chat.workingBranch ?? chat.baseBranch}
+							canMerge={hasPull === true}
 							defaultModel={defaultModel}
 							defaultReasoning={defaultReasoning}
 							ownModels={ownModels.map(({ id, label }) => ({ id, label }))}
@@ -289,8 +294,8 @@ export default async function ChatPage({
 						{hasPull && chat.pullRequestNumber !== null && chat.pullRequestUrl && (
 							<PullBar
 								done={chat.state === "done"}
-								autoFix={chat.autoFix}
-								autoFixNote={chat.autoFixNote}
+								merging={chat.merging}
+								mergeNote={chat.mergeNote}
 								key={chat.id}
 								chatId={chat.id}
 								number={chat.pullRequestNumber}

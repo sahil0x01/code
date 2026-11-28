@@ -18,6 +18,10 @@ export type PullStatus = {
 	headSha: string;
 	baseSha: string;
 	conflicts: boolean;
+	/** The base branch has moved on, and a rule requires the branch to include it. */
+	behind: boolean;
+	/** GitHub has not worked out yet whether this can be merged. */
+	checking: boolean;
 	status: "open" | "draft" | "merged" | "closed";
 	/** Why an open PR cannot be merged right now, or null when it can. */
 	blocker: string | null;

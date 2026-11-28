@@ -60,7 +60,6 @@ export async function enqueueMessage(
 		verify?: boolean;
 		updateBase?: boolean;
 		planOnly?: boolean;
-		autoFix?: boolean;
 		reasoning?: ReasoningLevel;
 		modelLabel: string | null;
 		attachments?: NewAttachment[];
@@ -94,7 +93,6 @@ export async function enqueueMessage(
 				verify: input.verify ?? false,
 				updateBase: input.updateBase ?? false,
 				planOnly: input.planOnly ?? false,
-				autoFix: input.autoFix ?? false,
 				reasoning: input.reasoning,
 			})
 			.returning({ id: run.id }),
@@ -191,7 +189,8 @@ export function addMessage(
 		const ids = await enqueueMessage(tx, { ...input, modelLabel: picked.label });
 		await tx
 			.update(chat)
-			.set({ updatedAt: new Date(), autoFixNote: null })
+			// A new instruction means new code, so a waiting merge is called off.
+			.set({ updatedAt: new Date(), mergeSince: null, mergeNote: null })
 			.where(eq(chat.id, input.chatId));
 		return { ok: true, chatId: input.chatId, ...ids };
 	});
@@ -248,8 +247,8 @@ export async function getChatForUser(db: Db, userId: string, chatId: string) {
 			pullRequestNumber: chat.pullRequestNumber,
 			pullRequestUrl: chat.pullRequestUrl,
 			pullRequestError: chat.pullRequestError,
-			autoFix: sql<boolean>`${chat.autoFixSince} is not null`,
-			autoFixNote: chat.autoFixNote,
+			merging: sql<boolean>`${chat.mergeSince} is not null`,
+			mergeNote: chat.mergeNote,
 			projectId: chat.projectId,
 			projectName: project.fullName,
 			installationId: project.installationId,
@@ -294,7 +293,6 @@ export function listRuns(db: Db, userId: string, chatId: string) {
 			changedFiles: run.changedFiles,
 			verify: run.verify,
 			planOnly: run.planOnly,
-			autoFix: run.autoFix,
 			recording: run.recording,
 			verification: run.verification,
 			stopRequestedAt: run.stopRequestedAt,

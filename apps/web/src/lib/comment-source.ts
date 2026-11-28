@@ -1,17 +1,10 @@
 import type { PullComment } from "./comments";
 import { visibleText } from "./visible-text";
-import { splitRepo } from "./pr-source";
+import { splitRepo } from "@nullfuse/connectors/pulls";
 
 type Repo = { owner: string; repo: string };
 type Author = { login: string; type: string } | null;
-type Found = {
-	id: number;
-	body?: string | null;
-	user: Author;
-	html_url: string;
-	created_at?: string;
-	state?: string;
-};
+type Found = { id: number; body?: string | null; user: Author; html_url: string };
 
 export type CommentClient = {
 	pulls: {
@@ -54,8 +47,6 @@ export async function listPullComments(
 						where,
 						url: found.html_url,
 						updatedAt,
-						createdAt: found.created_at ?? updatedAt,
-						approval: found.state === "APPROVED",
 					},
 				];
 

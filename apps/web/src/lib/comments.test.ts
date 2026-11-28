@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { type CommentClient, listPullComments } from "@nullfuse/connectors/pulls";
-import { commentsMessage } from "@nullfuse/connectors/pulls/comments";
+import { type CommentClient, listPullComments } from "./comment-source";
+import { commentsMessage } from "./comments";
 
 const person = { login: "sam", type: "User" };
 const found = (id: number, body: string, user = person) => ({

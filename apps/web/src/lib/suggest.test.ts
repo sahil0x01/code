@@ -4,6 +4,13 @@ import { activeToken, applySuggestion, suggestCommands, suggestFiles } from "./s
 
 const at = (text: string) => activeToken(text, text.length);
 
+describe("suggestCommands", () => {
+	it("offers /merge only when there is a pull request", () => {
+		expect(suggestCommands([], "mer", true).map((entry) => entry.value)).toEqual(["/merge"]);
+		expect(suggestCommands([], "mer")).toEqual([]);
+	});
+});
+
 describe("activeToken", () => {
 	it("finds a command only at the start of a message", () => {
 		expect(at("/pl")).toEqual({ kind: "command", query: "pl", start: 0 });
