@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { allowedDomains } from "./network";
 
 describe("allowedDomains", () => {
-	it("restricts Docker unless told otherwise, and Daytona only when told", () => {
+	it("restricts Docker and Agent37 unless told otherwise, and Daytona only when told", () => {
+		expect(allowedDomains({ SANDBOX_DRIVER: "agent37" })).toContain("github.com");
 		expect(allowedDomains({ SANDBOX_DRIVER: "docker" })).toContain("github.com");
 		expect(allowedDomains({ SANDBOX_DRIVER: "docker", SANDBOX_NETWORK: "open" })).toBeUndefined();
 		expect(allowedDomains({ SANDBOX_DRIVER: "daytona" })).toBeUndefined();

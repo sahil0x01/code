@@ -9,7 +9,11 @@ const schema = z.object({
 	RUN_AUTHOR_NAME: z.string().min(1).default("Prefill Code"),
 	// .invalid is reserved, so this can never be mistaken for a real address.
 	RUN_AUTHOR_EMAIL: z.string().min(1).default("code@prefill.invalid"),
-	SANDBOX_DRIVER: z.enum(["docker", "daytona"]).default("docker"),
+	SANDBOX_DRIVER: z.enum(["docker", "daytona", "agent37"]).default("docker"),
+	AGENT37_API_KEY: z.string().min(1).optional(),
+	// Template names, when not the ones the build script gives this code's Dockerfiles.
+	AGENT37_TEMPLATE: z.string().min(1).optional(),
+	AGENT37_BROWSER_TEMPLATE: z.string().min(1).optional(),
 	DAYTONA_API_KEY: z.string().min(1).optional(),
 	DAYTONA_SNAPSHOT: z.string().min(1).default("nullfuse-sandbox"),
 	// "restricted" limits sandboxes to code hosts and package registries. The default for Docker.
@@ -43,10 +47,15 @@ const schema = z.object({
 
 export type WorkerEnv = z.infer<typeof schema>;
 
-const checked = schema.refine((env) => env.SANDBOX_DRIVER !== "daytona" || env.DAYTONA_API_KEY, {
-	path: ["DAYTONA_API_KEY"],
-	message: "Required when SANDBOX_DRIVER is daytona",
-});
+const checked = schema
+	.refine((env) => env.SANDBOX_DRIVER !== "daytona" || env.DAYTONA_API_KEY, {
+		path: ["DAYTONA_API_KEY"],
+		message: "Required when SANDBOX_DRIVER is daytona",
+	})
+	.refine((env) => env.SANDBOX_DRIVER !== "agent37" || env.AGENT37_API_KEY, {
+		path: ["AGENT37_API_KEY"],
+		message: "Required when SANDBOX_DRIVER is agent37",
+	});
 
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): WorkerEnv {
 	const parsed = checked.safeParse(source);

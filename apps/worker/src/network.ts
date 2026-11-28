@@ -9,7 +9,7 @@ type Settings = Pick<
 /** The domains sandboxes may reach, or undefined for no limit. */
 export function allowedDomains(env: Settings) {
 	// Daytona refuses per-sandbox rules below its third tier, so there it is switched on by hand.
-	const network = env.SANDBOX_NETWORK ?? (env.SANDBOX_DRIVER === "docker" ? "restricted" : "open");
+	const network = env.SANDBOX_NETWORK ?? (env.SANDBOX_DRIVER === "daytona" ? "open" : "restricted");
 	if (network === "open") return undefined;
 	return [
 		...DEFAULT_ALLOWED_DOMAINS,

@@ -2,6 +2,8 @@ import { createDeepSeekModel, withFallback } from "@nullfuse/agent";
 import { createDb } from "@nullfuse/db";
 import type { RunnerDeps } from "@nullfuse/runner";
 import {
+	Agent37Driver,
+	agent37Templates,
 	DaytonaDriver,
 	DockerDriver,
 	ensureDaytonaRecordingSnapshot,
@@ -20,6 +22,10 @@ import { allowedDomains } from "./network";
 // for the plain sandbox (1 vCPU, 1 GiB) and the browser one (2 vCPU, 2 GiB).
 const DAYTONA_HOURLY_COST = { plain: 66_600, browser: 133_200 };
 
+// Agent37's list prices, read 2026-11-28: $0.80 per vCPU, $0.70 per GiB of memory and $0.09
+// per GiB of disk for 730 hours, for its smallest shape (2 vCPU, 4 GiB, 4 GiB disk).
+const AGENT37_HOURLY_COST = { plain: 6_521, browser: 6_521 };
+
 let cached: Promise<RunnerDeps> | undefined;
 
 // Built once per worker process. Sandboxes use Docker for now; the hosted
@@ -36,7 +42,13 @@ export function getDeps(): Promise<RunnerDeps> {
 		let sandbox: Pick<RunnerDeps, "driver" | "image">;
 		let recordingImage: () => Promise<string> = ensureRecordingImage;
 		let sandboxHourlyCost: RunnerDeps["sandboxHourlyCost"];
-		if (env.SANDBOX_DRIVER === "daytona" && env.DAYTONA_API_KEY) {
+		if (env.SANDBOX_DRIVER === "agent37" && env.AGENT37_API_KEY) {
+			// Names are worked out only when not given, since that reads the Dockerfiles.
+			const plain = env.AGENT37_TEMPLATE ?? agent37Templates().plain;
+			recordingImage = async () => env.AGENT37_BROWSER_TEMPLATE ?? agent37Templates().browser;
+			sandbox = { driver: new Agent37Driver({ apiKey: env.AGENT37_API_KEY, template: plain }) };
+			sandboxHourlyCost = AGENT37_HOURLY_COST;
+		} else if (env.SANDBOX_DRIVER === "daytona" && env.DAYTONA_API_KEY) {
 			const apiKey = env.DAYTONA_API_KEY;
 			recordingImage = async () => (await ensureDaytonaRecordingSnapshot(apiKey)).snapshot;
 			const { client, snapshot } = await ensureDaytonaSnapshot(env.DAYTONA_API_KEY, env.DAYTONA_SNAPSHOT);

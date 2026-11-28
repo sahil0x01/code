@@ -10,6 +10,7 @@ export {
 	recordingImage,
 	sandboxImage,
 } from "./docker";
+export { Agent37Driver, Agent37Error, agent37Templates, destroyStaleAgent37 } from "./agent37";
 export {
 	type DaytonaBox,
 	type DaytonaClient,

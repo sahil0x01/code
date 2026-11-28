@@ -4,7 +4,7 @@ A run's commands could send your project's variables anywhere. Restricting the n
 
 | Setting (worker) | Meaning |
 |---|---|
-| `SANDBOX_NETWORK=restricted` | Only code hosts, package registries, recording storage and your added domains. Default with Docker |
+| `SANDBOX_NETWORK=restricted` | Only code hosts, package registries, recording storage and your added domains. Default with Docker and Agent37 |
 | `SANDBOX_NETWORK=open` | No limit from us. Default with Daytona |
 | `SANDBOX_ALLOW_DOMAINS` | Extra domains, comma separated. `*.example.com` includes subdomains |
 
