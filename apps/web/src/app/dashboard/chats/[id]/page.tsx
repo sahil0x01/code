@@ -98,7 +98,7 @@ function Overlaps({ overlaps }: { overlaps: Awaited<ReturnType<typeof listOverla
 			summaryClass="font-mono text-xs"
 			summary={`${count} changed the same files. Merging one may cause conflicts in the others.`}
 		>
-			<ul className="flex max-h-40 flex-col gap-1 overflow-y-auto pt-2 font-mono text-xs">
+			<ul className="relative flex max-h-40 flex-col gap-1 overflow-y-auto pt-2 font-mono text-xs">
 				{overlaps.map((other) => (
 					<li key={other.chatId} className="flex flex-wrap gap-x-2">
 						<Link href={`/dashboard/chats/${other.chatId}`} className="underline hover:text-foreground">
@@ -303,7 +303,7 @@ export default async function ChatPage({
 								Could not open a pull request: {chat.pullRequestError}
 							</p>
 						)}
-						<div className="min-h-0 flex-1 md:overflow-y-auto">
+						<div className="relative min-h-0 flex-1 md:overflow-y-auto md:overscroll-contain">
 							<ChangesPanel
 								key={chat.id}
 								chatId={chat.id}
