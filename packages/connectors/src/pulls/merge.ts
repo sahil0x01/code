@@ -140,7 +140,9 @@ export async function stepMerge(deps: MergeDeps, chatId: string): Promise<MergeO
 			if (report) reports.push(report);
 		}
 		if (reports.length === 0) return "waiting";
-		const intro = "Before merging: fix the failed checks. Do not skip or weaken a test to make it pass.";
+		const intro =
+			"Before merging: fix the failed checks. Do not skip or weaken a test to make it pass. " +
+			"Do not edit files in .github/workflows, because that change cannot be pushed.";
 		const room = Math.floor((MAX_MESSAGE_LENGTH - intro.length) / reports.length) - 2;
 		return fix("checks still fail", [intro, ...reports.map((report) => shorten(report, room))].join("\n\n"));
 	}

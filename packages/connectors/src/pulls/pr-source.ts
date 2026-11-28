@@ -54,7 +54,7 @@ export type PullClient = {
 		): Promise<{ data: { check_runs: GitHubCheckRun[] } }>;
 		get(params: Repo & { check_run_id: number }): Promise<{ data: GitHubCheckRun }>;
 		listAnnotations(params: Repo & { check_run_id: number; per_page: number }): Promise<{
-			data: { path: string; start_line: number; message: string | null }[];
+			data: { path: string; start_line: number; message: string | null; annotation_level?: string | null }[];
 		}>;
 	};
 	actions: {
@@ -261,7 +261,8 @@ export async function failureReport(
 	const [annotations, log] = await Promise.all([
 		client.checks
 			.listAnnotations({ ...repo, check_run_id: checkRunId, per_page: 20 })
-			.then((response) => response.data)
+			// Warnings are not why it failed, and they lead the agent to change other things.
+			.then((response) => response.data.filter((note) => !["notice", "warning"].includes(note.annotation_level ?? "")))
 			.catch(() => []),
 		client.actions
 			.downloadJobLogsForWorkflowRun({ ...repo, job_id: checkRunId })

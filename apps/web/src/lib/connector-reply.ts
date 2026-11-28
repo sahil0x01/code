@@ -15,6 +15,8 @@ export function taskReply(result: TaskResult, appUrl: string, escape: (text: str
 		case "disconnected":
 		case "unreadable":
 			return `The app can't read that repository any more. Check your projects: ${page("/dashboard/projects")}`;
+		case "merged":
+			return "That pull request is merged. Open a new issue or start a new chat for further changes.";
 		case "queue_full":
 			return "You have too many unfinished runs. Wait for some to finish, then send it again.";
 		case "duplicate":

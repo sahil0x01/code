@@ -13,7 +13,7 @@ export const MAX_UNFINISHED_RUNS_PER_USER = 10;
 
 export type SendResult =
 	| { ok: true; chatId: string; messageId: string; runId: string }
-	| { ok: false; reason: "not_found" | "disconnected" | "queue_full" | "model_removed" };
+	| { ok: false; reason: "not_found" | "disconnected" | "merged" | "queue_full" | "model_removed" };
 
 function one<T>(rows: T[]): T {
 	const row = rows[0];
@@ -168,7 +168,7 @@ export function addMessage(
 ) {
 	return db.transaction(async (tx): Promise<SendResult> => {
 		const [found] = await tx
-			.select({ installationId: project.installationId })
+			.select({ installationId: project.installationId, mergedAt: chat.pullRequestMergedAt })
 			.from(chat)
 			.innerJoin(project, eq(chat.projectId, project.id))
 			.where(and(eq(chat.id, input.chatId), eq(chat.userId, input.userId)))
@@ -177,6 +177,8 @@ export function addMessage(
 		if (found.installationId === null) {
 			return { ok: false, reason: "disconnected" };
 		}
+		// Its branch is already in the base, so more work there would go nowhere.
+		if (found.mergedAt) return { ok: false, reason: "merged" };
 		if (
 			(await countUnfinishedRuns(tx, input.userId)) >=
 			MAX_UNFINISHED_RUNS_PER_USER
@@ -248,6 +250,7 @@ export async function getChatForUser(db: Db, userId: string, chatId: string) {
 			pullRequestUrl: chat.pullRequestUrl,
 			pullRequestError: chat.pullRequestError,
 			merging: sql<boolean>`${chat.mergeSince} is not null`,
+			merged: sql<boolean>`${chat.pullRequestMergedAt} is not null`,
 			mergeNote: chat.mergeNote,
 			projectId: chat.projectId,
 			projectName: project.fullName,

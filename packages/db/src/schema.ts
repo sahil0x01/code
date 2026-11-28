@@ -245,7 +245,7 @@ export const chat = pgTable(
 		pullRequestUrl: text("pull_request_url"),
 		// Why the last attempt to open the PR failed, shown to the user.
 		pullRequestError: text("pull_request_error"),
-		// When the first PR for the chat was opened, and when GitHub reported it merged.
+		// When the first PR for the chat was opened, and when it was first seen to be merged.
 		pullRequestOpenedAt: timestamp("pull_request_opened_at", { withTimezone: true }),
 		pullRequestMergedAt: timestamp("pull_request_merged_at", { withTimezone: true }),
 		// The merged PR's size as GitHub reported it, so it may include commits people added.

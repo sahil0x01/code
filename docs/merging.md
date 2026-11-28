@@ -22,7 +22,9 @@ does this, not the model.
 - Fix runs use the chat's last model and thinking level, with the usual limit on each run's cost.
 - A fix is asked of at most 3 failed checks. Cancelled checks and commit statuses can't be sent.
 
-There is no separate button to update a branch: a merge does it when it is needed.
+There are no separate buttons to update a branch or fix a check: a merge does both when needed.
+
+Once the pull request is merged, the chat takes no more messages. Start a new chat.
 
 ## Setup
 

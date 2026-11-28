@@ -87,6 +87,7 @@ const failures = {
 	not_found: "That project or chat was not found.",
 	disconnected:
 		"This project is disconnected from GitHub. Reconnect it to keep working.",
+	merged: "This chat's pull request is merged. Start a new chat for further changes.",
 	queue_full:
 		"You have too many unfinished runs. Wait for some to finish, then send again.",
 	model_removed: "That model was removed. Pick another one, then send again.",

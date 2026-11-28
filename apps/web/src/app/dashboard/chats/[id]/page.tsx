@@ -256,7 +256,7 @@ export default async function ChatPage({
 								);
 							})}
 						</ol>
-						{chat.connected && unfinished.length === 0 && runs.at(-1)?.planOnly && runs.at(-1)?.status === "succeeded" && !modelRemoved && (
+						{chat.connected && !chat.merged && unfinished.length === 0 && runs.at(-1)?.planOnly && runs.at(-1)?.status === "succeeded" && !modelRemoved && (
 							<form action={approvePlan} className="mt-6 flex flex-wrap items-center gap-3">
 								<input type="hidden" name="chatId" value={chat.id} />
 								<button type="submit" className={buttonClass()}>
@@ -268,7 +268,18 @@ export default async function ChatPage({
 					</ChatThread>
 				}
 				composer={
-					chat.connected ? (
+					chat.merged ? (
+						<p className="text-sm text-muted">
+							This pull request is merged, so the chat is closed.{" "}
+							<Link
+								href={`/dashboard/chats/new?project=${chat.projectId}`}
+								className="underline hover:text-foreground"
+							>
+								Start a new chat
+							</Link>{" "}
+							for further changes.
+						</p>
+					) : chat.connected ? (
 						<MessageForm
 							key={chat.id}
 							chatId={chat.id}
@@ -293,7 +304,7 @@ export default async function ChatPage({
 					<>
 						{hasPull && chat.pullRequestNumber !== null && chat.pullRequestUrl && (
 							<PullBar
-								done={chat.state === "done"}
+								done={chat.merged}
 								merging={chat.merging}
 								mergeNote={chat.mergeNote}
 								key={chat.id}

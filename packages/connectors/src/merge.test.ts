@@ -121,7 +121,12 @@ function setup(over: Partial<World> = {}) {
 			get: async ({ check_run_id }: { check_run_id: number }) => ({
 				data: checkRun(world.checks.find((c) => c.id === check_run_id)!),
 			}),
-			listAnnotations: async () => ({ data: [] }),
+			listAnnotations: async () => ({
+				data: [
+					{ path: ".github", start_line: 2, message: "an old runtime", annotation_level: "warning" },
+					{ path: "a.ts", start_line: 3, message: "boom", annotation_level: "failure" },
+				],
+			}),
 		},
 		actions: {
 			downloadJobLogsForWorkflowRun: async ({ job_id }: { job_id: number }) => ({
@@ -153,6 +158,17 @@ describe("merging", () => {
 		expect(await chatOf(userId, chatId)).toMatchObject({ merging: false, mergeNote: null, state: "done" });
 	});
 
+	it("takes no more messages once merged", async () => {
+		const { userId, chatId } = await openPull();
+		await stepMerge(setup().deps, chatId);
+
+		expect(await addMessage(db, { userId, chatId, model, content: "One more thing" })).toEqual({
+			ok: false,
+			reason: "merged",
+		});
+		expect(await chatOf(userId, chatId)).toMatchObject({ merged: true });
+	});
+
 	it("waits for running checks, then merges", async () => {
 		const { chatId } = await openPull();
 		const { deps, world, merges } = setup({ checks: [{ id: 1, conclusion: null }] });
@@ -173,6 +189,9 @@ describe("merging", () => {
 		const content = (await listMessages(db, userId, chatId)).filter((m) => m.role === "user").at(-1)!.content;
 		expect(content).toContain("the error of 1");
 		expect(content).toContain("the error of 2");
+		expect(content).toContain("a.ts:3 boom");
+		expect(content).not.toContain("an old runtime");
+		expect(content).toContain(".github/workflows");
 		expect(content.length).toBeLessThanOrEqual(20_000);
 		// Nothing happens while the run works.
 		expect(await stepMerge(deps, chatId)).toBe("idle");

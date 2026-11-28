@@ -3,7 +3,6 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import {
-	fixCheck,
 	mergePullRequest,
 	type PullActionResult,
 	sendComments,
@@ -23,7 +22,7 @@ type Props = {
 	model: string;
 	/** An agent run is queued or running, so merging and fixing wait. */
 	busy: boolean;
-	/** The chat is already marked done. */
+	/** The chat already knows its pull request is merged. */
 	done: boolean;
 	/** A merge is waiting for checks or a fix. */
 	merging: boolean;
@@ -246,33 +245,20 @@ export function PullBar(props: Props) {
 					summary={<span className={tone[summary.tone]}>{summary.text}</span>}
 				>
 					<ul className="flex flex-col gap-1 pt-2">
-						{pull.checks.map((check) => {
-							const { checkRunId } = check;
-							return (
-								<li key={check.key} className="flex flex-wrap items-center gap-2 font-mono text-xs">
-									<span className={`w-4 ${tone[check.state]}`}>
-										<span aria-hidden="true">{mark[check.state]}</span>
-										<span className="sr-only">{check.state}</span>
-									</span>
-									<span className="min-w-0 break-all">{check.name}</span>
-									{check.url?.startsWith("https://") && (
-										<a href={check.url} target="_blank" rel="noreferrer" className="text-muted underline">
-											Details ↗
-										</a>
-									)}
-									{check.state === "failed" && checkRunId !== null && (
-										<button
-											type="button"
-											disabled={pending || busy}
-											onClick={() => act(() => fixCheck({ chatId, checkRunId, model }))}
-											className={buttonClass("secondary", "sm")}
-										>
-											Fix this
-										</button>
-									)}
-								</li>
-							);
-						})}
+						{pull.checks.map((check) => (
+							<li key={check.key} className="flex flex-wrap items-center gap-2 font-mono text-xs">
+								<span className={`w-4 ${tone[check.state]}`}>
+									<span aria-hidden="true">{mark[check.state]}</span>
+									<span className="sr-only">{check.state}</span>
+								</span>
+								<span className="min-w-0 break-all">{check.name}</span>
+								{check.url?.startsWith("https://") && (
+									<a href={check.url} target="_blank" rel="noreferrer" className="text-muted underline">
+										Details ↗
+									</a>
+								)}
+							</li>
+						))}
 					</ul>
 				</Disclosure>
 			)}
@@ -299,7 +285,7 @@ export function PullBar(props: Props) {
 						: "Waiting to merge. You can leave this page."}
 				</p>
 			)}
-			{open && !merging && mergeNote && (
+			{open && !merging && !confirmed && mergeNote && (
 				<p role="alert" className="text-sm text-red">
 					{mergeNote}
 				</p>

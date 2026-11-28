@@ -1,13 +1,13 @@
 "use server";
 
-import { addMessage, cancelMerge, getChatForUser, listRuns, setChatDone } from "@nullfuse/db";
+import { addMessage, cancelMerge, getChatForUser, listRuns, markChatMerged } from "@nullfuse/db";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { isModelId } from "@/lib/chat";
 import { listPullComments } from "@/lib/comment-source";
 import { commentsMessage } from "@/lib/comments";
 import { getInstallationOctokit } from "@/lib/github-app";
-import { failureReport, mergePull } from "@nullfuse/connectors/pulls";
+import { mergePull } from "@nullfuse/connectors/pulls";
 import { db } from "@/server/db";
 import { enqueueRun } from "@/server/enqueue";
 import { startMergeFor } from "@/server/merge";
@@ -42,8 +42,8 @@ export async function mergePullRequest(input: z.input<typeof mergeInput>): Promi
 		const result = await mergePull(pull.client, pull.chat.projectName, pull.number, parsed.data.sha);
 		if (!result.ok) return result;
 		// The merge already happened, so a failure here must not report it as failed.
-		await setChatDone(db, user.id, pull.chat.id, true).catch((error) =>
-			console.error("mark chat done failed", error),
+		await markChatMerged(db, user.id, pull.chat.id).catch((error) =>
+			console.error("mark chat merged failed", error),
 		);
 		await cancelMerge(db, user.id, pull.chat.id).catch((error) => console.error("clear merge failed", error));
 	} catch (error) {
@@ -59,38 +59,6 @@ function notSent(reason: string) {
 	if (reason === "queue_full") return "You have too many unfinished runs.";
 	if (reason === "model_removed") return "That model was removed. Pick another one in the message box.";
 	return "The message could not be sent.";
-}
-
-const fixInput = z.object({
-	chatId: z.uuid(),
-	checkRunId: z.number().int().positive(),
-	model: z.string().refine(isModelId),
-});
-
-export async function fixCheck(input: z.input<typeof fixInput>): Promise<PullActionResult> {
-	const { user } = await requireSession();
-	const parsed = fixInput.safeParse(input);
-	if (!parsed.success) return failed(retry);
-	const { chatId, checkRunId, model } = parsed.data;
-
-	try {
-		const pull = await ownedPull(user.id, chatId);
-		if (!pull) return failed("That pull request was not found.");
-		const content = await failureReport(pull.client, pull.chat.projectName, pull.number, checkRunId);
-		if (!content) return failed("That check is no longer failing on the latest commit.");
-
-		const sent = await addMessage(db, { userId: user.id, chatId, model, content, verify: false });
-		if (!sent.ok) {
-			return failed(notSent(sent.reason));
-		}
-		await enqueueRun({ runId: sent.runId, chatId: sent.chatId });
-	} catch (error) {
-		console.error("fix check failed", error);
-		return failed(retry);
-	}
-
-	revalidatePath("/dashboard", "layout");
-	return { ok: true };
 }
 
 const commentsInput = z.object({

@@ -143,20 +143,18 @@ describe("chat review state", () => {
 });
 
 describe("merged pull requests", () => {
-	it("mark the chat done once, so a later run still asks for review", async () => {
+	it("mark the chat done and close it to new messages", async () => {
 		const { userId, chatId, runId } = await start();
 		await finish(runId);
 		await markChatMerged(db, await fixtures.user(), chatId);
-		expect((await view(userId, chatId)).state).toBe("needs_review");
+		expect(await getChatForUser(db, userId, chatId)).toMatchObject({ state: "needs_review", merged: false });
 
 		await markChatMerged(db, userId, chatId);
-		expect(await view(userId, chatId)).toEqual({ state: "done", unread: false });
-
-		const next = await addMessage(db, { userId, chatId, model: "deepseek-v4-pro", content: "More" });
-		if (!next.ok) throw new Error(next.reason);
-		await finish(next.runId);
-		await markChatMerged(db, userId, chatId);
-		expect((await view(userId, chatId)).state).toBe("needs_review");
+		expect(await getChatForUser(db, userId, chatId)).toMatchObject({ state: "done", unread: false, merged: true });
+		expect(await addMessage(db, { userId, chatId, model: "deepseek-v4-pro", content: "More" })).toEqual({
+			ok: false,
+			reason: "merged",
+		});
 	});
 
 	it("are matched to the chat by installation, repository and number", async () => {
