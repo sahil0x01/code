@@ -123,6 +123,12 @@ function AddModel({ suggestions }: { suggestions: Partial<Record<ProviderId, str
 			</label>
 			{provider === "openai-compatible" &&
 				input("baseUrl", "Address", { type: "url", required: true, placeholder: "https://openrouter.ai/api/v1" })}
+			{provider === "openai-compatible" && (
+				<label className="flex items-center gap-2 text-sm">
+					<input type="checkbox" name="readsImages" className="size-4 accent-accent" />
+					This model can read images
+				</label>
+			)}
 			{input("modelId", "Model ID", { required: true, maxLength: 200, list: id, placeholder: "As your provider names it" })}
 			<datalist id={id}>
 				{suggestions[provider]?.map((name) => (

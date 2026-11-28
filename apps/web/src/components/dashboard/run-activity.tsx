@@ -49,7 +49,7 @@ function Thought({ text, tokens, live }: { text: string; tokens: number; live: b
 		>
 			<p
 				ref={box}
-				className="mt-1.5 ml-1 max-h-40 overflow-y-auto whitespace-pre-wrap break-words border-l-2 border-border pl-3 text-sm text-muted"
+				className="relative mt-1.5 ml-1 max-h-40 overflow-y-auto whitespace-pre-wrap break-words border-l-2 border-border pl-3 text-sm text-muted"
 			>
 				{shown}
 			</p>

@@ -20,7 +20,7 @@ const components: Components = {
 		<blockquote className="border-l-2 border-border pl-3 text-muted">{children}</blockquote>
 	),
 	table: ({ children }) => (
-		<div className="overflow-x-auto">
+		<div className="relative overflow-x-auto">
 			<table className="border-collapse text-sm">{children}</table>
 		</div>
 	),

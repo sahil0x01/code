@@ -180,9 +180,17 @@ try {
 			.locator("body")
 			.ariaSnapshot({ timeout: 5000 })
 			.catch((error) => `The page could not be read: ${message(error)}`);
+		// JPEG, so the picture stays small enough to read back.
+		const picture =
+			spec.picture &&
+			(await page
+				.screenshot({ path: `${spec.outDir}/check.jpg`, type: "jpeg", quality: 70 })
+				.then(() => "check.jpg")
+				.catch(() => undefined));
 		await browser.close();
 		await finish({
 			status: "checked",
+			picture,
 			passed: failure === null,
 			error: failure,
 			url,

@@ -93,6 +93,8 @@ type HarnessRequest = Omit<RecordingRequest, "script" | "startCommand" | "port">
 	path?: string;
 	/** HTML to record in "page" mode. */
 	html?: string;
+	/** In "check" mode, also take a screenshot. */
+	picture?: boolean;
 };
 
 /** Runs the harness once and returns the text of its result file, or why there is none. */
@@ -122,6 +124,7 @@ export async function runHarness(sandbox: Sandbox, request: HarnessRequest) {
 			outDir,
 			startTimeoutMs,
 			scriptTimeoutMs,
+			picture: request.picture,
 			maxBytes: request.maxBytes ?? MAX_VIDEO_BYTES,
 		}),
 	);

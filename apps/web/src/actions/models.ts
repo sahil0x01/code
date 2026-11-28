@@ -49,17 +49,20 @@ export async function addModel(_previous: ModelState, formData: FormData): Promi
 		const checked = await checkModel({ provider, modelId, apiKey, baseUrl }, rules);
 		if (!checked.ok) return failed(checked.message);
 
-		const found = await lookupModel(provider, modelId);
+		const { contextTokens, maxOutputTokens, price } = await lookupModel(provider, modelId);
 		const id = crypto.randomUUID();
 		const owner = { id, userId: user.id, provider, baseUrl };
 		const added = await addUserModel(db, {
 			...owner,
-			...found,
+			contextTokens,
+			maxOutputTokens,
+			price,
 			modelId,
 			label: parsed.data.label || modelId.slice(0, 60),
 			keyEncrypted: encryptModelKey(owner, apiKey),
 			keyLast4: apiKey.slice(-4),
 			maxRunTokens: maxRunTokens === "" ? null : maxRunTokens,
+			readsImages: provider === "openai-compatible" && formData.get("readsImages") === "on",
 		});
 		if (!added.ok) {
 			return failed(

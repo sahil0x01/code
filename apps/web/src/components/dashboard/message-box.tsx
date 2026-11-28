@@ -128,7 +128,7 @@ export function MessageBox({ value, onChange, projectId, branch, listPlacement, 
 			/>
 			{open && (options.length > 0 || note) && (
 				<div
-					className={`pixel-inset absolute left-2 z-20 flex max-h-64 w-[min(34rem,calc(100%-1rem))] flex-col overflow-y-auto bg-background py-1 ${
+					className={`pixel-inset absolute left-2 z-20 flex max-h-64 w-[min(34rem,calc(100%-1rem))] flex-col overflow-y-auto overscroll-contain bg-background py-1 ${
 						listPlacement === "above" ? "bottom-full mb-1" : "top-full mt-1"
 					}`}
 				>

@@ -77,6 +77,8 @@ export type RunAgentOptions = {
 	/** Offered to the model beside the built-in tools. */
 	tools?: ToolSet;
 	limits?: Partial<AgentLimits>;
+	/** The model can look at an image a tool gives it. */
+	toolImages?: boolean;
 	/** Leaves out the tools that change files or run commands. */
 	readOnly?: boolean;
 	/** Aborting stops the run and returns what happened so far. */
@@ -145,7 +147,7 @@ export async function runAgent(options: RunAgentOptions): Promise<AgentRun> {
 	const usedWith = (taken: AgentStep[]) => tokensUsed([...taken, ...aside]);
 	const overBudget = () => usedWith(steps) >= limits.maxTokens || costOf(steps) >= limits.maxCost;
 
-	const builtIn = createTools({ sandbox: options.sandbox, env: options.env });
+	const builtIn = createTools({ sandbox: options.sandbox, env: options.env, images: options.toolImages });
 	const guided = readWithGuidance(builtIn.read, options.sandbox);
 	builtIn.read = guided.read;
 	const task = taskTool({

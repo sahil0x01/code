@@ -1,5 +1,6 @@
 import { createDeepSeekModel, withFallback } from "@nullfuse/agent";
 import { createDb } from "@nullfuse/db";
+import { deepseekInputs } from "@nullfuse/models/media";
 import type { RunnerDeps } from "@nullfuse/runner";
 import {
 	Agent37Driver,
@@ -73,6 +74,12 @@ export function getDeps(): Promise<RunnerDeps> {
 			ownModel: ownModels(db, key, env.ALLOW_PRIVATE_MODEL_URLS),
 			...sandbox,
 			allowedDomains: allowedDomains(env),
+			// A run may fall back to the other model, so it gets only what both can read.
+			inputs: (modelKey) => {
+				const fallback = env.FALLBACK_MODEL && env.FALLBACK_MODEL !== modelKey ? env.FALLBACK_MODEL : modelKey;
+				const first = deepseekInputs(modelKey);
+				return deepseekInputs(fallback).image ? first : deepseekInputs(fallback);
+			},
 			createModel: (modelKey) => {
 				const apiKey = env.DEEPSEEK_API_KEY;
 				const primary = createDeepSeekModel(deepseekModelId(modelKey), { apiKey });

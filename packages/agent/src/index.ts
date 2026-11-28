@@ -11,6 +11,7 @@ export {
 export { compactionThreshold } from "./compact";
 export { ToolError } from "./errors";
 export { foldersAbove } from "./guidance";
+export { imageShelf } from "./image-shelf";
 export { readSkills, type Skill, skillInstructions } from "./skills";
 export { withFallback } from "./fallback";
 export { readProjectRules } from "./rules";

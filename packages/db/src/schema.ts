@@ -3,6 +3,7 @@ import {
 	bigint,
 	boolean,
 	check,
+	customType,
 	date,
 	index,
 	integer,
@@ -134,6 +135,8 @@ export const userModel = pgTable(
 		price: jsonb("price").$type<UserModelPrice>(),
 		// The most tokens one run may use. Null for the server's limit.
 		maxRunTokens: integer("max_run_tokens"),
+		// The user's word that a model at their own address can look at images.
+		readsImages: boolean("reads_images").notNull().default(false),
 		createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 		testedAt: timestamp("tested_at", { withTimezone: true }).notNull().defaultNow(),
 	},
@@ -342,6 +345,25 @@ export const message = pgTable(
 		index("message_chat_created_idx").on(t.chatId, t.createdAt),
 		check("message_role_check", sql`${t.role} in ('user', 'assistant')`),
 	],
+);
+
+const bytes = customType<{ data: Buffer }>({ dataType: () => "bytea" });
+
+/** A file sent with a message. It goes when its message or chat does. */
+export const attachment = pgTable(
+	"attachment",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		messageId: uuid("message_id")
+			.notNull()
+			.references(() => message.id, { onDelete: "cascade" }),
+		position: integer("position").notNull(),
+		name: text("name").notNull(),
+		mediaType: text("media_type").notNull(),
+		size: integer("size").notNull(),
+		data: bytes("data").notNull(),
+	},
+	(t) => [unique("attachment_message_position_unique").on(t.messageId, t.position)],
 );
 
 export const runStopReasons = [

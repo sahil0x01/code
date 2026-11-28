@@ -130,7 +130,7 @@ export default async function UserStatsPage() {
 			</StatSection>
 
 			<StatSection title="By model">
-				<div className="pixel-inset overflow-x-auto bg-surface">
+				<div className="pixel-inset relative overflow-x-auto bg-surface">
 					<table className="w-full text-sm">
 						<thead>
 							<tr className="text-left font-mono text-xs text-subtle">

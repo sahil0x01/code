@@ -15,6 +15,7 @@ const shown = {
 	contextTokens: userModel.contextTokens,
 	price: userModel.price,
 	maxRunTokens: userModel.maxRunTokens,
+	readsImages: userModel.readsImages,
 	createdAt: userModel.createdAt,
 	testedAt: userModel.testedAt,
 };

@@ -143,11 +143,11 @@ describe("catalog", () => {
 
 	it("finds prices, suggests only tool models, and assumes nothing about own addresses", async () => {
 		expect(await lookupModel("anthropic", "good", fetcher)).toEqual({
-			contextTokens: 200_000, maxOutputTokens: null, price: { input: 3, output: 15, cacheRead: 0.3, cacheWrite: 3.75 },
+			contextTokens: 200_000, maxOutputTokens: null, inputs: null, price: { input: 3, output: 15, cacheRead: 0.3, cacheWrite: 3.75 },
 		});
 		expect(await suggestModels("anthropic", fetcher)).toEqual(["good"]);
-		expect(await lookupModel("openai-compatible", "good", fetcher)).toEqual({ contextTokens: null, maxOutputTokens: null, price: null });
-		expect(await lookupModel("anthropic", "__proto__", fetcher)).toEqual({ contextTokens: null, maxOutputTokens: null, price: null });
+		expect(await lookupModel("openai-compatible", "good", fetcher)).toEqual({ contextTokens: null, maxOutputTokens: null, price: null, inputs: null });
+		expect(await lookupModel("anthropic", "__proto__", fetcher)).toEqual({ contextTokens: null, maxOutputTokens: null, price: null, inputs: null });
 	});
 
 	it("prices cached and uncached tokens apart", () => {

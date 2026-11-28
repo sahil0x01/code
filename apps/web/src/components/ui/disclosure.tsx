@@ -44,7 +44,7 @@ export function Disclosure({ summary, children, defaultOpen = false, onOpen, cla
 					open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
 				}`}
 			>
-				<div className="min-h-0 min-w-0 overflow-hidden">{rendered && children}</div>
+				<div className="relative min-h-0 min-w-0 overflow-hidden">{rendered && children}</div>
 			</div>
 		</div>
 	);

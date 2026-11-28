@@ -1,8 +1,9 @@
 import { isOwnModelKey, parseOwnModelKey } from "@nullfuse/models/providers";
 import { and, asc, count, desc, eq, inArray, sql } from "drizzle-orm";
 import type { Db } from "./index";
+import type { NewAttachment } from "./attachments";
 import { chatState, chatUnread } from "./inbox";
-import { chat, message, project, run, type ReasoningLevel, userModel } from "./schema";
+import { attachment, chat, message, project, run, type ReasoningLevel, userModel } from "./schema";
 
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
@@ -61,6 +62,7 @@ async function enqueue(
 		planOnly?: boolean;
 		reasoning?: ReasoningLevel;
 		modelLabel: string | null;
+		attachments?: NewAttachment[];
 	},
 ) {
 	const msg = one(
@@ -69,6 +71,16 @@ async function enqueue(
 			.values({ chatId: input.chatId, role: "user", content: input.content })
 			.returning({ id: message.id }),
 	);
+	if (input.attachments?.length) {
+		await tx.insert(attachment).values(
+			input.attachments.map((file, position) => ({
+				...file,
+				messageId: msg.id,
+				position,
+				size: file.data.length,
+			})),
+		);
+	}
 	const queued = one(
 		await tx
 			.insert(run)
@@ -100,6 +112,7 @@ export function createChat(
 		planOnly?: boolean;
 		reasoning?: ReasoningLevel;
 		issueNumber?: number;
+		attachments?: NewAttachment[];
 	},
 ) {
 	return db.transaction(async (tx): Promise<SendResult> => {
@@ -150,6 +163,7 @@ export function addMessage(
 		updateBase?: boolean;
 		planOnly?: boolean;
 		reasoning?: ReasoningLevel;
+		attachments?: NewAttachment[];
 	},
 ) {
 	return db.transaction(async (tx): Promise<SendResult> => {

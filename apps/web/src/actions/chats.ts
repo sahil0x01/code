@@ -25,6 +25,7 @@ import {
 	MAX_TITLE_LENGTH,
 	type ReasoningId,
 } from "@/lib/chat";
+import { readAttachments } from "@/lib/attachments";
 import { db } from "@/server/db";
 import { enqueueRun } from "@/server/enqueue";
 import { checkRepo } from "@/server/github-checks";
@@ -114,6 +115,8 @@ export async function startChat(
 	if (!input.success) return inputError;
 	const options = withCommands(input.data);
 	if (!options) return missingTask;
+	const files = await readAttachments(formData);
+	if (!files.ok) return { status: "error", message: files.problem };
 
 	let chatId: string;
 	try {
@@ -139,7 +142,7 @@ export async function startChat(
 			};
 		}
 
-		const result = await createChat(db, { userId: user.id, ...options });
+		const result = await createChat(db, { userId: user.id, ...options, attachments: files.attachments });
 		if (!result.ok) return failure(result.reason);
 		chatId = result.chatId;
 		await enqueueRun({ runId: result.runId, chatId });
@@ -169,6 +172,8 @@ export async function sendMessage(
 	if (!input.success) return inputError;
 	const options = withCommands(input.data);
 	if (!options) return missingTask;
+	const files = await readAttachments(formData);
+	if (!files.ok) return { status: "error", message: files.problem };
 
 	try {
 		const chat = await getChatForUser(db, user.id, input.data.chatId);
@@ -183,7 +188,7 @@ export async function sendMessage(
 			};
 		}
 
-		const result = await addMessage(db, { userId: user.id, ...options });
+		const result = await addMessage(db, { userId: user.id, ...options, attachments: files.attachments });
 		if (!result.ok) return failure(result.reason);
 		await enqueueRun({ runId: result.runId, chatId: result.chatId });
 	} catch (error) {

@@ -23,6 +23,7 @@ const sections: { state: ChatReviewState; title: string }[] = [
 	{ state: "done", title: "Done" },
 ];
 
+// A scrolling list must be positioned, or hidden text inside it stretches the whole page.
 const chatPath = (id: string) => `/dashboard/chats/${id}`;
 
 // The sidebar's chats by review state. One section is open at a time, so every
@@ -59,7 +60,7 @@ export function ChatSections({ chats }: { chats: Item[] }) {
 							</button>
 						</h2>
 						{expanded && (
-							<div className="min-h-0 overflow-x-hidden overflow-y-auto">
+							<div className="relative min-h-0 overflow-x-hidden overflow-y-auto overscroll-contain">
 								<ChatLinks chats={items} pathname={pathname} />
 							</div>
 						)}

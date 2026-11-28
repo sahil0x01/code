@@ -9,6 +9,8 @@ const nextConfig: NextConfig = {
 		outputFileTracingRoot: path.join(process.cwd(), "../.."),
 	}),
 	cacheComponents: true,
+	// Room for a message's attached files (4 MB) and the form around them.
+	experimental: { serverActions: { bodySizeLimit: "4.5mb" } },
 	partialPrefetching: true,
 	turbopack: {
 		rules: {

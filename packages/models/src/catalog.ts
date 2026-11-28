@@ -8,6 +8,8 @@ export type CatalogEntry = {
 	contextTokens: number | null;
 	maxOutputTokens: number | null;
 	price: ModelPrice | null;
+	/** Kinds of input the model reads, such as "image" or "pdf". Null when not listed. */
+	inputs: string[] | null;
 };
 
 const CATALOG_URL = "https://models.dev/api.json";
@@ -15,6 +17,7 @@ const KEEP_MS = 60 * 60_000;
 
 const model = z.object({
 	tool_call: z.boolean().optional(),
+	modalities: z.object({ input: z.array(z.string()).optional() }).optional(),
 	limit: z.object({ context: z.number().optional(), output: z.number().optional() }).optional(),
 	cost: z
 		.object({
@@ -52,9 +55,10 @@ function modelsOf(catalog: Catalog, id: ProviderId) {
 
 export async function lookupModel(id: ProviderId, modelId: string, fetcher = fetch): Promise<CatalogEntry> {
 	const found = model.safeParse(modelsOf(await load(fetcher), id)[modelId]);
-	if (!found.success) return { contextTokens: null, maxOutputTokens: null, price: null };
-	const { cost, limit } = found.data;
+	if (!found.success) return { contextTokens: null, maxOutputTokens: null, price: null, inputs: null };
+	const { cost, limit, modalities } = found.data;
 	return {
+		inputs: modalities?.input ?? null,
 		contextTokens: limit?.context ?? null,
 		maxOutputTokens: limit?.output ?? null,
 		price: cost

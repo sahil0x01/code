@@ -10,6 +10,7 @@ import {
 	ReasoningPicker,
 	RunToggles,
 } from "@/components/dashboard/composer-controls";
+import { AttachButton, AttachmentList, DropHint, useAttachments } from "@/components/dashboard/attachments";
 import { MessageBox } from "@/components/dashboard/message-box";
 import { PixelIcon } from "@/components/ui/pixel-icon";
 import { Tooltip } from "@/components/ui/tooltip";
@@ -35,7 +36,11 @@ type Props = {
 const initialState: ChatState = { status: "idle" };
 
 export function Composer({ projects, initialProjectId, ownModels }: Props) {
-	const [state, formAction, pending] = useActionState(startChat, initialState);
+	const attachments = useAttachments();
+	const [state, formAction, pending] = useActionState(
+		(previous: ChatState, formData: FormData) => startChat(previous, attachments.attach(formData)),
+		initialState,
+	);
 
 	const [projectId, setProjectId] = useState(initialProjectId);
 	const [branch, setBranch] = useState(
@@ -70,7 +75,7 @@ export function Composer({ projects, initialProjectId, ownModels }: Props) {
 					</button>
 				</p>
 			)}
-			<div className="pixel-inset flex flex-col bg-surface focus-within:bg-background focus-within:outline-2 focus-within:outline-offset-3 focus-within:outline-ink focus-within:outline-dashed">
+			<div onPaste={attachments.onPaste} className="pixel-inset flex flex-col bg-surface focus-within:bg-background focus-within:outline-2 focus-within:outline-offset-3 focus-within:outline-ink focus-within:outline-dashed">
 				<MessageBox
 					projectId={projectId}
 					branch={branch}
@@ -91,6 +96,9 @@ export function Composer({ projects, initialProjectId, ownModels }: Props) {
 					placeholder="Describe what you want done. Type @ to point at a file, or / for commands."
 					className="min-h-44 resize-y bg-transparent p-4 text-[15px] leading-relaxed outline-none placeholder:text-subtle"
 				/>
+
+				<DropHint attachments={attachments} />
+				<AttachmentList attachments={attachments} />
 
 				<div className="flex flex-wrap items-center gap-x-2 gap-y-2 border-t border-border px-2 py-2.5">
 					<Picker
@@ -135,6 +143,7 @@ export function Composer({ projects, initialProjectId, ownModels }: Props) {
 						</label>
 					</Tooltip>
 
+					<AttachButton attachments={attachments} />
 					<ModelPicker value={model} onChange={setModel} own={ownModels} />
 					<ReasoningPicker value={reasoning} onChange={setReasoning} />
 					<RunToggles />

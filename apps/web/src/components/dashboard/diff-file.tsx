@@ -159,7 +159,7 @@ export const DiffFileView = memo(function DiffFileView({ file, url, drafts, onSa
 			)}
 
 			{open && hunks.length > 0 && (
-				<div className="overflow-x-auto font-mono text-xs leading-6">
+				<div className="relative overflow-x-auto font-mono text-xs leading-6">
 					<div className="w-max min-w-full">
 						{hunks.map((hunk) => (
 							<Fragment key={hunk.header}>

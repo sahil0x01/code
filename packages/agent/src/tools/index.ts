@@ -13,13 +13,15 @@ export type ToolsOptions = {
 	sandbox: Sandbox;
 	/** Added to every command the bash tool runs. */
 	env?: Record<string, string>;
+	/** The model can look at an image a tool gives it. */
+	images?: boolean;
 };
 
-export function createTools({ sandbox, env }: ToolsOptions) {
+export function createTools({ sandbox, env, images }: ToolsOptions) {
 	const lock = createFileLock(sandbox.workdir);
 	return {
 		list: listTool(sandbox),
-		read: readTool(sandbox),
+		read: readTool(sandbox, { images }),
 		grep: grepTool(sandbox),
 		edit: editTool(sandbox, lock),
 		write: writeTool(sandbox, lock),

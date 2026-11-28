@@ -5,6 +5,8 @@ import {
 	checkBaseUrl,
 	createUserModel,
 	explainModelError,
+	lookupModel,
+	ownInputs,
 	parseOwnModelKey,
 	priceUsage,
 } from "@nullfuse/models";
@@ -27,7 +29,9 @@ export function ownModels(db: Db, key: Buffer, allowPrivate: boolean): NonNullab
 		const apiKey = decryptModelKey(key, row, row.keyEncrypted);
 		if (row.baseUrl) await checkBaseUrl(row.baseUrl, { allowPrivate });
 		const { price } = row;
+		const { inputs } = await lookupModel(row.provider, row.modelId);
 		return {
+			inputs: ownInputs(row.provider, row.modelId, inputs, row.readsImages),
 			apiKey,
 			model: createUserModel({ ...row, apiKey }, { allowPrivate }),
 			settings: callSettings(row.provider, reasoning, row.maxOutputTokens),

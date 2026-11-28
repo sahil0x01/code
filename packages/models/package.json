@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./providers": "./src/providers.ts"
+    "./providers": "./src/providers.ts",
+    "./media": "./src/media.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

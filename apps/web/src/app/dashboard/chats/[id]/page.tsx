@@ -1,11 +1,13 @@
 import {
 	getChatForUser,
+	listAttachments,
 	listMessages,
 	listOverlaps,
 	listRunActivity,
 	listRuns,
 	listUserModels,
 } from "@nullfuse/db";
+import { isImage } from "@nullfuse/models/media";
 import { isOwnModelKey, ownModelKey } from "@nullfuse/models/providers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -37,7 +39,35 @@ const RUNS_WITH_ACTIVITY = 5;
 
 type Message = Awaited<ReturnType<typeof listMessages>>[number];
 
-function MessageView({ message }: { message: Message }) {
+type Attached = Awaited<ReturnType<typeof listAttachments>>[number];
+
+function AttachedFiles({ files }: { files: Attached[] }) {
+	return (
+		<ul className="mt-2 flex flex-wrap gap-2">
+			{files.map((file) => (
+				<li key={file.id}>
+					<a href={`/api/attachments/${file.id}`} target="_blank" rel="noreferrer" className="block">
+						{isImage(file.mediaType) ? (
+							// A private file behind sign-in, which the image optimiser cannot fetch.
+							// eslint-disable-next-line @next/next/no-img-element
+							<img
+								src={`/api/attachments/${file.id}`}
+								alt={file.name}
+								className="max-h-40 max-w-60 border border-border"
+							/>
+						) : (
+							<span className="block border border-border bg-surface px-2 py-1 font-mono text-xs underline">
+								{file.name}
+							</span>
+						)}
+					</a>
+				</li>
+			))}
+		</ul>
+	);
+}
+
+function MessageView({ message, files = [] }: { message: Message; files?: Attached[] }) {
 	const sent = message.createdAt.toLocaleString("en");
 	if (message.role === "user") {
 		return (
@@ -47,6 +77,7 @@ function MessageView({ message }: { message: Message }) {
 			>
 				<span className="sr-only">You: </span>
 				{message.content}
+				{files.length > 0 && <AttachedFiles files={files} />}
 			</div>
 		);
 	}
@@ -91,11 +122,12 @@ export default async function ChatPage({
 	const chat = await getChatForUser(db, session.user.id, id);
 	if (!chat) notFound();
 
-	const [messages, runs, overlaps, ownModels] = await Promise.all([
+	const [messages, runs, overlaps, ownModels, attached] = await Promise.all([
 		listMessages(db, session.user.id, chat.id),
 		listRuns(db, session.user.id, chat.id),
 		listOverlaps(db, session.user.id, chat.id),
 		listUserModels(db, session.user.id),
+		listAttachments(db, session.user.id, chat.id),
 	]);
 	const activity = await listRunActivity(
 		db,
@@ -202,7 +234,7 @@ export default async function ChatPage({
 								const run = runByMessage.get(message.id);
 								return (
 									<li key={message.id} className="appear flex flex-col gap-4">
-										<MessageView message={message} />
+										<MessageView message={message} files={attached.filter((file) => file.messageId === message.id)} />
 										{run && (
 											<RunPanel
 												chatId={chat.id}

@@ -53,10 +53,12 @@ import {
 	setWorkingBranchIfUnset,
 	touchRun,
 } from "@nullfuse/db";
+import { type ModelInputs, TEXT_ONLY } from "@nullfuse/models/media";
 import { isOwnModelKey } from "@nullfuse/models/providers";
 import { type Sandbox, SandboxCapacityError, type SandboxDriver } from "@nullfuse/sandbox";
 import { recordingKey, screenshotKey } from "@nullfuse/storage";
 import type { LanguageModel } from "ai";
+import { attachFiles } from "./attachments";
 import { checkAppTool } from "./check-app";
 import { liveWriter } from "./live";
 import { withEarlierWork, workSummary } from "./memory";
@@ -73,6 +75,8 @@ export type RunnerDeps = {
 	allowedDomains?: string[];
 	/** Turns the model name saved on the run into a model. */
 	createModel(modelKey: string): LanguageModel;
+	/** What one of our models can be given besides text. Text only when left out. */
+	inputs?(modelKey: string): ModelInputs;
 	/** A model the user added with their own key. Throws when it can no longer be used. */
 	ownModel?(input: { userId: string; modelKey: string; reasoning: ReasoningLevel }): Promise<OwnModel>;
 	/** A token for git over https, limited to this repository. */
@@ -107,6 +111,7 @@ export type RunnerDeps = {
 
 export type OwnModel = {
 	model: LanguageModel;
+	inputs?: ModelInputs;
 	settings: Pick<RunAgentOptions, "reasoning" | "providerOptions" | "maxOutputTokens">;
 	/** Hidden from everything the run saves. */
 	apiKey: string;
@@ -589,6 +594,7 @@ async function perform(
 		const content = await expandMessage(sandbox, asked, skills);
 		return context.messages.map((m, index) => (index === last ? { ...m, content } : m));
 	};
+	const inputs = (own ? own.inputs : deps.inputs?.(context.run.model)) ?? TEXT_ONLY;
 
 	/** Saves a video and screenshots on the run, when the work needs seeing. */
 	const prove = async (pullNumber: number | null) => {
@@ -688,7 +694,8 @@ async function perform(
 							providerOptions: reasoningOptions(context.run.reasoning),
 						}),
 				sandbox,
-				messages: withEarlierWork(await expanded(), memory),
+				messages: await attachFiles(sandbox, withEarlierWork(await expanded(), memory), inputs),
+				toolImages: inputs.toolImage,
 				readOnly,
 				env,
 				instructions: instructionsFor(
@@ -711,7 +718,7 @@ async function perform(
 				onSpend: async (step) => {
 					await addRunUsage(deps.db, runId, toStepRecord(step, stepCost(step)), attempt);
 				},
-				tools: app && { check_app: checkAppTool(sandbox, { ...app, env }) },
+				tools: app && { check_app: checkAppTool(sandbox, { ...app, env }, { images: inputs.toolImage }) },
 				limits: {
 					...deps.limits,
 					maxSteps: limits.maxSteps - before.steps,

@@ -1,4 +1,5 @@
 import { and, asc, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
+import { loadAttachments } from "./attachments";
 import type { Db } from "./index";
 import {
 	type ChangedFile,
@@ -360,7 +361,11 @@ export type RunContext = {
 		appPort: number | null;
 	};
 	/** The conversation up to and including the message this run answers. */
-	messages: { role: "user" | "assistant"; content: string }[];
+	messages: {
+		role: "user" | "assistant";
+		content: string;
+		attachments?: { name: string; mediaType: string; data: Buffer }[];
+	}[];
 	envVars: { name: string; valueEncrypted: string }[];
 };
 
@@ -403,8 +408,8 @@ export async function loadRunContext(db: Db, runId: string): Promise<RunContext 
 		.where(eq(run.id, runId));
 	if (!row) return null;
 
-	const messages = await db
-		.select({ role: message.role, content: message.content })
+	const rows = await db
+		.select({ id: message.id, role: message.role, content: message.content })
 		.from(message)
 		.where(
 			and(
@@ -413,6 +418,12 @@ export async function loadRunContext(db: Db, runId: string): Promise<RunContext 
 			),
 		)
 		.orderBy(asc(message.createdAt), asc(message.id));
+
+	const files = await loadAttachments(db, rows.map((row) => row.id));
+	const messages: RunContext["messages"] = rows.map(({ id, ...rest }) => {
+		const attached = files.filter((file) => file.messageId === id).map(({ messageId: _, ...file }) => file);
+		return attached.length > 0 ? { ...rest, attachments: attached } : rest;
+	});
 
 	const envVars = await db
 		.select({ name: projectEnvVar.name, valueEncrypted: projectEnvVar.valueEncrypted })

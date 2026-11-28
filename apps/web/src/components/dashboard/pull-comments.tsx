@@ -43,7 +43,7 @@ export function PullComments({ chatId, disabled, onSend }: Props) {
 				{comments?.length === 0 && <p className="text-sm text-muted">No comments from people yet.</p>}
 				{comments && comments.length > 0 && (
 					<>
-						<ul className="flex max-h-64 flex-col gap-2 overflow-y-auto">
+						<ul className="relative flex max-h-64 flex-col gap-2 overflow-y-auto">
 							{comments.map((comment) => (
 								<li key={comment.key} className="flex gap-2 border border-border p-2">
 									<input

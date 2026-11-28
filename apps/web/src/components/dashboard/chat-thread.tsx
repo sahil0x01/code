@@ -29,7 +29,7 @@ export function ChatThread({ children }: { children: ReactNode }) {
 				const box = event.currentTarget;
 				follow.current = box.scrollHeight - box.scrollTop - box.clientHeight < NEAR_BOTTOM_PX;
 			}}
-			className="min-h-0 flex-1 md:overflow-y-auto"
+			className="relative min-h-0 flex-1 md:overflow-y-auto md:overscroll-contain"
 		>
 			<div ref={content} className="mx-auto w-full max-w-3xl px-1 py-4 md:px-5">
 				{children}

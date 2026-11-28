@@ -2,6 +2,7 @@ import { eq, sql } from "drizzle-orm";
 import type { Db } from "./index";
 import {
 	account,
+	attachment,
 	chat,
 	connection,
 	installation,
@@ -135,6 +136,20 @@ export async function exportAccountData(db: Db, userId: string) {
 		.innerJoin(chat, eq(chat.id, message.chatId))
 		.where(eq(chat.userId, userId));
 
+	// Listed here; each file is downloaded from its own address.
+	const attachments = await db
+		.select({
+			id: attachment.id,
+			messageId: attachment.messageId,
+			name: attachment.name,
+			mediaType: attachment.mediaType,
+			size: attachment.size,
+		})
+		.from(attachment)
+		.innerJoin(message, eq(message.id, attachment.messageId))
+		.innerJoin(chat, eq(chat.id, message.chatId))
+		.where(eq(chat.userId, userId));
+
 	const runs = await db
 		.select({
 			id: run.id,
@@ -194,6 +209,7 @@ export async function exportAccountData(db: Db, userId: string) {
 			label: userModel.label,
 			baseUrl: userModel.baseUrl,
 			keyLast4: userModel.keyLast4,
+			readsImages: userModel.readsImages,
 			createdAt: userModel.createdAt,
 		})
 		.from(userModel)
@@ -223,6 +239,7 @@ export async function exportAccountData(db: Db, userId: string) {
 		envVarNames,
 		chats,
 		messages,
+		attachments: attachments.map((file) => ({ ...file, download: `/api/attachments/${file.id}` })),
 		runs,
 		runSteps,
 		models,

@@ -9,6 +9,7 @@ import {
 	ReasoningPicker,
 	RunToggles,
 } from "@/components/dashboard/composer-controls";
+import { AttachButton, AttachmentList, DropHint, useAttachments } from "@/components/dashboard/attachments";
 import { MessageBox } from "@/components/dashboard/message-box";
 import { MAX_MESSAGE_LENGTH } from "@/lib/chat";
 
@@ -39,11 +40,15 @@ export function MessageForm({
 	const [reasoning, setReasoning] = useState(defaultReasoning);
 	const [content, setContent] = useState("");
 	const [model, setModel] = useState(defaultModel);
+	const attachments = useAttachments();
 
 	const [state, formAction, pending] = useActionState(
 		async (previous: ChatState, formData: FormData) => {
-			const result = await sendMessage(previous, formData);
-			if (result.status === "success") setContent("");
+			const result = await sendMessage(previous, attachments.attach(formData));
+			if (result.status === "success") {
+				setContent("");
+				attachments.clear();
+			}
 			return result;
 		},
 		initialState,
@@ -59,7 +64,7 @@ export function MessageForm({
 			<form action={formAction} className="flex flex-col gap-2">
 				<input type="hidden" name="chatId" value={chatId} />
 
-				<div className="pixel-inset flex flex-col bg-surface focus-within:bg-background focus-within:outline-2 focus-within:outline-offset-3 focus-within:outline-ink focus-within:outline-dashed">
+				<div onPaste={attachments.onPaste} className="pixel-inset flex flex-col bg-surface focus-within:bg-background focus-within:outline-2 focus-within:outline-offset-3 focus-within:outline-ink focus-within:outline-dashed">
 					<MessageBox
 						projectId={projectId}
 						branch={branch}
@@ -82,7 +87,11 @@ export function MessageForm({
 						className="field-sizing-content max-h-48 min-h-12 resize-none bg-transparent px-3 py-3 text-[15px] leading-relaxed outline-none placeholder:text-subtle"
 					/>
 
+					<DropHint attachments={attachments} />
+				<AttachmentList attachments={attachments} />
+
 					<div className="flex flex-wrap items-center gap-x-2 gap-y-2 px-2 pb-2.5">
+						<AttachButton attachments={attachments} />
 						<ModelPicker value={model} onChange={setModel} own={ownModels} />
 						<ReasoningPicker value={reasoning} onChange={setReasoning} />
 						<RunToggles />
