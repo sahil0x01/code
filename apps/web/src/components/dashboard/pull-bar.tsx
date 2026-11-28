@@ -9,7 +9,6 @@ import {
 	sendComments,
 	startMerge,
 	stopMerge,
-	updateFromBase,
 } from "@/actions/pull-request";
 import { PullComments } from "@/components/dashboard/pull-comments";
 import { Disclosure } from "@/components/ui/disclosure";
@@ -194,14 +193,6 @@ export function PullBar(props: Props) {
 
 				{open && pull && (
 					<span className="ml-auto flex flex-wrap items-center gap-3">
-						<button
-							type="button"
-							disabled={pending || busy}
-							onClick={() => act(() => updateFromBase({ chatId, model }))}
-							className={buttonClass("secondary", "sm")}
-						>
-							Update from base
-						</button>
 						{merging ? (
 							<button
 								type="button"

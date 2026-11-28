@@ -22,6 +22,8 @@ does this, not the model.
 - Fix runs use the chat's last model and thinking level, with the usual limit on each run's cost.
 - A fix is asked of at most 3 failed checks. Cancelled checks and commit statuses can't be sent.
 
+There is no separate button to update a branch: a merge does it when it is needed.
+
 ## Setup
 
 Nothing new in the GitHub App, and no public address. The worker looks at waiting merges every minute,
