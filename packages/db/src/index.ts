@@ -15,6 +15,7 @@ export * from "./chats";
 export * from "./connectors";
 export * from "./inbox";
 export * from "./installations";
+export * from "./merge";
 export * from "./preferences";
 export * from "./projects";
 export * from "./recordings";

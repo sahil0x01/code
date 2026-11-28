@@ -23,6 +23,7 @@ type Props = {
 	projectId: string;
 	/** The chat's branch, or the base branch until it has one. */
 	branch: string;
+	canMerge: boolean;
 };
 
 const initialState: ChatState = { status: "idle" };
@@ -36,6 +37,7 @@ export function MessageForm({
 	ownModels,
 	projectId,
 	branch,
+	canMerge,
 }: Props) {
 	const [reasoning, setReasoning] = useState(defaultReasoning);
 	const [content, setContent] = useState("");
@@ -69,6 +71,7 @@ export function MessageForm({
 						projectId={projectId}
 						branch={branch}
 						listPlacement="above"
+						canMerge={canMerge}
 						name="content"
 						value={content}
 						onChange={setContent}

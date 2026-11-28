@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { FileList } from "./file-source";
-import { errorStatus } from "./pr-source";
+import { errorStatus } from "@nullfuse/connectors/pulls";
 
 type Project = { fullName: string; installationId: number | null; defaultBranch: string };
 

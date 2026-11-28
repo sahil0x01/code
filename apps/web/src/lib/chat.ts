@@ -1,3 +1,4 @@
+import { MAX_MESSAGE_LENGTH } from "@nullfuse/connectors/limits";
 import { parseOwnModelKey } from "@nullfuse/models/providers";
 
 export const MODELS = [
@@ -29,5 +30,5 @@ export function isReasoningId(value: unknown): value is ReasoningId {
 	return REASONING_OPTIONS.some((option) => option.id === value);
 }
 
-export const MAX_MESSAGE_LENGTH = 20_000;
+export { MAX_MESSAGE_LENGTH };
 export const MAX_TITLE_LENGTH = 80;

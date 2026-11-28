@@ -3,16 +3,17 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import {
-	fixCheck,
 	mergePullRequest,
 	type PullActionResult,
 	sendComments,
-	updateFromBase,
+	startMerge,
+	stopMerge,
 } from "@/actions/pull-request";
 import { PullComments } from "@/components/dashboard/pull-comments";
 import { Disclosure } from "@/components/ui/disclosure";
 import { buttonClass } from "@/components/ui/styles";
-import { type CheckState, type PullResponse, type PullStatus, summarizeChecks } from "@/lib/pr";
+import { type CheckState, type PullResponse, type PullStatus, summarizeChecks } from "@nullfuse/connectors/pulls/status";
+import type { CommentsResponse } from "@/lib/comments";
 
 type Props = {
 	chatId: string;
@@ -21,8 +22,12 @@ type Props = {
 	model: string;
 	/** An agent run is queued or running, so merging and fixing wait. */
 	busy: boolean;
-	/** The chat is already marked done. */
+	/** The chat already knows its pull request is merged. */
 	done: boolean;
+	/** A merge is waiting for checks or a fix. */
+	merging: boolean;
+	/** Why the last merge did not happen. */
+	mergeNote: string | null;
 	refreshKey: string;
 };
 
@@ -44,6 +49,38 @@ const labels: Record<PullStatus["status"], string> = {
 	closed: "Closed",
 };
 
+/** What clicking confirm will do. */
+function mergePlan(pull: PullStatus) {
+	if (pull.conflicts) {
+		return { label: "Fix, then merge", note: "The agent resolves the conflicts, then asks you to merge again." };
+	}
+	if (pull.checks.some((check) => check.state === "pending")) {
+		return { label: "Merge when checks pass", note: "If a check fails, the agent fixes it and asks you to merge again." };
+	}
+	if (pull.checks.some((check) => check.state === "failed")) {
+		return { label: "Fix, then merge", note: "The agent fixes the failed checks, then asks you to merge again." };
+	}
+	if (pull.checksUnavailable) {
+		return { label: "Check and merge", note: "Some checks can't be read, so only Merge anyway will merge." };
+	}
+	return { label: "Confirm merge", note: null };
+}
+
+function useCommentCount(chatId: string, wanted: boolean) {
+	const [count, setCount] = useState(0);
+	useEffect(() => {
+		if (!wanted) return;
+		const abort = new AbortController();
+		fetch(`/api/chats/${chatId}/pr/comments`, { cache: "no-store", signal: abort.signal })
+			.then((response) => response.json())
+			.then((body: Partial<CommentsResponse>) => setCount(body.comments?.length ?? 0))
+			// Only a reminder, so failing to count them must not get in the way.
+			.catch(() => {});
+		return () => abort.abort();
+	}, [chatId, wanted]);
+	return count;
+}
+
 function settling(pull: PullStatus) {
 	return (
 		(pull.status === "open" || pull.status === "draft") &&
@@ -51,7 +88,8 @@ function settling(pull: PullStatus) {
 	);
 }
 
-export function PullBar({ chatId, number, url, model, busy, done, refreshKey }: Props) {
+export function PullBar(props: Props) {
+	const { chatId, number, url, model, busy, done, merging, mergeNote, refreshKey } = props;
 	const [pull, setPull] = useState<PullStatus | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [actionError, setActionError] = useState<string | null>(null);
@@ -112,7 +150,10 @@ export function PullBar({ chatId, number, url, model, busy, done, refreshKey }: 
 
 	const summary = pull && summarizeChecks(pull.checks);
 	const open = pull?.status === "open" || pull?.status === "draft";
-	const mergeable = pull?.status === "open" && pull.blocker === null && !busy;
+	const mergeable = pull?.status === "open" && !busy;
+	const confirmed = pull !== null && confirming === pull.headSha;
+	const plan = pull && mergePlan(pull);
+	const comments = useCommentCount(chatId, confirmed);
 
 	return (
 		<section
@@ -151,24 +192,35 @@ export function PullBar({ chatId, number, url, model, busy, done, refreshKey }: 
 
 				{open && pull && (
 					<span className="ml-auto flex flex-wrap items-center gap-3">
-						<button
-							type="button"
-							disabled={pending || busy}
-							onClick={() => act(() => updateFromBase({ chatId, model }))}
-							className={buttonClass("secondary", "sm")}
-						>
-							Update from base
-						</button>
-						{confirming === pull.headSha ? (
+						{merging ? (
+							<button
+								type="button"
+								disabled={pending}
+								onClick={() => act(() => stopMerge({ chatId }))}
+								className={buttonClass("secondary", "sm")}
+							>
+								Cancel merge
+							</button>
+						) : confirmed ? (
 							<>
 								<button
 									type="button"
 									disabled={pending || !mergeable}
-									onClick={() => act(() => mergePullRequest({ chatId, sha: pull.headSha }))}
+									onClick={() => act(() => startMerge({ chatId, sha: pull.headSha }))}
 									className={buttonClass("primary", "sm")}
 								>
-									{pending ? "Merging..." : "Confirm merge"}
+									{pending ? "Merging..." : plan?.label}
 								</button>
+								{plan?.note && pull.blocker === null && (
+									<button
+										type="button"
+										disabled={pending || !mergeable}
+										onClick={() => act(() => mergePullRequest({ chatId, sha: pull.headSha }))}
+										className={buttonClass("secondary", "sm")}
+									>
+										Merge anyway
+									</button>
+								)}
 								<button type="button" onClick={() => setConfirming(null)} className={buttonClass("secondary", "sm")}>
 									Cancel
 								</button>
@@ -193,33 +245,20 @@ export function PullBar({ chatId, number, url, model, busy, done, refreshKey }: 
 					summary={<span className={tone[summary.tone]}>{summary.text}</span>}
 				>
 					<ul className="flex flex-col gap-1 pt-2">
-						{pull.checks.map((check) => {
-							const { checkRunId } = check;
-							return (
-								<li key={check.key} className="flex flex-wrap items-center gap-2 font-mono text-xs">
-									<span className={`w-4 ${tone[check.state]}`}>
-										<span aria-hidden="true">{mark[check.state]}</span>
-										<span className="sr-only">{check.state}</span>
-									</span>
-									<span className="min-w-0 break-all">{check.name}</span>
-									{check.url?.startsWith("https://") && (
-										<a href={check.url} target="_blank" rel="noreferrer" className="text-muted underline">
-											Details ↗
-										</a>
-									)}
-									{check.state === "failed" && checkRunId !== null && (
-										<button
-											type="button"
-											disabled={pending || busy}
-											onClick={() => act(() => fixCheck({ chatId, checkRunId, model }))}
-											className={buttonClass("secondary", "sm")}
-										>
-											Fix this
-										</button>
-									)}
-								</li>
-							);
-						})}
+						{pull.checks.map((check) => (
+							<li key={check.key} className="flex flex-wrap items-center gap-2 font-mono text-xs">
+								<span className={`w-4 ${tone[check.state]}`}>
+									<span aria-hidden="true">{mark[check.state]}</span>
+									<span className="sr-only">{check.state}</span>
+								</span>
+								<span className="min-w-0 break-all">{check.name}</span>
+								{check.url?.startsWith("https://") && (
+									<a href={check.url} target="_blank" rel="noreferrer" className="text-muted underline">
+										Details ↗
+									</a>
+								)}
+							</li>
+						))}
 					</ul>
 				</Disclosure>
 			)}
@@ -232,13 +271,32 @@ export function PullBar({ chatId, number, url, model, busy, done, refreshKey }: 
 				/>
 			)}
 
+			{open && confirmed && !merging && plan?.note && <p className="text-sm text-muted">{plan.note}</p>}
+			{open && confirmed && !merging && comments > 0 && (
+				<p className="text-sm text-muted">
+					{comments === 1 ? "There is 1 comment" : `There are ${comments} comments`} on this pull request. Merging
+					doesn&apos;t send them to the agent, so read them under Comments first.
+				</p>
+			)}
+			{open && merging && (
+				<p role="status" className="text-sm text-muted">
+					{busy
+						? "Fixing before the merge. You will be asked to merge again."
+						: "Waiting to merge. You can leave this page."}
+				</p>
+			)}
+			{open && !merging && !confirmed && mergeNote && (
+				<p role="alert" className="text-sm text-red">
+					{mergeNote}
+				</p>
+			)}
 			{open && pull?.checksUnavailable && (
 				<p className="text-sm text-muted">
 					Some checks can&apos;t be read. Give the GitHub App read access to Checks and Commit statuses.
 				</p>
 			)}
-			{open && busy && <p className="text-sm text-muted">Merging waits until the agent finishes.</p>}
-			{open && !busy && pull?.blocker && <p className="text-sm text-muted">{pull.blocker}</p>}
+			{open && busy && !merging && <p className="text-sm text-muted">Merging waits until the agent finishes.</p>}
+			{open && !busy && !merging && pull?.blocker && <p className="text-sm text-muted">{pull.blocker}</p>}
 			{pull?.status === "merged" && (
 				<p className="text-sm text-muted">Merged. Start a new chat for further changes.</p>
 			)}

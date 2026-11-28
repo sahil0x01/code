@@ -245,7 +245,7 @@ export const chat = pgTable(
 		pullRequestUrl: text("pull_request_url"),
 		// Why the last attempt to open the PR failed, shown to the user.
 		pullRequestError: text("pull_request_error"),
-		// When the first PR for the chat was opened, and when GitHub reported it merged.
+		// When the first PR for the chat was opened, and when it was first seen to be merged.
 		pullRequestOpenedAt: timestamp("pull_request_opened_at", { withTimezone: true }),
 		pullRequestMergedAt: timestamp("pull_request_merged_at", { withTimezone: true }),
 		// The merged PR's size as GitHub reported it, so it may include commits people added.
@@ -255,6 +255,19 @@ export const chat = pgTable(
 		seenAt: timestamp("seen_at", { withTimezone: true }),
 		// The chat needs review again once a run finishes after this.
 		doneAt: timestamp("done_at", { withTimezone: true }),
+		// Set from a Merge click until the pull request is merged or the merge gives up.
+		mergeSince: timestamp("merge_since", { withTimezone: true }),
+		// The commit the user approved, the only one that is merged.
+		mergeSha: text("merge_sha"),
+		// The commit GitHub was asked to bring up to date with the base branch.
+		mergeUpdatedFrom: text("merge_updated_from"),
+		mergeFixes: integer("merge_fixes").notNull().default(0),
+		// The latest fix run of this merge, and the commit it was asked to fix.
+		mergeRunId: uuid("merge_run_id"),
+		mergeFixHead: text("merge_fix_head"),
+		mergeCheckedAt: timestamp("merge_checked_at", { withTimezone: true }),
+		// Why the merge stopped, shown to the user.
+		mergeNote: text("merge_note"),
 		createdAt: timestamp("created_at", { withTimezone: true })
 			.notNull()
 			.defaultNow(),

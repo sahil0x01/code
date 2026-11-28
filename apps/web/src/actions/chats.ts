@@ -26,9 +26,11 @@ import {
 	type ReasoningId,
 } from "@/lib/chat";
 import { readAttachments } from "@/lib/attachments";
+import { MERGE_COMMAND } from "@/lib/suggest";
 import { db } from "@/server/db";
 import { enqueueRun } from "@/server/enqueue";
 import { checkRepo } from "@/server/github-checks";
+import { startMergeFor } from "@/server/merge";
 import { requireSession } from "@/server/session";
 
 export type ChatState =
@@ -85,6 +87,7 @@ const failures = {
 	not_found: "That project or chat was not found.",
 	disconnected:
 		"This project is disconnected from GitHub. Reconnect it to keep working.",
+	merged: "This chat's pull request is merged. Start a new chat for further changes.",
 	queue_full:
 		"You have too many unfinished runs. Wait for some to finish, then send again.",
 	model_removed: "That model was removed. Pick another one, then send again.",
@@ -155,6 +158,18 @@ export async function startChat(
 	redirect(`/dashboard/chats/${chatId}`);
 }
 
+async function merge(userId: string, chatId: string): Promise<ChatState> {
+	try {
+		const result = await startMergeFor(userId, chatId);
+		if (!result.ok) return { status: "error", message: result.message };
+	} catch (error) {
+		console.error("merge command failed", error);
+		return { status: "error", message: "Something went wrong. Try again." };
+	}
+	revalidatePath("/dashboard", "layout");
+	return { status: "success" };
+}
+
 export async function sendMessage(
 	_previous: ChatState,
 	formData: FormData,
@@ -170,6 +185,7 @@ export async function sendMessage(
 		reasoning: formData.get("reasoning"),
 	});
 	if (!input.success) return inputError;
+	if (input.data.content === MERGE_COMMAND) return merge(user.id, input.data.chatId);
 	const options = withCommands(input.data);
 	if (!options) return missingTask;
 	const files = await readAttachments(formData);

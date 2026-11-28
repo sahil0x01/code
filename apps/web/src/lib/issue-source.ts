@@ -1,5 +1,5 @@
 import type { Issue, IssueSummary } from "./issue";
-import { splitRepo } from "./pr-source";
+import { splitRepo } from "@nullfuse/connectors/pulls";
 
 type Repo = { owner: string; repo: string };
 

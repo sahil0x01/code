@@ -1,6 +1,6 @@
 import type { PullComment } from "./comments";
 import { visibleText } from "./visible-text";
-import { splitRepo } from "./pr-source";
+import { splitRepo } from "@nullfuse/connectors/pulls";
 
 type Repo = { owner: string; repo: string };
 type Author = { login: string; type: string } | null;

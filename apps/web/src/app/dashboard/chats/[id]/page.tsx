@@ -166,6 +166,7 @@ export default async function ChatPage({
 	const refreshKey = [
 		chat.workingBranch,
 		chat.pullRequestNumber,
+		chat.merging,
 		...runs.map((run) => `${run.status}:${stepsByRun.get(run.id)?.length ?? 0}`),
 	].join("|");
 
@@ -177,7 +178,10 @@ export default async function ChatPage({
 	return (
 		// Covers the area beside the sidebar so each column can scroll by itself.
 		<div className="flex min-h-[70dvh] flex-col bg-background md:fixed md:inset-y-0 md:right-0 md:left-64 md:min-h-0">
-			<AutoRefresh active={unfinished.length > 0} />
+			<AutoRefresh
+				active={unfinished.length > 0 || chat.merging}
+				intervalMs={unfinished.length > 0 ? undefined : 5000}
+			/>
 			{chat.unread && latestResult && (
 				<MarkSeen chatId={chat.id} until={latestResult.toISOString()} />
 			)}
@@ -252,7 +256,7 @@ export default async function ChatPage({
 								);
 							})}
 						</ol>
-						{chat.connected && unfinished.length === 0 && runs.at(-1)?.planOnly && runs.at(-1)?.status === "succeeded" && !modelRemoved && (
+						{chat.connected && !chat.merged && unfinished.length === 0 && runs.at(-1)?.planOnly && runs.at(-1)?.status === "succeeded" && !modelRemoved && (
 							<form action={approvePlan} className="mt-6 flex flex-wrap items-center gap-3">
 								<input type="hidden" name="chatId" value={chat.id} />
 								<button type="submit" className={buttonClass()}>
@@ -264,12 +268,24 @@ export default async function ChatPage({
 					</ChatThread>
 				}
 				composer={
-					chat.connected ? (
+					chat.merged ? (
+						<p className="text-sm text-muted">
+							This pull request is merged, so the chat is closed.{" "}
+							<Link
+								href={`/dashboard/chats/new?project=${chat.projectId}`}
+								className="underline hover:text-foreground"
+							>
+								Start a new chat
+							</Link>{" "}
+							for further changes.
+						</p>
+					) : chat.connected ? (
 						<MessageForm
 							key={chat.id}
 							chatId={chat.id}
 							projectId={chat.projectId}
 							branch={chat.workingBranch ?? chat.baseBranch}
+							canMerge={hasPull === true}
 							defaultModel={defaultModel}
 							defaultReasoning={defaultReasoning}
 							ownModels={ownModels.map(({ id, label }) => ({ id, label }))}
@@ -288,7 +304,9 @@ export default async function ChatPage({
 					<>
 						{hasPull && chat.pullRequestNumber !== null && chat.pullRequestUrl && (
 							<PullBar
-								done={chat.state === "done"}
+								done={chat.merged}
+								merging={chat.merging}
+								mergeNote={chat.mergeNote}
 								key={chat.id}
 								chatId={chat.id}
 								number={chat.pullRequestNumber}

@@ -1,4 +1,4 @@
-import { splitRepo } from "./pr-source";
+import { splitRepo } from "@nullfuse/connectors/pulls";
 
 const MAX_PATHS = 20_000;
 const SKILL = /^\.(?:agents|claude)\/skills\/(?:.*\/)?([^/]+)\/SKILL\.md$/;

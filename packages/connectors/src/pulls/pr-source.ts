@@ -1,4 +1,4 @@
-import { MAX_MESSAGE_LENGTH } from "./chat";
+import { MAX_MESSAGE_LENGTH } from "../limits";
 import type { Check, CheckState, PullStatus } from "./pr";
 
 type Repo = { owner: string; repo: string };
@@ -12,6 +12,7 @@ type GitHubPull = {
 	mergeable: boolean | null;
 	mergeable_state: string;
 	head: { sha: string };
+	base: { sha: string };
 };
 
 type GitHubCheckRun = {
@@ -53,7 +54,7 @@ export type PullClient = {
 		): Promise<{ data: { check_runs: GitHubCheckRun[] } }>;
 		get(params: Repo & { check_run_id: number }): Promise<{ data: GitHubCheckRun }>;
 		listAnnotations(params: Repo & { check_run_id: number; per_page: number }): Promise<{
-			data: { path: string; start_line: number; message: string | null }[];
+			data: { path: string; start_line: number; message: string | null; annotation_level?: string | null }[];
 		}>;
 	};
 	actions: {
@@ -153,6 +154,7 @@ export async function loadPull(
 			name: run.name,
 			state: runState(run),
 			url: run.html_url,
+			fixable: run.status === "completed" && ["failure", "timed_out"].includes(run.conclusion ?? ""),
 		})),
 		...(statuses?.data.statuses ?? []).map((status) => ({
 			key: `status:${status.context}`,
@@ -160,6 +162,7 @@ export async function loadPull(
 			name: status.context,
 			state: statusState(status.state),
 			url: status.target_url,
+			fixable: false,
 		})),
 	];
 
@@ -176,6 +179,10 @@ export async function loadPull(
 		number,
 		url: pull.html_url,
 		headSha: ref,
+		baseSha: pull.base.sha,
+		conflicts: pull.mergeable_state === "dirty",
+		behind: pull.mergeable_state === "behind",
+		checking: pull.mergeable === null,
 		status,
 		blocker: status === "open" || status === "draft" ? blockerFor(pull) : null,
 		checks,
@@ -254,7 +261,8 @@ export async function failureReport(
 	const [annotations, log] = await Promise.all([
 		client.checks
 			.listAnnotations({ ...repo, check_run_id: checkRunId, per_page: 20 })
-			.then((response) => response.data)
+			// Warnings are not why it failed, and they lead the agent to change other things.
+			.then((response) => response.data.filter((note) => !["notice", "warning"].includes(note.annotation_level ?? "")))
 			.catch(() => []),
 		client.actions
 			.downloadJobLogsForWorkflowRun({ ...repo, job_id: checkRunId })

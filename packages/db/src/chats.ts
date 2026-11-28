@@ -13,7 +13,7 @@ export const MAX_UNFINISHED_RUNS_PER_USER = 10;
 
 export type SendResult =
 	| { ok: true; chatId: string; messageId: string; runId: string }
-	| { ok: false; reason: "not_found" | "disconnected" | "queue_full" | "model_removed" };
+	| { ok: false; reason: "not_found" | "disconnected" | "merged" | "queue_full" | "model_removed" };
 
 function one<T>(rows: T[]): T {
 	const row = rows[0];
@@ -28,7 +28,7 @@ export function titleFromMessage(content: string) {
 	return firstLine.length > 80 ? `${firstLine.slice(0, 77)}...` : firstLine;
 }
 
-async function countUnfinishedRuns(tx: Tx, userId: string) {
+export async function countUnfinishedRuns(tx: Tx, userId: string) {
 	const [row] = await tx
 		.select({ n: count() })
 		.from(run)
@@ -39,7 +39,7 @@ async function countUnfinishedRuns(tx: Tx, userId: string) {
 }
 
 // A user's own model must still be theirs; the run keeps its name for later.
-async function modelFor(tx: Tx, userId: string, model: string) {
+export async function modelFor(tx: Tx, userId: string, model: string) {
 	if (!isOwnModelKey(model)) return { label: null };
 	const id = parseOwnModelKey(model);
 	if (!id) return null;
@@ -50,7 +50,7 @@ async function modelFor(tx: Tx, userId: string, model: string) {
 	return found ?? null;
 }
 
-async function enqueue(
+export async function enqueueMessage(
 	tx: Tx,
 	input: {
 		userId: string;
@@ -147,7 +147,7 @@ export function createChat(
 				})
 				.returning({ id: chat.id }),
 		);
-		const ids = await enqueue(tx, { ...input, chatId: created.id, modelLabel: picked.label });
+		const ids = await enqueueMessage(tx, { ...input, chatId: created.id, modelLabel: picked.label });
 		return { ok: true, chatId: created.id, ...ids };
 	});
 }
@@ -168,7 +168,7 @@ export function addMessage(
 ) {
 	return db.transaction(async (tx): Promise<SendResult> => {
 		const [found] = await tx
-			.select({ installationId: project.installationId })
+			.select({ installationId: project.installationId, mergedAt: chat.pullRequestMergedAt })
 			.from(chat)
 			.innerJoin(project, eq(chat.projectId, project.id))
 			.where(and(eq(chat.id, input.chatId), eq(chat.userId, input.userId)))
@@ -177,6 +177,8 @@ export function addMessage(
 		if (found.installationId === null) {
 			return { ok: false, reason: "disconnected" };
 		}
+		// Its branch is already in the base, so more work there would go nowhere.
+		if (found.mergedAt) return { ok: false, reason: "merged" };
 		if (
 			(await countUnfinishedRuns(tx, input.userId)) >=
 			MAX_UNFINISHED_RUNS_PER_USER
@@ -186,10 +188,11 @@ export function addMessage(
 		const picked = await modelFor(tx, input.userId, input.model);
 		if (!picked) return { ok: false, reason: "model_removed" };
 
-		const ids = await enqueue(tx, { ...input, modelLabel: picked.label });
+		const ids = await enqueueMessage(tx, { ...input, modelLabel: picked.label });
 		await tx
 			.update(chat)
-			.set({ updatedAt: new Date() })
+			// A new instruction means new code, so a waiting merge is called off.
+			.set({ updatedAt: new Date(), mergeSince: null, mergeNote: null })
 			.where(eq(chat.id, input.chatId));
 		return { ok: true, chatId: input.chatId, ...ids };
 	});
@@ -246,6 +249,9 @@ export async function getChatForUser(db: Db, userId: string, chatId: string) {
 			pullRequestNumber: chat.pullRequestNumber,
 			pullRequestUrl: chat.pullRequestUrl,
 			pullRequestError: chat.pullRequestError,
+			merging: sql<boolean>`${chat.mergeSince} is not null`,
+			merged: sql<boolean>`${chat.pullRequestMergedAt} is not null`,
+			mergeNote: chat.mergeNote,
 			projectId: chat.projectId,
 			projectName: project.fullName,
 			installationId: project.installationId,

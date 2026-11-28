@@ -43,10 +43,15 @@ export async function setChatDone(db: Db, userId: string, chatId: string, done: 
 /** Marks a chat done because its pull request was merged. Later runs ask for review again. */
 export async function markChatMerged(db: Db, userId: string, chatId: string) {
 	const now = new Date();
+	const mine = and(eq(chat.id, chatId), eq(chat.userId, userId));
+	await db
+		.update(chat)
+		.set({ pullRequestMergedAt: now })
+		.where(and(mine, isNull(chat.pullRequestMergedAt)));
 	await db
 		.update(chat)
 		.set({ doneAt: now, seenAt: now })
-		.where(and(eq(chat.id, chatId), eq(chat.userId, userId), isNull(chat.doneAt)));
+		.where(and(mine, isNull(chat.doneAt)));
 }
 
 /** The same, for a merge GitHub reports. */
@@ -67,11 +72,12 @@ export async function markPullMerged(
 	await db
 		.update(chat)
 		.set({
-			pullRequestMergedAt: now,
+			pullRequestMergedAt: sql`coalesce(${chat.pullRequestMergedAt}, ${now.toISOString()}::timestamptz)`,
 			pullRequestAdditions: size.additions ?? null,
 			pullRequestDeletions: size.deletions ?? null,
 		})
-		.where(and(isThisPull, isNull(chat.pullRequestMergedAt)));
+		// The app may have marked it merged already, without knowing its size.
+		.where(and(isThisPull, isNull(chat.pullRequestAdditions)));
 	await db
 		.update(chat)
 		.set({ doneAt: now, seenAt: now })
