@@ -7,12 +7,13 @@ import {
 	mergePullRequest,
 	type PullActionResult,
 	sendComments,
+	toggleAutoFix,
 	updateFromBase,
 } from "@/actions/pull-request";
 import { PullComments } from "@/components/dashboard/pull-comments";
 import { Disclosure } from "@/components/ui/disclosure";
 import { buttonClass } from "@/components/ui/styles";
-import { type CheckState, type PullResponse, type PullStatus, summarizeChecks } from "@/lib/pr";
+import { type CheckState, type PullResponse, type PullStatus, summarizeChecks } from "@nullfuse/connectors/pulls/status";
 
 type Props = {
 	chatId: string;
@@ -23,6 +24,8 @@ type Props = {
 	busy: boolean;
 	/** The chat is already marked done. */
 	done: boolean;
+	autoFix: boolean;
+	autoFixNote: string | null;
 	refreshKey: string;
 };
 
@@ -51,7 +54,8 @@ function settling(pull: PullStatus) {
 	);
 }
 
-export function PullBar({ chatId, number, url, model, busy, done, refreshKey }: Props) {
+export function PullBar(props: Props) {
+	const { chatId, number, url, model, busy, done, autoFix, autoFixNote, refreshKey } = props;
 	const [pull, setPull] = useState<PullStatus | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [actionError, setActionError] = useState<string | null>(null);
@@ -153,6 +157,15 @@ export function PullBar({ chatId, number, url, model, busy, done, refreshKey }: 
 					<span className="ml-auto flex flex-wrap items-center gap-3">
 						<button
 							type="button"
+							aria-pressed={autoFix}
+							disabled={pending}
+							onClick={() => act(() => toggleAutoFix({ chatId, on: !autoFix }))}
+							className={buttonClass("secondary", "sm")}
+						>
+							Auto-fix: {autoFix ? "On" : "Off"}
+						</button>
+						<button
+							type="button"
 							disabled={pending || busy}
 							onClick={() => act(() => updateFromBase({ chatId, model }))}
 							className={buttonClass("secondary", "sm")}
@@ -232,6 +245,12 @@ export function PullBar({ chatId, number, url, model, busy, done, refreshKey }: 
 				/>
 			)}
 
+			{open && autoFix && !autoFixNote && (
+				<p className="text-sm text-muted">
+					Failed checks, conflicts and new comments from people with write access are sent to the agent.
+				</p>
+			)}
+			{open && autoFixNote && <p className="text-sm text-muted">{autoFixNote}</p>}
 			{open && pull?.checksUnavailable && (
 				<p className="text-sm text-muted">
 					Some checks can&apos;t be read. Give the GitHub App read access to Checks and Commit statuses.

@@ -1,7 +1,7 @@
 import "server-only";
 import { type DetectedSetup, detectSetup } from "@/lib/detect";
 import { getInstallationOctokit } from "@/lib/github-app";
-import { splitRepo } from "@/lib/pr-source";
+import { splitRepo } from "@nullfuse/connectors/pulls";
 
 /** Null when the repository cannot be read or nothing could be suggested. */
 export async function suggestSetup(installationId: number, fullName: string): Promise<DetectedSetup | null> {

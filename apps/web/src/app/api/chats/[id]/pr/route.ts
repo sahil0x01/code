@@ -1,7 +1,7 @@
 import { getChatForUser, markChatMerged } from "@nullfuse/db";
 import type { NextRequest } from "next/server";
 import { handlePull } from "@/lib/pr-handler";
-import { loadPull } from "@/lib/pr-source";
+import { loadPull } from "@nullfuse/connectors/pulls";
 import { getInstallationOctokit } from "@/lib/github-app";
 import { db } from "@/server/db";
 import { getSession } from "@/server/session";

@@ -1,7 +1,7 @@
 import { getChatForUser } from "@nullfuse/db";
 import type { NextRequest } from "next/server";
 import { z } from "zod";
-import { listPullComments } from "@/lib/comment-source";
+import { listPullComments } from "@nullfuse/connectors/pulls";
 import { getInstallationOctokit } from "@/lib/github-app";
 import { db } from "@/server/db";
 import { getSession } from "@/server/session";

@@ -25,6 +25,9 @@ const schema = z.object({
 	RUN_MAX_STEPS: z.coerce.number().int().positive().optional(),
 	RUN_MAX_TOKENS: z.coerce.number().int().positive().optional(),
 	RUN_MAX_COST_USD: z.coerce.number().positive().max(2000).default(1),
+	// Automatic fix runs allowed in a row, and their spend per chat since auto-fix was turned on.
+	AUTOFIX_MAX_RUNS: z.coerce.number().int().positive().default(3),
+	AUTOFIX_MAX_COST_USD: z.coerce.number().positive().max(2000).default(2),
 	// A running run that has not reported in for this long is taken to have crashed.
 	RUN_STALE_SECONDS: z.coerce.number().int().min(30).default(90),
 	// A run is given up after its worker died this many times.

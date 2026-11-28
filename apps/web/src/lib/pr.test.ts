@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-import { summarizeChecks } from "./pr";
+import { summarizeChecks } from "@nullfuse/connectors/pulls/status";
 import { handlePull, type PullDeps } from "./pr-handler";
-import { failureReport, loadPull, mergePull, type PullClient } from "./pr-source";
+import { failureReport, loadPull, mergePull, type PullClient } from "@nullfuse/connectors/pulls";
 
 const SHA = "b".repeat(40);
 const httpError = (status: number) => Object.assign(new Error(`HTTP ${status}`), { status });
@@ -25,6 +25,7 @@ function client(pull: Partial<Awaited<ReturnType<PullClient["pulls"]["get"]>>["d
 		mergeable: true as boolean | null,
 		mergeable_state: "clean",
 		head: { sha: SHA },
+		base: { sha: "a".repeat(40) },
 		...pull,
 	};
 	return {
@@ -67,6 +68,16 @@ function client(pull: Partial<Awaited<ReturnType<PullClient["pulls"]["get"]>>["d
 }
 
 describe("loadPull", () => {
+	it("marks only code failures as fixable, and reports a conflict", async () => {
+		const stub = client({ mergeable_state: "dirty" });
+		stub.checks.listForRef.mockResolvedValue({
+			data: { check_runs: [checkRun(1, "failure"), checkRun(2, "timed_out"), checkRun(3, "cancelled")] },
+		});
+		const pull = await loadPull(stub, "me/app", 4);
+		expect(pull.checks.map((check) => check.fixable)).toEqual([true, true, false, false]);
+		expect(pull).toMatchObject({ conflicts: true, baseSha: "a".repeat(40) });
+	});
+
 	it("combines check runs and commit statuses", async () => {
 		const pull = await loadPull(client(), "me/app", 4);
 		expect(pull.checks.map((check) => [check.name, check.state, check.checkRunId])).toEqual([

@@ -1,5 +1,5 @@
 import { MAX_MESSAGE_LENGTH } from "./chat";
-import { visibleText } from "./visible-text";
+import { visibleText } from "@nullfuse/connectors/pulls";
 
 export type IssueSummary = { number: number; title: string };
 

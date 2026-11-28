@@ -1,13 +1,13 @@
 "use server";
 
-import { addMessage, getChatForUser, listRuns, setChatDone } from "@nullfuse/db";
+import { addMessage, getChatForUser, listRuns, markAutoFixSeen, setAutoFix, setChatDone } from "@nullfuse/db";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { isModelId } from "@/lib/chat";
-import { listPullComments } from "@/lib/comment-source";
-import { commentsMessage } from "@/lib/comments";
+import { listPullComments } from "@nullfuse/connectors/pulls";
+import { commentsMessage } from "@nullfuse/connectors/pulls/comments";
 import { getInstallationOctokit } from "@/lib/github-app";
-import { failureReport, mergePull } from "@/lib/pr-source";
+import { failureReport, mergePull } from "@nullfuse/connectors/pulls";
 import { db } from "@/server/db";
 import { enqueueRun } from "@/server/enqueue";
 import { requireSession } from "@/server/session";
@@ -82,6 +82,7 @@ export async function fixCheck(input: z.input<typeof fixInput>): Promise<PullAct
 			return failed(notSent(sent.reason));
 		}
 		await enqueueRun({ runId: sent.runId, chatId: sent.chatId });
+		await markAutoFixSeen(db, chatId, [`check:${checkRunId}`]);
 	} catch (error) {
 		console.error("fix check failed", error);
 		return failed(retry);
@@ -163,8 +164,28 @@ export async function sendComments(input: z.input<typeof commentsInput>): Promis
 			return failed(notSent(sent.reason));
 		}
 		await enqueueRun({ runId: sent.runId, chatId: sent.chatId });
+		await markAutoFixSeen(db, chatId, chosen.map((comment) => comment.key));
 	} catch (error) {
 		console.error("send comments failed", error);
+		return failed(retry);
+	}
+
+	revalidatePath("/dashboard", "layout");
+	return { ok: true };
+}
+
+const autoFixInput = z.object({ chatId: z.uuid(), on: z.boolean() });
+
+export async function toggleAutoFix(input: z.input<typeof autoFixInput>): Promise<PullActionResult> {
+	const { user } = await requireSession();
+	const parsed = autoFixInput.safeParse(input);
+	if (!parsed.success) return failed(retry);
+
+	try {
+		const changed = await setAutoFix(db, user.id, parsed.data.chatId, parsed.data.on);
+		if (!changed) return failed("That pull request was not found.");
+	} catch (error) {
+		console.error("toggle auto-fix failed", error);
 		return failed(retry);
 	}
 

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { PullResponse } from "./pr";
+import type { PullResponse } from "@nullfuse/connectors/pulls/status";
 
 type Chat = { pullRequestNumber: number | null; projectName: string; installationId: number | null };
 

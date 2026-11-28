@@ -255,6 +255,11 @@ export const chat = pgTable(
 		seenAt: timestamp("seen_at", { withTimezone: true }),
 		// The chat needs review again once a run finishes after this.
 		doneAt: timestamp("done_at", { withTimezone: true }),
+		// Set while auto-fix is on. Comments written before this are left alone.
+		autoFixSince: timestamp("auto_fix_since", { withTimezone: true }),
+		autoFixCheckedAt: timestamp("auto_fix_checked_at", { withTimezone: true }),
+		// Why auto-fix paused or turned itself off, shown to the user.
+		autoFixNote: text("auto_fix_note"),
 		createdAt: timestamp("created_at", { withTimezone: true })
 			.notNull()
 			.defaultNow(),
@@ -458,6 +463,8 @@ export const run = pgTable(
 		// The agent only reads and proposes; nothing is changed or pushed.
 		planOnly: boolean("plan_only").notNull().default(false),
 		recording: jsonb("recording").$type<RunRecording>(),
+		// Started by auto-fix, not by the user.
+		autoFix: boolean("auto_fix").notNull().default(false),
 		heartbeatAt: timestamp("heartbeat_at", { withTimezone: true }),
 		// Set while the run waits for room to start. Cleared once it has a sandbox.
 		waitingSince: timestamp("waiting_since", { withTimezone: true }),
@@ -490,6 +497,19 @@ export const run = pgTable(
 			sql`${t.stopReason} is null or ${t.stopReason} in (${sql.raw(runStopReasons.map((reason) => `'${reason}'`).join(", "))})`,
 		),
 	],
+);
+
+/** Failed checks, comments and conflicts already sent to the agent, so none is sent twice. */
+export const autoFixSeen = pgTable(
+	"auto_fix_seen",
+	{
+		chatId: uuid("chat_id")
+			.notNull()
+			.references(() => chat.id, { onDelete: "cascade" }),
+		key: text("key").notNull(),
+		createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+	},
+	(t) => [primaryKey({ columns: [t.chatId, t.key] })],
 );
 
 export type StepToolCall = { id: string; name: string; input: unknown };

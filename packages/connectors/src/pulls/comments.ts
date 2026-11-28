@@ -1,4 +1,4 @@
-import { MAX_MESSAGE_LENGTH } from "./chat";
+import { MAX_MESSAGE_LENGTH } from "../limits";
 import { visibleText } from "./visible-text";
 
 export type PullComment = {
@@ -10,6 +10,9 @@ export type PullComment = {
 	where: string | null;
 	url: string;
 	updatedAt: string;
+	createdAt: string;
+	/** An approving review, which asks for nothing. */
+	approval: boolean;
 };
 
 export type CommentsResponse = { comments: PullComment[] };

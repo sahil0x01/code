@@ -289,6 +289,8 @@ export default async function ChatPage({
 						{hasPull && chat.pullRequestNumber !== null && chat.pullRequestUrl && (
 							<PullBar
 								done={chat.state === "done"}
+								autoFix={chat.autoFix}
+								autoFixNote={chat.autoFixNote}
 								key={chat.id}
 								chatId={chat.id}
 								number={chat.pullRequestNumber}

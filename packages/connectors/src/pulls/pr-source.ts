@@ -1,4 +1,4 @@
-import { MAX_MESSAGE_LENGTH } from "./chat";
+import { MAX_MESSAGE_LENGTH } from "../limits";
 import type { Check, CheckState, PullStatus } from "./pr";
 
 type Repo = { owner: string; repo: string };
@@ -12,6 +12,7 @@ type GitHubPull = {
 	mergeable: boolean | null;
 	mergeable_state: string;
 	head: { sha: string };
+	base: { sha: string };
 };
 
 type GitHubCheckRun = {
@@ -153,6 +154,7 @@ export async function loadPull(
 			name: run.name,
 			state: runState(run),
 			url: run.html_url,
+			fixable: run.status === "completed" && ["failure", "timed_out"].includes(run.conclusion ?? ""),
 		})),
 		...(statuses?.data.statuses ?? []).map((status) => ({
 			key: `status:${status.context}`,
@@ -160,6 +162,7 @@ export async function loadPull(
 			name: status.context,
 			state: statusState(status.state),
 			url: status.target_url,
+			fixable: false,
 		})),
 	];
 
@@ -176,6 +179,8 @@ export async function loadPull(
 		number,
 		url: pull.html_url,
 		headSha: ref,
+		baseSha: pull.base.sha,
+		conflicts: pull.mergeable_state === "dirty",
 		status,
 		blocker: status === "open" || status === "draft" ? blockerFor(pull) : null,
 		checks,

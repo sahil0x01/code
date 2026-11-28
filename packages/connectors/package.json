@@ -4,7 +4,11 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./limits": "./src/limits.ts",
+    "./pulls": "./src/pulls/index.ts",
+    "./pulls/status": "./src/pulls/pr.ts",
+    "./pulls/comments": "./src/pulls/comments.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

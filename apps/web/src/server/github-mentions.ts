@@ -4,6 +4,7 @@ import {
 	findChatByPullRequest,
 	findConnectedProject,
 	findUserIdByGithubId,
+	markAutoFixSeen,
 	saveConnection,
 } from "@nullfuse/db";
 import { MAX_MESSAGE_LENGTH } from "@/lib/chat";
@@ -78,7 +79,11 @@ export async function handleMention(mention: GitHubMention) {
 		target: String(issue.number),
 	});
 
-	if (result?.ok) return acknowledge(mention);
+	if (result?.ok) {
+		// Auto-fix reads the same comments, so it is told this one is taken.
+		if (chatId && mention.source === "comment") await markAutoFixSeen(db, chatId, [`talk:${mention.id}`]);
+		return acknowledge(mention);
+	}
 	if (result?.reason === "duplicate") return;
 	return reply(mention, result ? taskReply(result, env.NEXT_PUBLIC_APP_URL, escapeGitHub) : TASK_FAILED);
 }

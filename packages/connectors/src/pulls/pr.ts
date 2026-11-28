@@ -7,6 +7,8 @@ export type Check = {
 	name: string;
 	state: CheckState;
 	url: string | null;
+	/** The code failed it, so it is worth sending to the agent without being asked. */
+	fixable: boolean;
 };
 
 export type PullStatus = {
@@ -14,6 +16,8 @@ export type PullStatus = {
 	number: number;
 	url: string;
 	headSha: string;
+	baseSha: string;
+	conflicts: boolean;
 	status: "open" | "draft" | "merged" | "closed";
 	/** Why an open PR cannot be merged right now, or null when it can. */
 	blocker: string | null;

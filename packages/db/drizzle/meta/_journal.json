@@ -225,6 +225,13 @@
       "when": 1795820546753,
       "tag": "0031_parallel_callisto",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1795856525521,
+      "tag": "0032_concerned_whistler",
+      "breakpoints": true
     }
   ]
 }

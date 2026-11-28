@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { type Issue, issueMessage, type IssueSummary } from "./issue";
-import { errorStatus } from "./pr-source";
+import { errorStatus } from "@nullfuse/connectors/pulls";
 
 type Project = { fullName: string; installationId: number | null };
 
